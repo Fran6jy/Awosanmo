@@ -1,0 +1,22 @@
+[Unit]
+Description=Awosanmo private cloud torrenting platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/awosanmo
+Environment=NODE_ENV=production
+Environment=DATA_DIR=/var/lib/awosanmo
+Environment=DB_PATH=/var/lib/awosanmo/awosanmo.sqlite
+Environment=PORT=4000
+ExecStart=/usr/bin/node apps/api/dist/server.js
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/awosanmo
+
+[Install]
+WantedBy=multi-user.target

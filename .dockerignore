@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+data
+data-prod-smoke
+apps/api/dist
+apps/web/dist
+apps/web/tsconfig.tsbuildinfo
+.git
+.env
+.DS_Store

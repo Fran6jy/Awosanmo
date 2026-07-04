@@ -4,9 +4,9 @@ dist/
 .env
 .env.local
 data/
+data-*/
 downloads/
 *.sqlite
 *.sqlite-*
+*.tsbuildinfo
 .DS_Store
-apps/web/dist/
-apps/server/dist/

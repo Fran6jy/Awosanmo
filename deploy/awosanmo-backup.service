@@ -1,0 +1,7 @@
+[Unit]
+Description=Back up Awosanmo SQLite database
+
+[Service]
+Type=oneshot
+Environment=DATA_DIR=/var/lib/awosanmo
+ExecStart=/opt/awosanmo/deploy/backup.sh

@@ -1,53 +1,104 @@
 # Awosanmo
 
-A self-hosted private cloud torrenting & streaming platform. Paste a magnet link, the
-server joins the swarm on your VPS, and you stream the video from anywhere — with
-sequential downloading so playback starts before the download finishes.
+Awosanmo is a self-hosted private cloud torrenting and streaming platform for a small Ubuntu VPS. It is built as a TypeScript monorepo with a Node/Express API, WebTorrent engine, SQLite persistence, range-based streaming, Socket.IO live updates, and a React/Vite dashboard.
 
-> **Status:** early development. The backend foundation (config, SQLite schema,
-> structured logging) is in place; the torrent engine, streaming controller, auth,
-> WebSocket layer, and React frontend are in progress.
+Only `fran6` is listed as project author/contributor in package metadata.
 
-## Target environment
+## Apps
 
-Built to run on a minimal VPS (the Oracle Cloud Free Tier in particular):
+- `apps/api`: Express API, auth, SQLite schema, torrent orchestration, streaming range endpoint.
+- `apps/web`: React dashboard with dark glass UI, torrent intake, file browser, and video player.
+- `deploy`: systemd and Nginx production deployment examples.
 
-- Ubuntu 24.04 LTS · 1 vCPU · 1 GB RAM · 100 GB SSD · 2 GB swap
-
-Everything is optimized for low memory: Node streams end-to-end, no full-file
-buffering, WAL SQLite with a small page cache, and capped torrent connections.
-
-## Monorepo layout
-
-```
-apps/
-  server/   Node.js + Express + TypeScript API, WebTorrent engine, streaming
-  web/       React + TypeScript + Vite frontend (in progress)
-deploy/      Dockerfile, docker-compose, systemd, nginx, PM2 configs
-```
-
-## Development
+## Quick Start
 
 ```bash
 npm install
-cp .env.example .env      # then edit secrets
-npm run dev               # runs server + web together
+npm run dev --workspace @awosanmo/api
+npm run dev --workspace @awosanmo/web
 ```
 
-## Deployment
+Default login:
 
-The **backend is a long-running stateful process** (persistent torrent swarm
-connections, on-disk SQLite, background downloads, range streaming from disk). It
-must run on your VPS via Docker / systemd / PM2 — see `deploy/` and
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+```text
+admin@awosanmo.local
+change-me-now
+```
 
-### About Vercel
+Change `JWT_SECRET`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` before exposing the service.
 
-Vercel is **serverless** and cannot host the backend (no persistent process, no
-long-lived TCP peer connections, ephemeral filesystem, short function timeouts).
-Only the static frontend (`apps/web`) can be deployed to Vercel, pointed at your
-VPS API via `VITE_API_BASE_URL`. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+## API
 
-## License
+- `POST /api/login`
+- `POST /api/torrents`
+- `GET /api/torrents`
+- `GET /api/torrents/:id`
+- `GET /api/torrents/:id/files`
+- `POST /api/torrents/:id/pause`
+- `POST /api/torrents/:id/resume`
+- `DELETE /api/torrents/:id`
+- `GET /api/files`
+- `GET /api/files?q=search`
+- `PATCH /api/files/:id`
+- `DELETE /api/files/:id`
+- `POST /api/stream-token/:id`
+- `POST /api/download-token/:id`
+- `POST /api/subtitle-token/:id`
+- `GET /api/stream/:id`
+- `GET /api/download/:id`
+- `GET /api/subtitle/:id`
+- `GET /api/playback/:fileId`
+- `PUT /api/playback/:fileId`
+- `GET /api/admin/status`
+- `GET /api/search?q=query`
+- `GET /api/stats`
+- `GET /api/storage`
 
-Private. All rights reserved.
+Streaming uses short-lived stream tokens, HTTP range requests, `206 Partial Content`, 64KB stream chunks, and no full-file buffering.
+
+In production, the API also serves the built React app from `apps/web/dist`, so the Docker image can run as a single small service behind Nginx.
+
+## Media Metadata
+
+Awosanmo runs a lightweight `ffprobe` worker for streamable files. It stores duration, video/audio codecs, resolution, bitrate, frame rate, and audio/subtitle track counts in SQLite. The worker scans one file at a time and is controlled by:
+
+- `MEDIA_SCAN_INTERVAL_SECONDS`
+- `MEDIA_PROBE_TIMEOUT_SECONDS`
+
+This keeps probing gentle enough for a 1GB Oracle VM.
+
+## Interface
+
+The dashboard includes a global command palette. Press `Ctrl+K` to search torrents, files, videos, and core navigation actions.
+
+## Oracle Free Tier Notes
+
+- Keep upload rate low with `MAX_UPLOAD_RATE`.
+- Use a swap file on 1GB RAM machines.
+- Put `DATA_DIR` on the 100GB block volume.
+- Keep concurrent torrents modest. WebTorrent is capped to conservative connection counts in `TorrentService`.
+- FFmpeg is included in deployment images, but expensive transcodes should be queued and limited on 1 vCPU.
+- Use `.env.example` as the starting point for production configuration.
+
+## Docker
+
+```bash
+docker compose up -d --build
+```
+
+For Oracle Ubuntu deployment, use:
+
+[deploy/ORACLE_VPS.md](deploy/ORACLE_VPS.md)
+
+## Production Checklist
+
+- Replace all default secrets.
+- Put Nginx in front of the API and built web app.
+- Enable TLS with Certbot.
+- Set firewall rules for SSH, HTTP, HTTPS, and required torrent traffic.
+- Back up `/data/awosanmo.sqlite` and downloaded media metadata.
+- Monitor memory, disk, and open file handles.
+
+## Roadmap
+
+The foundation is intentionally modular. Next production increments should add torrent-file bencode parsing, FFmpeg metadata workers, poster/thumbnail extraction, OpenAPI generation, user storage quotas, share links, richer admin controls, and visual torrent detail pages.
