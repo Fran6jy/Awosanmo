@@ -19,9 +19,11 @@ type Status = {
 };
 
 export function SystemPage() {
-  if (!token()) return <Navigate to="/login" replace />;
-  const status = useQuery({ queryKey: ["admin-status"], queryFn: () => api<Status>("/api/admin/status"), refetchInterval: 5000 });
+  const authed = !!token();
+  const status = useQuery({ queryKey: ["admin-status"], queryFn: () => api<Status>("/api/admin/status"), refetchInterval: 5000, enabled: authed });
   const data = status.data;
+
+  if (!authed) return <Navigate to="/login" replace />;
 
   return (
     <Shell>

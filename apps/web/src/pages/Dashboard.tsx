@@ -28,14 +28,17 @@ const fmt = (bytes = 0) => bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(b
 type StatCard = [string, string | number, LucideIcon];
 
 export function Dashboard() {
-  if (!token()) return <Navigate to="/login" replace />;
+  // NOTE: never early-return before the hooks below. Removing the token on a 401
+  // would flip this condition mid-session and change the hook count between
+  // renders, which crashes React. Guard after all hooks instead.
+  const authed = !!token();
   const qc = useQueryClient();
   const [magnetUri, setMagnetUri] = useState("");
   // Live updates arrive over Socket.IO (see LiveSync); the interval is only a
   // fallback for when the socket is temporarily disconnected.
-  const torrents = useQuery({ queryKey: ["torrents"], queryFn: () => api<Torrent[]>("/api/torrents"), refetchInterval: 15000 });
-  const files = useQuery({ queryKey: ["files"], queryFn: () => api<FileRow[]>("/api/files"), refetchInterval: 3000 });
-  const storage = useQuery({ queryKey: ["storage"], queryFn: () => api<StorageStats>("/api/storage"), refetchInterval: 8000 });
+  const torrents = useQuery({ queryKey: ["torrents"], queryFn: () => api<Torrent[]>("/api/torrents"), refetchInterval: 15000, enabled: authed });
+  const files = useQuery({ queryKey: ["files"], queryFn: () => api<FileRow[]>("/api/files"), refetchInterval: 3000, enabled: authed });
+  const storage = useQuery({ queryKey: ["storage"], queryFn: () => api<StorageStats>("/api/storage"), refetchInterval: 8000, enabled: authed });
   const add = useMutation({
     mutationFn: () => api("/api/torrents", { method: "POST", body: JSON.stringify({ magnetUri }) }),
     onSuccess: () => {
@@ -83,6 +86,8 @@ export function Dashboard() {
       stored: storage.data?.used ?? rows.reduce((sum, row) => sum + row.size * row.progress, 0)
     };
   }, [storage.data?.used, torrents.data]);
+
+  if (!authed) return <Navigate to="/login" replace />;
 
   return (
     <Shell>

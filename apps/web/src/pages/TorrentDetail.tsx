@@ -48,10 +48,10 @@ type Detail = {
 };
 
 export function TorrentDetail() {
-  if (!token()) return <Navigate to="/login" replace />;
+  const authed = !!token();
   const { id } = useParams();
   const qc = useQueryClient();
-  const detail = useQuery({ queryKey: ["torrent", id], queryFn: () => api<Detail>(`/api/torrents/${id}`), enabled: Boolean(id), refetchInterval: 1800 });
+  const detail = useQuery({ queryKey: ["torrent", id], queryFn: () => api<Detail>(`/api/torrents/${id}`), enabled: Boolean(id) && authed, refetchInterval: 1800 });
   const action = useMutation({
     mutationFn: (kind: "pause" | "resume" | "reannounce" | "recheck" | "delete") => {
       if (kind === "delete") return api(`/api/torrents/${id}?destroy=false`, { method: "DELETE" });
@@ -67,6 +67,8 @@ export function TorrentDetail() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["torrent", id] })
   });
   const torrent = detail.data;
+
+  if (!authed) return <Navigate to="/login" replace />;
 
   return (
     <Shell>

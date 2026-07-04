@@ -21,14 +21,15 @@ type FileRow = {
 };
 
 export function FilesPage() {
-  if (!token()) return <Navigate to="/login" replace />;
+  const authed = !!token();
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
   const [renaming, setRenaming] = useState<FileRow | null>(null);
   const files = useQuery({
     queryKey: ["files", query],
     queryFn: () => api<FileRow[]>(`/api/files${query ? `?q=${encodeURIComponent(query)}` : ""}`),
-    refetchInterval: 5000
+    refetchInterval: 5000,
+    enabled: authed
   });
   const rename = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => api<FileRow>(`/api/files/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
@@ -48,6 +49,8 @@ export function FilesPage() {
     }
   });
   const grouped = useMemo(() => files.data ?? [], [files.data]);
+
+  if (!authed) return <Navigate to="/login" replace />;
 
   return (
     <Shell>
