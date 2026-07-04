@@ -9,6 +9,22 @@ import { logger } from "../../logger.js";
 
 const videoExt = new Set([".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".mpeg", ".mpg"]);
 
+/** Fixed pseudo-torrent that groups directly-uploaded files. */
+export const UPLOADS_ID = "local-uploads";
+
+/** Absolute directory where uploaded files are stored (mirrors torrent layout). */
+export function uploadsDir(): string {
+  return path.join(config.dataDir, "downloads", UPLOADS_ID);
+}
+
+/** Classify a filename into a media kind and whether it is stream-playable. */
+export function classifyFile(name: string): { kind: string; streamable: number; mimeType: string | null } {
+  const ext = path.extname(name).toLowerCase();
+  const mimeType = (mime.lookup(name) || null) as string | null;
+  const kind = videoExt.has(ext) ? "video" : mimeType?.split("/")[0] ?? "file";
+  return { kind, streamable: kind === "video" ? 1 : 0, mimeType };
+}
+
 export class TorrentService {
   private readonly client = new WebTorrent({ maxConns: config.torrentMaxConns, torrentPort: config.torrentPort });
   private readonly active = new Map<string, Torrent>();
@@ -79,6 +95,37 @@ export class TorrentService {
   getFiles(torrentId?: string) {
     if (torrentId) return db.prepare("SELECT * FROM files WHERE torrent_id = ? ORDER BY path").all(torrentId);
     return db.prepare("SELECT * FROM files ORDER BY created_at DESC").all();
+  }
+
+  /** Ensure the pseudo-torrent that groups direct uploads exists. */
+  private ensureUploadsBucket() {
+    const existing = db.prepare("SELECT id FROM torrents WHERE id = ?").get(UPLOADS_ID);
+    if (!existing) {
+      db.prepare(`INSERT INTO torrents (id, name, magnet_uri, status, progress) VALUES (?, ?, ?, ?, ?)`)
+        .run(UPLOADS_ID, "Uploads", "local://uploads", "completed", 1);
+    }
+  }
+
+  /**
+   * Register a file that was uploaded directly (not via a torrent). The bytes are
+   * already streamed to disk by the route; here we only record metadata and
+   * notify clients. `relativeName` is the on-disk filename inside uploadsDir().
+   */
+  registerUpload(meta: { relativeName: string; displayName: string; size: number }) {
+    this.ensureUploadsBucket();
+    const { kind, streamable, mimeType } = classifyFile(meta.displayName);
+    const fileId = crypto.randomUUID();
+    db.prepare(`INSERT INTO files (id, torrent_id, name, path, size, mime, media_kind, streamable)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(fileId, UPLOADS_ID, meta.displayName, meta.relativeName, meta.size, mimeType, kind, streamable);
+
+    const total = db.prepare("SELECT COALESCE(SUM(size),0) AS s FROM files WHERE torrent_id = ?").get(UPLOADS_ID) as any;
+    db.prepare("UPDATE torrents SET size = ?, downloaded = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .run(total.s, total.s, UPLOADS_ID);
+
+    this.io?.emit("notification", { type: "success", title: "Upload complete", body: meta.displayName });
+    this.publishStats();
+    return { id: fileId, streamable: Boolean(streamable), media_kind: kind };
   }
 
   pause(id: string) {

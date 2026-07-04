@@ -24,7 +24,7 @@ export function ensureAdminUser() {
 }
 
 export function signToken(user: { id: string; email: string; role: string }) {
-  return jwt.sign(user, config.jwtSecret, { expiresIn: "15m" });
+  return jwt.sign(user, config.jwtSecret, { expiresIn: config.authTokenTtl } as jwt.SignOptions);
 }
 
 export function signStreamToken(userId: string, fileId: string) {

@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Film, Folder, MoreHorizontal, Pause, Play, Radio, RefreshCw, Server, Trash2 } from "lucide-react";
+import { Download, Film, Folder, MoreHorizontal, Pause, Play, Radio, RefreshCw, Server, Trash2, Upload } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
-import { api, token } from "../lib/api";
+import { api, token, uploadFile } from "../lib/api";
+import { pushToast } from "../components/Toast";
 import { Shell } from "../components/Shell";
 import { formatDuration } from "../lib/format";
 
@@ -37,8 +38,33 @@ export function Dashboard() {
   const storage = useQuery({ queryKey: ["storage"], queryFn: () => api<StorageStats>("/api/storage"), refetchInterval: 8000 });
   const add = useMutation({
     mutationFn: () => api("/api/torrents", { method: "POST", body: JSON.stringify({ magnetUri }) }),
-    onSuccess: () => { setMagnetUri(""); qc.invalidateQueries({ queryKey: ["torrents"] }); }
+    onSuccess: () => {
+      setMagnetUri("");
+      qc.invalidateQueries({ queryKey: ["torrents"] });
+      pushToast({ type: "success", title: "Added to swarm", body: "Fetching metadata…" });
+    },
+    onError: (e: Error) => pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) })
   });
+
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  async function onUpload(list: FileList | null) {
+    if (!list?.length) return;
+    for (const file of Array.from(list)) {
+      try {
+        setUploadPct(0);
+        await uploadFile(file, (f) => setUploadPct(Math.round(f * 100)));
+        pushToast({ type: "success", title: "Upload complete", body: file.name });
+        qc.invalidateQueries({ queryKey: ["files"] });
+        qc.invalidateQueries({ queryKey: ["torrents"] });
+      } catch (e) {
+        pushToast({ type: "error", title: "Upload failed", body: (e as Error).message.slice(0, 140) });
+      } finally {
+        setUploadPct(null);
+      }
+    }
+    if (fileInput.current) fileInput.current.value = "";
+  }
   const action = useMutation({
     mutationFn: ({ id, kind }: { id: string; kind: "pause" | "resume" | "reannounce" | "delete" }) => {
       if (kind === "delete") return api(`/api/torrents/${id}?destroy=false`, { method: "DELETE" });
@@ -77,8 +103,17 @@ export function Dashboard() {
           <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} className="flex flex-col gap-3 md:flex-row">
             <label className="sr-only" htmlFor="magnet">Magnet link</label>
             <input id="magnet" value={magnetUri} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste magnet link" className="min-h-12 flex-1 rounded-xl border border-line bg-white/5 px-4 outline-none focus:ring-2 focus:ring-stream" />
-            <button disabled={add.isPending || !magnetUri.startsWith("magnet:")} className="min-h-12 rounded-xl bg-stream px-5 font-bold text-ink disabled:cursor-not-allowed disabled:opacity-50">Join swarm</button>
+            <button disabled={add.isPending || !magnetUri.trim().startsWith("magnet:")} className="min-h-12 rounded-xl bg-stream px-5 font-bold text-ink disabled:cursor-not-allowed disabled:opacity-50">Join swarm</button>
+            <button type="button" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/5 px-5 font-semibold transition hover:bg-white/10 disabled:opacity-50">
+              <Upload className="h-4 w-4" />{uploadPct === null ? "Upload file" : `${uploadPct}%`}
+            </button>
+            <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
           </form>
+          {uploadPct !== null && (
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} />
+            </div>
+          )}
           <div className="mt-5 space-y-3">
             {(torrents.data ?? []).map((torrent) => (
               <article key={torrent.id} className="rounded-xl border border-line bg-white/[.04] p-4">

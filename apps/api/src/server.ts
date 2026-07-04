@@ -24,6 +24,7 @@ import { playbackRoutes } from "./modules/playback/routes.js";
 import { subtitleFile } from "./modules/files/subtitleController.js";
 import { adminRoutes } from "./modules/admin/routes.js";
 import { searchRoutes } from "./modules/search/routes.js";
+import { uploadRoutes } from "./modules/uploads/routes.js";
 
 fs.mkdirSync(config.dataDir, { recursive: true });
 migrate();
@@ -56,6 +57,7 @@ app.use("/api/files", requireAuth, fileRoutes);
 app.use("/api/playback", requireAuth, playbackRoutes);
 app.use("/api/admin", requireAuth, adminRoutes);
 app.use("/api/search", requireAuth, searchRoutes);
+app.use("/api/uploads", requireAuth, uploadRoutes);
 app.post("/api/stream-token/:id", requireAuth, (req: any, res) => {
   res.json({ streamToken: signStreamToken(req.user.id, req.params.id), expiresIn: config.streamTokenTtlSeconds });
 });

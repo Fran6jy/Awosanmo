@@ -3,6 +3,8 @@ import "dotenv/config";
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   jwtSecret: process.env.JWT_SECRET ?? "change-this-before-production",
+  authTokenTtl: process.env.AUTH_TOKEN_TTL ?? "30d",
+  maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES ?? 8 * 1024 * 1024 * 1024),
   dataDir: process.env.DATA_DIR ?? "./data",
   dbPath: process.env.DB_PATH ?? "./data/awosanmo.sqlite",
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
