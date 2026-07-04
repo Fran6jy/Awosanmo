@@ -72,6 +72,7 @@ function AddMagnet() {
                 value={magnet}
                 onChange={(e) => setMagnet(e.target.value)}
                 onFocus={autoPasteMagnet}
+                onClick={autoPasteMagnet}
                 placeholder="magnet:?xt=urn:btih:…"
                 className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white/5 px-4 outline-none focus:ring-2 focus:ring-stream"
               />
