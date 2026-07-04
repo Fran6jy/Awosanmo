@@ -45,5 +45,6 @@ declare module "webtorrent" {
     constructor(options?: Record<string, unknown>);
     add(magnetUri: string, options?: Record<string, unknown>): Torrent;
     remove(infoHash: string, options?: Record<string, unknown>): void;
+    on(event: string, handler: (...args: any[]) => void): void;
   }
 }
