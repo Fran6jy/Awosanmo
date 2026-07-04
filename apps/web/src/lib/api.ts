@@ -1,4 +1,9 @@
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+// In production the API serves the built frontend from the same origin, so an
+// empty base makes requests relative (works behind nginx / any host). In dev the
+// Vite server (:5173) and API (:4000) are separate origins, so fall back to the
+// local API. Override explicitly with VITE_API_URL for a split deployment.
+export const API_URL =
+  import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 
 export function token() {
   return localStorage.getItem("awosanmo_token");
