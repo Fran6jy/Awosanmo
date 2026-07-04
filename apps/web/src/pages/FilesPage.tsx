@@ -1,60 +1,70 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Film, Folder, Pencil, Play, Search, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Download, FileArchive, Film, Folder, FolderPlus, FolderInput, Home, Pencil, Play, Search, Trash2, Upload, X } from "lucide-react";
 import { Shell } from "../components/Shell";
-import { API_URL, api, token, uploadFile, uploadTorrentFile } from "../lib/api";
+import { API_URL, api, token, uploadFile, uploadTorrentFile, downloadZip } from "../lib/api";
 import { pushToast } from "../components/Toast";
 import { formatBytes, formatDuration } from "../lib/format";
 
 type FileRow = {
-  id: string;
-  name: string;
-  path: string;
-  size: number;
-  media_kind: string;
-  streamable: number;
-  duration?: number | null;
-  width?: number | null;
-  height?: number | null;
-  codec_video?: string | null;
-  probe_status?: string;
+  id: string; name: string; path: string; size: number; media_kind: string; streamable: number;
+  duration?: number | null; width?: number | null; height?: number | null; codec_video?: string | null; probe_status?: string;
 };
+type FolderRow = { id: string; name: string; parent_id: string | null };
+type FolderList = { folders: FolderRow[]; breadcrumb: FolderRow[] };
 
 export function FilesPage() {
   const authed = !!token();
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
+  const [folderId, setFolderId] = useState("root");
   const [renaming, setRenaming] = useState<FileRow | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const [showMove, setShowMove] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const searching = query.trim().length > 0;
 
   const files = useQuery({
-    queryKey: ["files", query],
-    queryFn: () => api<FileRow[]>(`/api/files${query ? `?q=${encodeURIComponent(query)}` : ""}`),
+    queryKey: ["files", query, folderId],
+    queryFn: () => api<FileRow[]>(`/api/files?${searching ? `q=${encodeURIComponent(query)}` : `folderId=${folderId}`}`),
     refetchInterval: 5000,
-    enabled: authed
+    enabled: authed,
   });
+  const folders = useQuery({
+    queryKey: ["folders", folderId],
+    queryFn: () => api<FolderList>(`/api/folders?parent=${folderId}`),
+    enabled: authed && !searching,
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["files"] });
+    qc.invalidateQueries({ queryKey: ["folders"] });
+  };
+
   const rename = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => api<FileRow>(`/api/files/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
-    onSuccess: () => {
-      setRenaming(null);
-      qc.invalidateQueries({ queryKey: ["files"] });
-    },
-    onError: (e: Error) => pushToast({ type: "error", title: "Rename failed", body: e.message.slice(0, 140) })
+    onSuccess: () => { setRenaming(null); invalidate(); },
+    onError: (e: Error) => pushToast({ type: "error", title: "Rename failed", body: e.message.slice(0, 140) }),
   });
-  const remove = useMutation({
-    mutationFn: (id: string) => api(`/api/files/${id}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["files"] })
-  });
+  const remove = useMutation({ mutationFn: (id: string) => api(`/api/files/${id}`, { method: "DELETE" }), onSuccess: invalidate });
   const bulkDelete = useMutation({
     mutationFn: (ids: string[]) => api<{ deleted: number }>("/api/files/bulk-delete", { method: "POST", body: JSON.stringify({ ids }) }),
-    onSuccess: (res) => {
-      setSelected(new Set());
-      qc.invalidateQueries({ queryKey: ["files"] });
-      pushToast({ type: "success", title: `Deleted ${res.deleted} file${res.deleted === 1 ? "" : "s"}` });
-    }
+    onSuccess: (res) => { setSelected(new Set()); invalidate(); pushToast({ type: "success", title: `Deleted ${res.deleted} file${res.deleted === 1 ? "" : "s"}` }); },
+  });
+  const createFolder = useMutation({
+    mutationFn: (name: string) => api<FolderRow>("/api/folders", { method: "POST", body: JSON.stringify({ name, parentId: folderId === "root" ? null : folderId }) }),
+    onSuccess: () => { invalidate(); pushToast({ type: "success", title: "Folder created" }); },
+    onError: (e: Error) => pushToast({ type: "error", title: "Could not create folder", body: e.message.slice(0, 140) }),
+  });
+  const deleteFolder = useMutation({
+    mutationFn: (id: string) => api(`/api/folders/${id}`, { method: "DELETE" }),
+    onSuccess: () => { invalidate(); pushToast({ type: "info", title: "Folder removed", body: "Its files returned to the library root." }); },
+  });
+  const move = useMutation({
+    mutationFn: ({ ids, target }: { ids: string[]; target: string | null }) => api<{ moved: number }>("/api/files/move", { method: "POST", body: JSON.stringify({ ids, folderId: target }) }),
+    onSuccess: (res) => { setSelected(new Set()); setShowMove(false); invalidate(); pushToast({ type: "success", title: `Moved ${res.moved} file${res.moved === 1 ? "" : "s"}` }); },
   });
 
   async function downloadOne(id: string) {
@@ -68,37 +78,23 @@ export function FilesPage() {
       const isTorrent = file.name.toLowerCase().endsWith(".torrent");
       try {
         setUploadPct(0);
-        if (isTorrent) {
-          await uploadTorrentFile(file);
-          pushToast({ type: "success", title: "Torrent added", body: file.name });
-          qc.invalidateQueries({ queryKey: ["torrents"] });
-        } else {
-          await uploadFile(file, (f) => setUploadPct(Math.round(f * 100)));
-          pushToast({ type: "success", title: "Upload complete", body: file.name });
-        }
-        qc.invalidateQueries({ queryKey: ["files"] });
+        if (isTorrent) { await uploadTorrentFile(file); pushToast({ type: "success", title: "Torrent added", body: file.name }); qc.invalidateQueries({ queryKey: ["torrents"] }); }
+        else { await uploadFile(file, (f) => setUploadPct(Math.round(f * 100))); pushToast({ type: "success", title: "Upload complete", body: file.name }); }
+        invalidate();
       } catch (e) {
         pushToast({ type: "error", title: "Upload failed", body: (e as Error).message.slice(0, 140) });
-      } finally {
-        setUploadPct(null);
-      }
+      } finally { setUploadPct(null); }
     }
     if (fileInput.current) fileInput.current.value = "";
   }
 
-  const grouped = useMemo(() => files.data ?? [], [files.data]);
-  const allSelected = grouped.length > 0 && selected.size === grouped.length;
+  const rows = useMemo(() => files.data ?? [], [files.data]);
+  const subfolders = folders.data?.folders ?? [];
+  const breadcrumb = folders.data?.breadcrumb ?? [];
+  const allSelected = rows.length > 0 && selected.size === rows.length;
 
   function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-  function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(grouped.map((f) => f.id)));
+    setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   }
 
   if (!authed) return <Navigate to="/login" replace />;
@@ -112,41 +108,48 @@ export function FilesPage() {
             <h1 className="mt-1 text-3xl font-bold">Library</h1>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <label className="relative block sm:w-80">
+            <label className="relative block sm:w-72">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search files, folders, codecs" className="min-h-12 w-full rounded-xl border border-line bg-white/5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-stream" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search all files" className="min-h-12 w-full rounded-xl border border-line bg-white/5 pl-11 pr-4 outline-none focus:ring-2 focus:ring-stream" />
             </label>
+            <button type="button" onClick={() => { const n = prompt("New folder name"); if (n?.trim()) createFolder.mutate(n.trim()); }} disabled={searching} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line px-4 font-semibold transition hover:bg-white/10 disabled:opacity-40">
+              <FolderPlus className="h-4 w-4" /> New folder
+            </button>
             <button type="button" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} title="Upload any file, or a .torrent to add it to the swarm" className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-stream px-5 font-bold text-ink transition hover:bg-emerald-300 disabled:opacity-50">
               <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
             </button>
             <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
           </div>
         </div>
-        {uploadPct !== null && (
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} />
-          </div>
+        {uploadPct !== null && <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} /></div>}
+
+        {/* Breadcrumb */}
+        {!searching && (
+          <nav className="mt-4 flex flex-wrap items-center gap-1 text-sm text-slate-400">
+            <button onClick={() => setFolderId("root")} className="flex items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white"><Home className="h-4 w-4" /> Library</button>
+            {breadcrumb.map((f) => (
+              <span key={f.id} className="flex items-center gap-1">
+                <ChevronRight className="h-4 w-4" />
+                <button onClick={() => setFolderId(f.id)} className="rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white">{f.name}</button>
+              </span>
+            ))}
+          </nav>
         )}
       </section>
 
       {/* Bulk action bar */}
-      {grouped.length > 0 && (
+      {rows.length > 0 && (
         <section className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 glass">
           <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 accent-emerald-400" />
+            <input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((f) => f.id)))} className="h-4 w-4 accent-emerald-400" />
             {selected.size > 0 ? `${selected.size} selected` : "Select all"}
           </label>
           {selected.size > 0 && (
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => Array.from(selected).forEach((id) => void downloadOne(id))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10">
-                <Download className="h-4 w-4" /> Download
-              </button>
-              <button onClick={() => bulkDelete.mutate(Array.from(selected))} disabled={bulkDelete.isPending} className="flex min-h-10 items-center gap-2 rounded-lg border border-red-400/40 px-3 text-sm text-red-200 transition hover:bg-red-500/10 disabled:opacity-50">
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-              <button onClick={() => setSelected(new Set())} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-slate-400 transition hover:bg-white/10">
-                <X className="h-4 w-4" /> Clear
-              </button>
+              <button onClick={() => downloadZip(Array.from(selected)).catch((e) => pushToast({ type: "error", title: "ZIP failed", body: (e as Error).message.slice(0, 120) }))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FileArchive className="h-4 w-4" /> Download ZIP</button>
+              <button onClick={() => setShowMove(true)} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FolderInput className="h-4 w-4" /> Move</button>
+              <button onClick={() => bulkDelete.mutate(Array.from(selected))} disabled={bulkDelete.isPending} className="flex min-h-10 items-center gap-2 rounded-lg border border-red-400/40 px-3 text-sm text-red-200 transition hover:bg-red-500/10 disabled:opacity-50"><Trash2 className="h-4 w-4" /> Delete</button>
+              <button onClick={() => setSelected(new Set())} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-slate-400 transition hover:bg-white/10"><X className="h-4 w-4" /> Clear</button>
             </div>
           )}
         </section>
@@ -154,14 +157,24 @@ export function FilesPage() {
 
       <section className="mt-4 rounded-2xl p-3 glass">
         <div className="space-y-2">
-          {grouped.map((file) => (
+          {/* Subfolders */}
+          {!searching && subfolders.map((f) => (
+            <article key={f.id} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-line bg-white/[.03] p-3">
+              <button onClick={() => setFolderId(f.id)} className="flex min-w-0 items-center gap-3 text-left">
+                <Folder className="h-5 w-5 shrink-0 text-violet-300" />
+                <span className="truncate font-semibold">{f.name}</span>
+              </button>
+              <button onClick={() => { if (confirm(`Delete folder "${f.name}"? Its files return to the library root.`)) deleteFolder.mutate(f.id); }} className="grid h-10 w-10 place-items-center rounded-lg text-red-200 transition hover:bg-red-500/10" aria-label="Delete folder"><Trash2 className="h-4 w-4" /></button>
+            </article>
+          ))}
+          {/* Files */}
+          {rows.map((file) => (
             <article key={file.id} className={`grid gap-3 rounded-xl border p-3 md:grid-cols-[auto_1fr_auto] md:items-center ${selected.has(file.id) ? "border-stream/50 bg-stream/[.06]" : "border-line bg-white/[.03]"}`}>
               <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
               <div className="flex min-w-0 items-center gap-3">
                 {file.media_kind === "video" ? <Film className="h-5 w-5 shrink-0 text-stream" /> : <Folder className="h-5 w-5 shrink-0 text-violet-300" />}
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{file.name}</p>
-                  <p className="truncate text-sm text-slate-500">{file.path}</p>
                   <p className="mt-1 truncate text-xs text-slate-400">{[formatBytes(file.size), file.width && file.height ? `${file.width}x${file.height}` : null, file.codec_video?.toUpperCase(), formatDuration(file.duration), file.probe_status].filter(Boolean).join(" · ")}</p>
                 </div>
               </div>
@@ -173,16 +186,16 @@ export function FilesPage() {
               </div>
             </article>
           ))}
-          {!grouped.length ? <div className="rounded-xl border border-line p-8 text-center text-slate-400">No files yet. Use Upload to add files or a .torrent.</div> : null}
+          {!rows.length && !subfolders.length ? <div className="rounded-xl border border-line p-8 text-center text-slate-400">{searching ? "No files match your search." : "This folder is empty. Upload files or a .torrent, or create a folder."}</div> : null}
         </div>
       </section>
 
+      {/* Move modal */}
+      {showMove ? <MovePicker onClose={() => setShowMove(false)} onPick={(target) => move.mutate({ ids: Array.from(selected), target })} /> : null}
+
+      {/* Rename modal */}
       {renaming ? (
-        <form onSubmit={(event) => {
-          event.preventDefault();
-          const form = new FormData(event.currentTarget);
-          rename.mutate({ id: renaming.id, name: String(form.get("name") ?? "") });
-        }} className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4">
+        <form onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); rename.mutate({ id: renaming.id, name: String(form.get("name") ?? "") }); }} className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4">
           <div className="w-full max-w-md rounded-2xl p-5 glass">
             <h2 className="text-xl font-bold">Rename file</h2>
             <input name="name" defaultValue={renaming.name} className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white/5 px-4 outline-none focus:ring-2 focus:ring-stream" />
@@ -194,5 +207,24 @@ export function FilesPage() {
         </form>
       ) : null}
     </Shell>
+  );
+}
+
+function MovePicker({ onClose, onPick }: { onClose: () => void; onPick: (target: string | null) => void }) {
+  const all = useQuery({ queryKey: ["folders", "all"], queryFn: () => api<FolderList>("/api/folders?all=1") });
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl p-5 glass">
+        <h2 className="text-xl font-bold">Move to folder</h2>
+        <div className="mt-4 max-h-72 space-y-1 overflow-auto">
+          <button onClick={() => onPick(null)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/10"><Home className="h-4 w-4" /> Library root</button>
+          {(all.data?.folders ?? []).map((f) => (
+            <button key={f.id} onClick={() => onPick(f.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/10"><Folder className="h-4 w-4 text-violet-300" /> {f.name}</button>
+          ))}
+          {!all.data?.folders.length ? <p className="px-3 py-2 text-sm text-slate-400">No folders yet. Create one first.</p> : null}
+        </div>
+        <div className="mt-4 flex justify-end"><button onClick={onClose} className="min-h-11 rounded-xl border border-line px-4 transition hover:bg-white/10">Cancel</button></div>
+      </div>
+    </div>
   );
 }

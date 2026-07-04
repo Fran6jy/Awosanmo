@@ -54,7 +54,16 @@ export function migrate() {
     );
     CREATE INDEX IF NOT EXISTS idx_files_torrent ON files(torrent_id);
     CREATE INDEX IF NOT EXISTS idx_files_name ON files(name);
+    CREATE TABLE IF NOT EXISTS folders (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      parent_id TEXT REFERENCES folders(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);
   `);
+  // Virtual folder a file belongs to (NULL = library root).
+  addColumn("files", "folder_id", "TEXT");
   addColumn("files", "probe_status", "TEXT NOT NULL DEFAULT 'pending'");
   addColumn("files", "probe_error", "TEXT");
   addColumn("files", "codec_video", "TEXT");

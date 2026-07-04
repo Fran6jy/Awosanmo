@@ -70,6 +70,15 @@ export function uploadFile(
   });
 }
 
+/** Request a zip of the given file ids and start the download via navigation. */
+export async function downloadZip(ids: string[]): Promise<void> {
+  const { zipToken } = await api<{ zipToken: string }>("/api/files/zip-token", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+  window.location.href = `${API_URL}/api/zip?token=${encodeURIComponent(zipToken)}`;
+}
+
 /** Upload a .torrent file, which the server adds to the swarm. */
 export async function uploadTorrentFile(file: File): Promise<{ id: string }> {
   const form = new FormData();

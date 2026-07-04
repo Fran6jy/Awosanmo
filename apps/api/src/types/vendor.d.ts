@@ -16,6 +16,11 @@ declare module "multer" {
   export default multer;
 }
 
+declare module "archiver" {
+  const archiver: any;
+  export default archiver;
+}
+
 declare module "webtorrent" {
   export type TorrentFile = {
     name: string;

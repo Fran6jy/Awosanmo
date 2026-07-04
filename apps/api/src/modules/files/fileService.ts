@@ -4,15 +4,23 @@ import mime from "mime-types";
 import { config } from "../../config.js";
 import { db } from "../../db/schema.js";
 
-export function listFiles(query?: string) {
-  const like = `%${query ?? ""}%`;
+export function listFiles(query?: string, folderId?: string | null) {
+  // Search is global across every folder.
   if (query?.trim()) {
+    const like = `%${query}%`;
     return db.prepare(`
       SELECT * FROM files
       WHERE name LIKE ? OR path LIKE ? OR media_kind LIKE ?
       ORDER BY created_at DESC
       LIMIT 200
     `).all(like, like, like);
+  }
+  // When a folder is specified, scope to it (null = library root).
+  if (folderId !== undefined) {
+    if (folderId === null) {
+      return db.prepare("SELECT * FROM files WHERE folder_id IS NULL ORDER BY created_at DESC LIMIT 200").all();
+    }
+    return db.prepare("SELECT * FROM files WHERE folder_id = ? ORDER BY created_at DESC LIMIT 200").all(folderId);
   }
   return db.prepare("SELECT * FROM files ORDER BY created_at DESC LIMIT 200").all();
 }

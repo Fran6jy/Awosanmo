@@ -1,13 +1,19 @@
 import { Router } from "express";
 import { z } from "zod";
 import { deleteFile, listFiles, renameFile } from "./fileService.js";
+import { moveFiles } from "../folders/folderService.js";
+import { createZipTicket } from "./zipController.js";
 
 const renameSchema = z.object({ name: z.string().min(1).max(180) });
 const bulkSchema = z.object({ ids: z.array(z.string()).min(1).max(500) });
+const moveSchema = z.object({ ids: z.array(z.string()).min(1).max(500), folderId: z.string().nullable() });
 export const fileRoutes = Router();
 
 fileRoutes.get("/", (req, res) => {
-  res.json(listFiles(typeof req.query.q === "string" ? req.query.q : undefined));
+  const q = typeof req.query.q === "string" ? req.query.q : undefined;
+  const folderParam = req.query.folderId;
+  const folderId = folderParam === undefined ? undefined : folderParam === "root" ? null : String(folderParam);
+  res.json(listFiles(q, folderId));
 });
 
 fileRoutes.post("/bulk-delete", (req, res) => {
@@ -17,6 +23,20 @@ fileRoutes.post("/bulk-delete", (req, res) => {
     if (deleteFile(id)) deleted += 1;
   }
   res.json({ deleted });
+});
+
+fileRoutes.post("/move", (req, res) => {
+  const body = moveSchema.parse(req.body);
+  try {
+    res.json({ moved: moveFiles(body.ids, body.folderId) });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message ?? "Move failed" });
+  }
+});
+
+fileRoutes.post("/zip-token", (req, res) => {
+  const body = bulkSchema.parse(req.body);
+  res.json({ zipToken: createZipTicket(body.ids) });
 });
 
 fileRoutes.patch("/:id", (req, res) => {

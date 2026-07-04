@@ -25,6 +25,8 @@ import { subtitleFile } from "./modules/files/subtitleController.js";
 import { adminRoutes } from "./modules/admin/routes.js";
 import { searchRoutes } from "./modules/search/routes.js";
 import { uploadRoutes } from "./modules/uploads/routes.js";
+import { folderRoutes } from "./modules/folders/routes.js";
+import { zipDownload } from "./modules/files/zipController.js";
 
 fs.mkdirSync(config.dataDir, { recursive: true });
 migrate();
@@ -58,6 +60,9 @@ app.use("/api/playback", requireAuth, playbackRoutes);
 app.use("/api/admin", requireAuth, adminRoutes);
 app.use("/api/search", requireAuth, searchRoutes);
 app.use("/api/uploads", requireAuth, uploadRoutes);
+app.use("/api/folders", requireAuth, folderRoutes);
+// Token-authenticated so the browser can download by navigation (no header).
+app.get("/api/zip", zipDownload);
 app.post("/api/stream-token/:id", requireAuth, (req: any, res) => {
   res.json({ streamToken: signStreamToken(req.user.id, req.params.id), expiresIn: config.streamTokenTtlSeconds });
 });
