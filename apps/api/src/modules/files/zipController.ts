@@ -1,8 +1,13 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import type { Request, Response } from "express";
-import archiver from "archiver";
 import { getDiskPath, getFile } from "./fileService.js";
+
+// archiver is CommonJS; load it via createRequire so Node's ESM loader doesn't
+// choke on the missing default export.
+const require = createRequire(import.meta.url);
+const archiver = require("archiver") as (format: string, options?: any) => any;
 
 type Ticket = { ids: string[]; expires: number };
 
