@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Download, FileArchive, Film, Folder, FolderPlus, FolderInput, Home, Pencil, Play, Search, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Download, FileArchive, Film, Folder, FolderOpen, FolderPlus, FolderInput, Home, Link2, Pencil, Play, Search, Trash2, Upload, X } from "lucide-react";
 import { Shell } from "../components/Shell";
 import { API_URL, api, token, uploadFile, uploadTorrentFile, downloadZip } from "../lib/api";
 import { pushToast } from "../components/Toast";
+import { ContextMenu, type MenuItem } from "../components/ContextMenu";
 import { formatBytes, formatDuration } from "../lib/format";
 
 type FileRow = {
@@ -22,8 +23,10 @@ export function FilesPage() {
   const [renaming, setRenaming] = useState<FileRow | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadPct, setUploadPct] = useState<number | null>(null);
-  const [showMove, setShowMove] = useState(false);
+  const [moveIds, setMoveIds] = useState<string[] | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const nav = useNavigate();
   const searching = query.trim().length > 0;
 
   const files = useQuery({
@@ -58,14 +61,64 @@ export function FilesPage() {
     onSuccess: () => { invalidate(); pushToast({ type: "success", title: "Folder created" }); },
     onError: (e: Error) => pushToast({ type: "error", title: "Could not create folder", body: e.message.slice(0, 140) }),
   });
+  const renameFolderM = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => api(`/api/folders/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+    onSuccess: () => { invalidate(); pushToast({ type: "success", title: "Folder renamed" }); },
+  });
   const deleteFolder = useMutation({
     mutationFn: (id: string) => api(`/api/folders/${id}`, { method: "DELETE" }),
     onSuccess: () => { invalidate(); pushToast({ type: "info", title: "Folder removed", body: "Its files returned to the library root." }); },
   });
   const move = useMutation({
     mutationFn: ({ ids, target }: { ids: string[]; target: string | null }) => api<{ moved: number }>("/api/files/move", { method: "POST", body: JSON.stringify({ ids, folderId: target }) }),
-    onSuccess: (res) => { setSelected(new Set()); setShowMove(false); invalidate(); pushToast({ type: "success", title: `Moved ${res.moved} file${res.moved === 1 ? "" : "s"}` }); },
+    onSuccess: (res) => { setSelected(new Set()); setMoveIds(null); invalidate(); pushToast({ type: "success", title: `Moved ${res.moved} file${res.moved === 1 ? "" : "s"}` }); },
   });
+
+  async function copyDownloadLink(id: string) {
+    try {
+      const { downloadToken } = await api<{ downloadToken: string }>(`/api/download-token/${id}`, { method: "POST" });
+      const url = `${location.origin}${API_URL}/api/download/${id}?dt=${encodeURIComponent(downloadToken)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        pushToast({ type: "success", title: "Download link copied", body: "Valid for 1 hour." });
+      } catch {
+        // Clipboard needs a secure context (HTTPS); fall back to a prompt.
+        window.prompt("Copy this download link (valid 1 hour):", url);
+      }
+    } catch (e) {
+      pushToast({ type: "error", title: "Could not create link", body: (e as Error).message.slice(0, 120) });
+    }
+  }
+
+  function openFileMenu(e: React.MouseEvent, file: FileRow) {
+    e.preventDefault();
+    const items: MenuItem[] = [];
+    if (file.streamable) items.push({ label: "Play", icon: Play, onClick: () => nav(`/watch/${file.id}`) });
+    items.push(
+      { label: "Download", icon: Download, onClick: () => void downloadOne(file.id) },
+      { label: "Copy download link", icon: Link2, onClick: () => void copyDownloadLink(file.id) },
+      "divider",
+      { label: "Rename", icon: Pencil, onClick: () => setRenaming(file) },
+      { label: "Move to folder…", icon: FolderInput, onClick: () => setMoveIds([file.id]) },
+      "divider",
+      { label: "Delete", icon: Trash2, danger: true, onClick: () => remove.mutate(file.id) },
+    );
+    setMenu({ x: e.clientX, y: e.clientY, items });
+  }
+
+  function openFolderMenu(e: React.MouseEvent, folder: FolderRow) {
+    e.preventDefault();
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: "Open", icon: FolderOpen, onClick: () => setFolderId(folder.id) },
+        { label: "Rename", icon: Pencil, onClick: () => { const n = prompt("Rename folder", folder.name); if (n?.trim()) renameFolderM.mutate({ id: folder.id, name: n.trim() }); } },
+        "divider",
+        { label: "Delete", icon: Trash2, danger: true, onClick: () => { if (confirm(`Delete folder "${folder.name}"? Its files return to the library root.`)) deleteFolder.mutate(folder.id); } },
+      ],
+    });
+  }
 
   async function downloadOne(id: string) {
     const { downloadToken } = await api<{ downloadToken: string; expiresIn: number }>(`/api/download-token/${id}`, { method: "POST" });
@@ -147,7 +200,7 @@ export function FilesPage() {
           {selected.size > 0 && (
             <div className="flex flex-wrap gap-2">
               <button onClick={() => downloadZip(Array.from(selected)).catch((e) => pushToast({ type: "error", title: "ZIP failed", body: (e as Error).message.slice(0, 120) }))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FileArchive className="h-4 w-4" /> Download ZIP</button>
-              <button onClick={() => setShowMove(true)} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FolderInput className="h-4 w-4" /> Move</button>
+              <button onClick={() => setMoveIds(Array.from(selected))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FolderInput className="h-4 w-4" /> Move</button>
               <button onClick={() => bulkDelete.mutate(Array.from(selected))} disabled={bulkDelete.isPending} className="flex min-h-10 items-center gap-2 rounded-lg border border-red-400/40 px-3 text-sm text-red-200 transition hover:bg-red-500/10 disabled:opacity-50"><Trash2 className="h-4 w-4" /> Delete</button>
               <button onClick={() => setSelected(new Set())} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-slate-400 transition hover:bg-white/10"><X className="h-4 w-4" /> Clear</button>
             </div>
@@ -159,7 +212,7 @@ export function FilesPage() {
         <div className="space-y-2">
           {/* Subfolders */}
           {!searching && subfolders.map((f) => (
-            <article key={f.id} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-line bg-white/[.03] p-3">
+            <article key={f.id} onContextMenu={(e) => openFolderMenu(e, f)} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-line bg-white/[.03] p-3">
               <button onClick={() => setFolderId(f.id)} className="flex min-w-0 items-center gap-3 text-left">
                 <Folder className="h-5 w-5 shrink-0 text-violet-300" />
                 <span className="truncate font-semibold">{f.name}</span>
@@ -169,7 +222,7 @@ export function FilesPage() {
           ))}
           {/* Files */}
           {rows.map((file) => (
-            <article key={file.id} className={`grid gap-3 rounded-xl border p-3 md:grid-cols-[auto_1fr_auto] md:items-center ${selected.has(file.id) ? "border-stream/50 bg-stream/[.06]" : "border-line bg-white/[.03]"}`}>
+            <article key={file.id} onContextMenu={(e) => openFileMenu(e, file)} className={`grid gap-3 rounded-xl border p-3 md:grid-cols-[auto_1fr_auto] md:items-center ${selected.has(file.id) ? "border-stream/50 bg-stream/[.06]" : "border-line bg-white/[.03]"}`}>
               <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
               <div className="flex min-w-0 items-center gap-3">
                 {file.media_kind === "video" ? <Film className="h-5 w-5 shrink-0 text-stream" /> : <Folder className="h-5 w-5 shrink-0 text-violet-300" />}
@@ -190,8 +243,11 @@ export function FilesPage() {
         </div>
       </section>
 
+      {/* Right-click context menu */}
+      {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} /> : null}
+
       {/* Move modal */}
-      {showMove ? <MovePicker onClose={() => setShowMove(false)} onPick={(target) => move.mutate({ ids: Array.from(selected), target })} /> : null}
+      {moveIds ? <MovePicker onClose={() => setMoveIds(null)} onPick={(target) => move.mutate({ ids: moveIds, target })} /> : null}
 
       {/* Rename modal */}
       {renaming ? (
