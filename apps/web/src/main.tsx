@@ -6,6 +6,7 @@ import "video.js/dist/video-js.css";
 import "./styles.css";
 import { LiveSync } from "./components/LiveSync";
 import { Toaster } from "./components/Toast";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })));
 const Login = lazy(() => import("./pages/Login").then((module) => ({ default: module.Login })));
@@ -30,10 +31,12 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <LiveSync />
-      <RouterProvider router={router} />
-      <Toaster />
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <LiveSync />
+        <RouterProvider router={router} />
+        <Toaster />
+      </QueryClientProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

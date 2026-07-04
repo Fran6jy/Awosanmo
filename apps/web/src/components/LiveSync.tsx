@@ -32,9 +32,14 @@ export function LiveSync() {
 
     const onNotification = (n: Notification) => {
       pushToast({ type: n.type ?? "info", title: n.title, body: n.body });
-      // Best-effort desktop notification when the user has granted permission.
-      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        new Notification(n.title, { body: n.body });
+      // Best-effort desktop notification. Only in a secure context — over plain
+      // HTTP the Notification API can throw synchronously, so guard + try/catch.
+      try {
+        if (window.isSecureContext && typeof Notification !== "undefined" && Notification.permission === "granted") {
+          new Notification(n.title, { body: n.body });
+        }
+      } catch {
+        /* notifications unsupported in this context */
       }
       qc.invalidateQueries({ queryKey: ["files"] });
     };
@@ -46,9 +51,15 @@ export function LiveSync() {
     socket.on("torrent:removed", invalidateTorrents);
     socket.on("notification", onNotification);
 
-    // Ask once for desktop-notification permission (non-blocking).
-    if (typeof Notification !== "undefined" && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => undefined);
+    // Ask once for desktop-notification permission (non-blocking). Over plain
+    // HTTP some browsers throw synchronously here, which would crash the app, so
+    // require a secure context and wrap in try/catch.
+    try {
+      if (window.isSecureContext && typeof Notification !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => undefined);
+      }
+    } catch {
+      /* notifications unsupported in this context */
     }
 
     return () => {
