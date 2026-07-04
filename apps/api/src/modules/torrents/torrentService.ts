@@ -10,12 +10,16 @@ import { logger } from "../../logger.js";
 const videoExt = new Set([".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".mpeg", ".mpg"]);
 
 export class TorrentService {
-  private readonly client = new WebTorrent({ maxConns: 55, torrentPort: config.torrentPort });
+  private readonly client = new WebTorrent({ maxConns: config.torrentMaxConns, torrentPort: config.torrentPort });
   private readonly active = new Map<string, Torrent>();
   private io?: Server;
 
   attach(io: Server) {
     this.io = io;
+    // WebTorrent emits 'error' (e.g. EADDRINUSE on the torrent port). Without a
+    // listener Node treats it as unhandled and crashes the whole process, so we
+    // log and keep the API alive instead of taking the server down.
+    this.client.on("error", (err) => logger.error({ err }, "WebTorrent client error"));
     setInterval(() => this.publishStats(), 1500).unref();
   }
 

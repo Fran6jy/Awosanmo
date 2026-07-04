@@ -7,6 +7,7 @@ export const config = {
   dbPath: process.env.DB_PATH ?? "./data/awosanmo.sqlite",
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
   torrentPort: Number(process.env.TORRENT_PORT ?? 51413),
+  torrentMaxConns: Number(process.env.TORRENT_MAX_CONNS ?? 30),
   maxDownloadRate: Number(process.env.MAX_DOWNLOAD_RATE ?? 0),
   maxUploadRate: Number(process.env.MAX_UPLOAD_RATE ?? 64 * 1024),
   streamTokenTtlSeconds: Number(process.env.STREAM_TOKEN_TTL_SECONDS ?? 60 * 60),
