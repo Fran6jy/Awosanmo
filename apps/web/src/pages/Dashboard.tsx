@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Film, Folder, MoreHorizontal, Pause, Play, Radio, RefreshCw, Server, Trash2, Upload } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
-import { api, token, uploadFile } from "../lib/api";
+import { api, token, uploadFile, uploadTorrentFile } from "../lib/api";
 import { pushToast } from "../components/Toast";
 import { Shell } from "../components/Shell";
 import { formatDuration } from "../lib/format";
@@ -54,14 +54,20 @@ export function Dashboard() {
   async function onUpload(list: FileList | null) {
     if (!list?.length) return;
     for (const file of Array.from(list)) {
+      const isTorrent = file.name.toLowerCase().endsWith(".torrent");
       try {
         setUploadPct(0);
-        await uploadFile(file, (f) => setUploadPct(Math.round(f * 100)));
-        pushToast({ type: "success", title: "Upload complete", body: file.name });
+        if (isTorrent) {
+          await uploadTorrentFile(file);
+          pushToast({ type: "success", title: "Torrent added", body: file.name });
+        } else {
+          await uploadFile(file, (f) => setUploadPct(Math.round(f * 100)));
+          pushToast({ type: "success", title: "Upload complete", body: file.name });
+        }
         qc.invalidateQueries({ queryKey: ["files"] });
         qc.invalidateQueries({ queryKey: ["torrents"] });
       } catch (e) {
-        pushToast({ type: "error", title: "Upload failed", body: (e as Error).message.slice(0, 140) });
+        pushToast({ type: "error", title: isTorrent ? "Could not add torrent" : "Upload failed", body: (e as Error).message.slice(0, 140) });
       } finally {
         setUploadPct(null);
       }
@@ -109,8 +115,8 @@ export function Dashboard() {
             <label className="sr-only" htmlFor="magnet">Magnet link</label>
             <input id="magnet" value={magnetUri} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste magnet link" className="min-h-12 flex-1 rounded-xl border border-line bg-white/5 px-4 outline-none focus:ring-2 focus:ring-stream" />
             <button disabled={add.isPending || !magnetUri.trim().startsWith("magnet:")} className="min-h-12 rounded-xl bg-stream px-5 font-bold text-ink disabled:cursor-not-allowed disabled:opacity-50">Join swarm</button>
-            <button type="button" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/5 px-5 font-semibold transition hover:bg-white/10 disabled:opacity-50">
-              <Upload className="h-4 w-4" />{uploadPct === null ? "Upload file" : `${uploadPct}%`}
+            <button type="button" title="Upload any file, or a .torrent to add it to the swarm" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/5 px-5 font-semibold transition hover:bg-white/10 disabled:opacity-50">
+              <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
             </button>
             <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
           </form>

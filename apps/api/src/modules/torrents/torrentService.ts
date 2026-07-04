@@ -52,6 +52,30 @@ export class TorrentService {
     return { id };
   }
 
+  /** Add a torrent from an uploaded .torrent file buffer. */
+  addTorrentFile(buffer: Buffer) {
+    const id = crypto.randomUUID();
+    db.prepare("INSERT INTO torrents (id, name, magnet_uri, status) VALUES (?, ?, ?, ?)").run(
+      id,
+      "Fetching metadata",
+      `torrentfile://${id}`,
+      "connecting"
+    );
+    db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("downloading", id);
+    // WebTorrent's add() accepts a .torrent Buffer as well as a magnet URI.
+    const torrent = this.client.add(buffer as unknown as string, {
+      path: path.join(config.dataDir, "downloads", id),
+    });
+    this.bindTorrent(id, torrent);
+    // Persist the canonical magnet URI once metadata arrives so pause/resume and
+    // restore-after-restart work exactly like a magnet-added torrent.
+    torrent.on("ready", () => {
+      const magnet = (torrent as any).magnetURI;
+      if (magnet) db.prepare("UPDATE torrents SET magnet_uri = ? WHERE id = ?").run(magnet, id);
+    });
+    return { id };
+  }
+
   restore() {
     const rows = db.prepare("SELECT id, magnet_uri, status FROM torrents WHERE status != ? ORDER BY created_at").all("completed") as any[];
     for (const row of rows) {

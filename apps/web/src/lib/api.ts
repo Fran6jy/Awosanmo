@@ -69,3 +69,20 @@ export function uploadFile(
     xhr.send(form);
   });
 }
+
+/** Upload a .torrent file, which the server adds to the swarm. */
+export async function uploadTorrentFile(file: File): Promise<{ id: string }> {
+  const form = new FormData();
+  form.append("torrent", file);
+  const res = await fetch(`${API_URL}/api/torrents/upload`, {
+    method: "POST",
+    headers: token() ? { Authorization: `Bearer ${token()}` } : {},
+    body: form,
+  });
+  if (res.status === 401 || res.status === 403) {
+    forceLogin();
+    throw new Error("Session expired");
+  }
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
