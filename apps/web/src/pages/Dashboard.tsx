@@ -5,6 +5,7 @@ import { Download, Film, Folder, MoreHorizontal, Pause, Play, Radio, RefreshCw, 
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { api, token, uploadFile, uploadTorrentFile } from "../lib/api";
+import { readClipboardMagnet } from "../lib/clipboard";
 import { pushToast } from "../components/Toast";
 import { Shell } from "../components/Shell";
 import { formatDuration } from "../lib/format";
@@ -48,6 +49,11 @@ export function Dashboard() {
     },
     onError: (e: Error) => pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) })
   });
+  async function autoPasteMagnet() {
+    if (magnetUri.trim().startsWith("magnet:")) return;
+    const next = await readClipboardMagnet();
+    if (next) setMagnetUri(next);
+  }
 
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
@@ -113,7 +119,7 @@ export function Dashboard() {
         <div className="rounded-2xl p-5 glass">
           <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} className="flex flex-col gap-3 md:flex-row">
             <label className="sr-only" htmlFor="magnet">Magnet link</label>
-            <input id="magnet" value={magnetUri} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste magnet link" className="min-h-12 flex-1 rounded-xl border border-line bg-white/5 px-4 outline-none focus:ring-2 focus:ring-stream" />
+            <input id="magnet" value={magnetUri} onFocus={autoPasteMagnet} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste magnet link" className="min-h-12 flex-1 rounded-xl border border-line bg-white/5 px-4 outline-none focus:ring-2 focus:ring-stream" />
             <button disabled={add.isPending || !magnetUri.trim().startsWith("magnet:")} className="min-h-12 rounded-xl bg-stream px-5 font-bold text-ink disabled:cursor-not-allowed disabled:opacity-50">Join swarm</button>
             <button type="button" title="Upload any file, or a .torrent to add it to the swarm" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/5 px-5 font-semibold transition hover:bg-white/10 disabled:opacity-50">
               <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}

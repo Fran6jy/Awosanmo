@@ -3,10 +3,14 @@ import { Activity, Cloud, Files, Gauge, HardDrive, Search, Settings, Upload, X }
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CommandPalette } from "./CommandPalette";
-import { api } from "../lib/api";
+import { api, token } from "../lib/api";
+import { readClipboardMagnet } from "../lib/clipboard";
+import { formatBytes } from "../lib/format";
 import { pushToast } from "./Toast";
+
+type StorageStats = { used: number; available: number; total: number };
 
 function AddMagnet() {
   const [open, setOpen] = useState(false);
@@ -24,6 +28,11 @@ function AddMagnet() {
     },
     onError: (e: Error) => pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) }),
   });
+  async function autoPasteMagnet() {
+    if (magnet.trim().startsWith("magnet:")) return;
+    const next = await readClipboardMagnet();
+    if (next) setMagnet(next);
+  }
 
   return (
     <>
@@ -62,6 +71,7 @@ function AddMagnet() {
                 autoFocus
                 value={magnet}
                 onChange={(e) => setMagnet(e.target.value)}
+                onFocus={autoPasteMagnet}
                 placeholder="magnet:?xt=urn:btih:…"
                 className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white/5 px-4 outline-none focus:ring-2 focus:ring-stream"
               />
@@ -76,6 +86,33 @@ function AddMagnet() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+function StorageQuota() {
+  const authed = !!token();
+  const storage = useQuery({
+    queryKey: ["storage"],
+    queryFn: () => api<StorageStats>("/api/storage"),
+    refetchInterval: 8000,
+    enabled: authed
+  });
+  const used = storage.data?.used ?? 0;
+  const total = storage.data?.total ?? 0;
+  const available = storage.data?.available ?? 0;
+  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+
+  return (
+    <div className="min-w-0 rounded-xl border border-line bg-white/[.04] px-3 py-2 md:w-64">
+      <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
+        <span className="inline-flex items-center gap-2 font-medium"><HardDrive className="h-4 w-4 text-stream" /> Storage</span>
+        <span className="shrink-0 font-mono text-slate-400">{formatBytes(used)} / {formatBytes(total)}</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="mt-1 truncate text-xs text-slate-500">{storage.isLoading ? "Checking disk..." : `${formatBytes(available)} free`}</p>
+    </div>
   );
 }
 
@@ -103,7 +140,8 @@ export function Shell({ children }: { children: ReactNode }) {
             <p className="font-mono text-sm text-stream">AWOSANMO PRIVATE CLOUD</p>
             <h1 className="text-2xl font-bold tracking-normal md:text-3xl">Streams, downloads, and storage in one calm control room.</h1>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <StorageQuota />
             <CommandPalette />
             <AddMagnet />
           </div>
