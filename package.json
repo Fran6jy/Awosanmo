@@ -1,0 +1,24 @@
+{
+  "name": "awosanmo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Awosanmo — a self-hosted private cloud torrenting & streaming platform",
+  "workspaces": [
+    "apps/server",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm --workspace apps/server run dev",
+    "dev:web": "npm --workspace apps/web run dev",
+    "build": "npm --workspace apps/server run build && npm --workspace apps/web run build",
+    "start": "node --max-old-space-size=384 apps/server/dist/index.js",
+    "lint": "npm --workspace apps/server run lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
