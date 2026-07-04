@@ -30,7 +30,9 @@ export function Dashboard() {
   if (!token()) return <Navigate to="/login" replace />;
   const qc = useQueryClient();
   const [magnetUri, setMagnetUri] = useState("");
-  const torrents = useQuery({ queryKey: ["torrents"], queryFn: () => api<Torrent[]>("/api/torrents"), refetchInterval: 1800 });
+  // Live updates arrive over Socket.IO (see LiveSync); the interval is only a
+  // fallback for when the socket is temporarily disconnected.
+  const torrents = useQuery({ queryKey: ["torrents"], queryFn: () => api<Torrent[]>("/api/torrents"), refetchInterval: 15000 });
   const files = useQuery({ queryKey: ["files"], queryFn: () => api<FileRow[]>("/api/files"), refetchInterval: 3000 });
   const storage = useQuery({ queryKey: ["storage"], queryFn: () => api<StorageStats>("/api/storage"), refetchInterval: 8000 });
   const add = useMutation({
