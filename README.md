@@ -1,104 +1,179 @@
 # Awosanmo
 
-Awosanmo is a self-hosted private cloud torrenting and streaming platform for a small Ubuntu VPS. It is built as a TypeScript monorepo with a Node/Express API, WebTorrent engine, SQLite persistence, range-based streaming, Socket.IO live updates, and a React/Vite dashboard.
+**A self-hosted private cloud-torrenting and streaming platform.** Paste a magnet
+link, upload a `.torrent`, or upload any file — Awosanmo downloads it onto your
+VPS and lets you **stream or download it from anywhere**, with sequential
+downloading so video starts playing before the download finishes.
 
-Only `fran6` is listed as project author/contributor in package metadata.
+A lightweight, self-hosted alternative to Seedr, tuned to run on a 1 vCPU / 1 GB
+RAM box (the Oracle Cloud Free Tier in particular).
 
-## Apps
+> **Live & deployed.** Running on an Oracle Ubuntu VM behind nginx + a Cloudflare
+> tunnel. For operating the running instance, see **[docs/HANDOFF.md](docs/HANDOFF.md)**.
 
-- `apps/api`: Express API, auth, SQLite schema, torrent orchestration, streaming range endpoint.
-- `apps/web`: React dashboard with dark glass UI, torrent intake, file browser, and video player.
-- `deploy`: systemd and Nginx production deployment examples.
+---
 
-## Quick Start
+## Highlights
+
+- **Torrent engine** — magnet links & `.torrent` uploads, live peers/seeds/ETA/
+  speeds, pause/resume/reannounce, sequential download for streaming, session
+  persistence + restore after restart, crash-safe error handling.
+- **Streaming** — HTTP range requests / 206 partial content, fast seek, no full
+  buffering, token-authenticated per file, Video.js player with resume position.
+- **Files** — upload any file (streamed to disk), search, rename, delete,
+  download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/
+  rename/delete/move with breadcrumbs), and **right-click context menus**.
+- **Real-time UI** — Socket.IO pushes torrent progress live; toast + desktop
+  notifications on completion.
+- **Media metadata** — `ffprobe` extracts resolution, codec, duration, bitrate,
+  frame rate, and track counts.
+- **Polished SPA** — React + Tailwind + Framer Motion, dark glassmorphism,
+  command palette (Ctrl-K), loading states, error boundary, responsive.
+- **Low-memory by design** — Node streams end-to-end, `--max-old-space-size=384`,
+  WAL SQLite with a small page cache, capped torrent connections.
+
+---
+
+## Tech stack
+
+**Backend:** Node.js 22 · Express 5 · TypeScript · WebTorrent · Socket.IO ·
+better-sqlite3 · Multer · archiver · ffprobe/ffmpeg · pino · Zod · JWT · bcrypt
+
+**Frontend:** React 19 · TypeScript · Vite · Tailwind CSS · Framer Motion ·
+TanStack Query · React Router · Video.js · Lucide icons · socket.io-client
+
+**Infra:** Docker · Docker Compose · nginx · systemd · Cloudflare Tunnel · Oracle
+Cloud (Ubuntu)
+
+---
+
+## Monorepo layout
+
+```
+apps/
+  api/       Express + TypeScript API, WebTorrent engine, streaming, SQLite
+  web/       React + TypeScript + Vite single-page app
+deploy/      nginx, systemd units, Oracle setup + backup scripts
+docs/        DEPLOYMENT.md, HANDOFF.md
+Dockerfile · docker-compose*.yml · vercel.json
+```
+
+The API also serves the built SPA (`apps/web/dist`) in production, so the whole
+app runs from **one container** on one origin.
+
+---
+
+## Target environment
+
+- Ubuntu 24.04 / 20.04 LTS · 1 vCPU · 1 GB RAM · 100 GB SSD · 2 GB swap
+- Everything is optimized for low memory: streams everywhere, no full-file
+  buffering, capped connections, small caches.
+
+---
+
+## Local development
+
+Requires Node 22+ and `ffmpeg`/`ffprobe` on PATH (for media metadata).
 
 ```bash
+git clone https://github.com/Fran6jy/Awosanmo.git
+cd Awosanmo
 npm install
-npm run dev --workspace @awosanmo/api
-npm run dev --workspace @awosanmo/web
+cp .env.example apps/api/.env    # then edit secrets
+
+# run API (:4000) and web (:5173) together
+npm run dev
 ```
 
-Default login:
+- Web dev server proxies to the API via `VITE_API_URL` (defaults to
+  `http://localhost:4000` in dev).
+- Build everything: `npm run build`. Type-check the API: `npm run lint`.
 
-```text
-admin@awosanmo.local
-change-me-now
-```
+---
 
-Change `JWT_SECRET`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` before exposing the service.
+## Configuration
 
-## API
+Configuration is environment-driven. See **[.env.example](.env.example)** and the
+full table in **[docs/HANDOFF.md §6](docs/HANDOFF.md)**. Key values:
 
-- `POST /api/login`
-- `POST /api/torrents`
-- `GET /api/torrents`
-- `GET /api/torrents/:id`
-- `GET /api/torrents/:id/files`
-- `POST /api/torrents/:id/pause`
-- `POST /api/torrents/:id/resume`
-- `DELETE /api/torrents/:id`
-- `GET /api/files`
-- `GET /api/files?q=search`
-- `PATCH /api/files/:id`
-- `DELETE /api/files/:id`
-- `POST /api/stream-token/:id`
-- `POST /api/download-token/:id`
-- `POST /api/subtitle-token/:id`
-- `GET /api/stream/:id`
-- `GET /api/download/:id`
-- `GET /api/subtitle/:id`
-- `GET /api/playback/:fileId`
-- `PUT /api/playback/:fileId`
-- `GET /api/admin/status`
-- `GET /api/search?q=query`
-- `GET /api/stats`
-- `GET /api/storage`
+| Key | Purpose |
+| --- | --- |
+| `JWT_SECRET` | Token signing secret (set a strong one) |
+| `AUTH_TOKEN_TTL` | Login token lifetime (default `30d`) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Seeded admin on first boot |
+| `DATA_DIR` / `DB_PATH` | Data + SQLite location |
+| `CORS_ORIGIN` | Allowed browser origin |
+| `MAX_UPLOAD_RATE` / `MAX_DOWNLOAD_RATE` | Bandwidth throttles (bytes/s) |
+| `TORRENT_PORT` / `TORRENT_MAX_CONNS` | Swarm port + peer cap |
 
-Streaming uses short-lived stream tokens, HTTP range requests, `206 Partial Content`, 64KB stream chunks, and no full-file buffering.
+---
 
-In production, the API also serves the built React app from `apps/web/dist`, so the Docker image can run as a single small service behind Nginx.
+## Deployment
 
-## Media Metadata
+The backend is a **stateful, long-running process** (live peer connections,
+on-disk SQLite, background downloads, range streaming). It must run on a VPS —
+**not** a serverless platform. See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for
+the full walk-through and **[docs/HANDOFF.md](docs/HANDOFF.md)** for the live setup.
 
-Awosanmo runs a lightweight `ffprobe` worker for streamable files. It stores duration, video/audio codecs, resolution, bitrate, frame rate, and audio/subtitle track counts in SQLite. The worker scans one file at a time and is controlled by:
-
-- `MEDIA_SCAN_INTERVAL_SECONDS`
-- `MEDIA_PROBE_TIMEOUT_SECONDS`
-
-This keeps probing gentle enough for a 1GB Oracle VM.
-
-## Interface
-
-The dashboard includes a global command palette. Press `Ctrl+K` to search torrents, files, videos, and core navigation actions.
-
-## Oracle Free Tier Notes
-
-- Keep upload rate low with `MAX_UPLOAD_RATE`.
-- Use a swap file on 1GB RAM machines.
-- Put `DATA_DIR` on the 100GB block volume.
-- Keep concurrent torrents modest. WebTorrent is capped to conservative connection counts in `TorrentService`.
-- FFmpeg is included in deployment images, but expensive transcodes should be queued and limited on 1 vCPU.
-- Use `.env.example` as the starting point for production configuration.
-
-## Docker
+### Quick deploy on Ubuntu (Docker)
 
 ```bash
-docker compose up -d --build
+sudo git clone https://github.com/Fran6jy/Awosanmo.git /opt/awosanmo
+cd /opt/awosanmo
+sudo bash deploy/oracle-ubuntu-setup.sh      # Docker, nginx, swap, firewall
+sudo cp .env.example .env && sudo nano .env  # JWT_SECRET, ADMIN_PASSWORD, CORS_ORIGIN
+sudo docker compose -f docker-compose.prod.yml up -d --build
+curl -fsS http://127.0.0.1:4000/health       # -> {"ok":true}
 ```
 
-For Oracle Ubuntu deployment, use:
+Then put nginx in front (`deploy/nginx.conf`) and add HTTPS. Without a domain, a
+**Cloudflare Tunnel** gives you HTTPS with no open 443:
 
-[deploy/ORACLE_VPS.md](deploy/ORACLE_VPS.md)
+```bash
+cloudflared tunnel --url http://localhost:80   # ephemeral https URL
+```
 
-## Production Checklist
+For a permanent URL, add a domain to Cloudflare and use a *named* tunnel, or run
+`certbot` for TLS on your domain.
 
-- Replace all default secrets.
-- Put Nginx in front of the API and built web app.
-- Enable TLS with Certbot.
-- Set firewall rules for SSH, HTTP, HTTPS, and required torrent traffic.
-- Back up `/data/awosanmo.sqlite` and downloaded media metadata.
-- Monitor memory, disk, and open file handles.
+### About Vercel
+
+Vercel is serverless and **cannot host the backend** (no persistent process, no
+long-lived peer connections, ephemeral filesystem, short timeouts). Only the
+static frontend can be deployed there, pointed at your VPS API via
+`VITE_API_URL`. `vercel.json` is provided for that split. The VPS is not optional.
+
+---
+
+## Scaling, monitoring & maintenance
+
+- **Monitoring:** `GET /health`, `GET /api/stats` (memory/uptime/torrent count),
+  `GET /api/storage` (used/available). Container has a Docker healthcheck.
+- **Logs:** structured JSON via pino (`docker logs`), plus nginx access/error logs.
+- **Backups:** `deploy/backup.sh` + `awosanmo-backup.timer` snapshot the SQLite DB.
+  Downloaded media is re-downloadable and not backed up by default.
+- **Redeploy:** `git pull` + `docker compose build && up -d` (or
+  `deploy/deploy-oracle.sh`). See the runbook in **[docs/HANDOFF.md §7](docs/HANDOFF.md)**.
+- **Scaling up:** raise `TORRENT_MAX_CONNS`, `MAX_*_RATE`, and Node heap on a
+  bigger VM. The architecture (repository-style modules, token-authed media,
+  same-origin SPA) is ready for multi-user isolation and object storage later.
+
+---
 
 ## Roadmap
 
-The foundation is intentionally modular. Next production increments should add torrent-file bencode parsing, FFmpeg metadata workers, poster/thumbnail extraction, OpenAPI generation, user storage quotas, share links, richer admin controls, and visual torrent detail pages.
+Implemented: torrent engine (magnet + `.torrent`), streaming, uploads, file
+manager (search/rename/delete/bulk/ZIP/folders/context-menus), live updates,
+media probing, auth, deploy tooling.
+
+Not yet built: auto-paste + clipboard detection, header storage quota bar,
+wishlist, thumbnails/posters, on-the-fly transcoding, refresh tokens, multi-user
+isolation, 2FA/OAuth, OpenAPI docs, automated tests, remote URL/FTP fetch, cloud
+integrations, share links, RSS automation, plugin architecture. See
+**[docs/HANDOFF.md §10](docs/HANDOFF.md)** for detail.
+
+---
+
+## License
+
+Private. All rights reserved.
