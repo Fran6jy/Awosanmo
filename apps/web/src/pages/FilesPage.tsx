@@ -210,7 +210,7 @@ export function FilesPage() {
       )}
 
       <section className="mt-4 overflow-hidden rounded-2xl glass">
-        <div className="hidden grid-cols-[44px_minmax(0,1fr)_150px_150px_180px] items-center border-b border-line bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 md:grid">
+        <div className="hidden min-w-0 grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] items-center border-b border-line bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 md:grid">
           <span />
           <span>Name</span>
           <span>Type</span>
@@ -220,7 +220,7 @@ export function FilesPage() {
         <div className="divide-y divide-slate-100">
           {/* Subfolders */}
           {!searching && subfolders.map((f) => (
-            <article key={f.id} onContextMenu={(e) => openFolderMenu(e, f)} className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition hover:bg-slate-50 md:grid-cols-[44px_minmax(0,1fr)_150px_150px_180px]">
+            <article key={f.id} onContextMenu={(e) => openFolderMenu(e, f)} className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition hover:bg-slate-50 md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px]">
               <span />
               <button onClick={() => setFolderId(f.id)} className="flex min-w-0 items-center gap-3 text-left">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700"><Folder className="h-5 w-5" /></span>
@@ -233,7 +233,7 @@ export function FilesPage() {
           ))}
           {/* Files */}
           {rows.map((file) => (
-            <article key={file.id} onContextMenu={(e) => openFileMenu(e, file)} className={`grid gap-3 px-4 py-3 transition md:grid-cols-[44px_minmax(0,1fr)_150px_150px_180px] md:items-center ${selected.has(file.id) ? "bg-emerald-50" : "hover:bg-slate-50"}`}>
+            <article key={file.id} onContextMenu={(e) => openFileMenu(e, file)} className={`grid min-w-0 gap-3 px-4 py-3 transition md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-emerald-50" : "hover:bg-slate-50"}`}>
               <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
               <div className="flex min-w-0 items-center gap-3">
                 <FileGlyph file={file} />

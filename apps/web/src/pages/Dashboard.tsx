@@ -105,20 +105,20 @@ export function Dashboard() {
 
   return (
     <Shell>
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid min-w-0 gap-4 md:grid-cols-3">
         {([
           ["Active downloads", stats.active, Radio],
           ["Down speed", fmt(stats.speed) + "/s", Download],
           ["Stored locally", fmt(stats.stored), Server]
         ] satisfies StatCard[]).map(([label, value, Icon]) => (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={String(label)} className="rounded-2xl p-5 glass">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={String(label)} className="min-w-0 rounded-2xl p-5 glass">
             <div className="flex items-center justify-between text-sm font-semibold text-slate-500"><span>{label as string}</span><Icon className="h-5 w-5 text-stream" /></div>
             <p className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950">{value as string}</p>
           </motion.div>
         ))}
       </section>
-      <section className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-        <div className="rounded-2xl p-5 glass">
+      <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,.75fr)]">
+        <div className="min-w-0 rounded-2xl p-5 glass">
           <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} className="flex flex-col gap-3 md:flex-row">
             <label className="sr-only" htmlFor="magnet">Magnet link</label>
             <input id="magnet" value={magnetUri} onFocus={autoPasteMagnet} onClick={autoPasteMagnet} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste magnet link" className="min-h-12 flex-1 rounded-xl border border-line bg-white px-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream" />
@@ -151,11 +151,11 @@ export function Dashboard() {
             ))}
           </div>
         </div>
-        <div className="rounded-2xl p-5 glass">
+        <div className="min-w-0 rounded-2xl p-5 glass">
           <div className="flex items-center justify-between"><h2 className="text-xl font-extrabold tracking-tight text-slate-950">Recent files</h2><MoreHorizontal className="h-5 w-5 text-slate-400" /></div>
           <div className="mt-4 space-y-2">
             {(files.data ?? []).map((file) => (
-              <Link to={canPreview(file) ? `/view/${file.id}` : "#"} key={file.id} className="flex min-h-14 items-center gap-3 rounded-xl border border-transparent px-3 transition hover:border-line hover:bg-slate-50">
+              <Link to={canPreview(file) ? `/view/${file.id}` : "#"} key={file.id} className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl border border-transparent px-3 transition hover:border-line hover:bg-slate-50">
                 {file.media_kind === "video" ? <Film className="h-5 w-5 text-stream" /> : <Folder className="h-5 w-5 text-violet-300" />}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold text-slate-900">{file.name}</span>

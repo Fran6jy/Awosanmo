@@ -119,7 +119,7 @@ function StorageQuota() {
 
 export function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <aside className="fixed inset-y-4 left-4 z-20 hidden w-20 rounded-2xl border border-slate-200 bg-white shadow-sm lg:flex lg:flex-col lg:items-center lg:gap-5 lg:py-5">
         <Link to="/" aria-label="Awosanmo dashboard" className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-950"><Cloud className="h-7 w-7 text-white" /></Link>
         {[
@@ -135,13 +135,13 @@ export function Shell({ children }: { children: ReactNode }) {
           </Link>
         ))}
       </aside>
-      <main className="mx-auto max-w-7xl px-4 py-4 lg:pl-32">
+      <main className="min-w-0 px-4 py-4 lg:ml-28 lg:max-w-[calc(100vw-8rem)] lg:pr-6">
         <header className="mb-5 flex flex-col gap-4 rounded-2xl p-4 glass md:flex-row md:items-center md:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="font-mono text-xs font-bold uppercase text-stream">Awosanmo Private Cloud</p>
-            <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">Files, torrents, and streaming in one workspace.</h1>
+            <h1 className="max-w-2xl text-2xl font-extrabold tracking-tight md:text-3xl">Files, torrents, and streaming in one workspace.</h1>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <StorageQuota />
             <CommandPalette />
             <AddMagnet />

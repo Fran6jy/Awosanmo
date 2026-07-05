@@ -4,6 +4,12 @@
 @tailwind utilities;
 
 :root { color-scheme: light; }
+html,
+body,
+#root {
+  min-height: 100%;
+  overflow-x: hidden;
+}
 body {
   margin: 0;
   min-width: 320px;
