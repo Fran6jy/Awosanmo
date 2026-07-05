@@ -98,6 +98,7 @@ apps/
                            ContextMenu, Wishlist, TwoFactorSettings
       lib/                 api.ts (fetch + upload + zip + refresh), socket.ts,
                            clipboard.ts, format.ts, fileTypes.ts
+      styles.css           Premium dark design system utilities and global UI
 deploy/                    nginx.conf, systemd units, Oracle setup + backup scripts
 docs/                      DEPLOYMENT.md, HANDOFF.md (this file)
 Dockerfile, docker-compose.yml, docker-compose.prod.yml, vercel.json
@@ -195,6 +196,21 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
 - `/watch/:id` — compatibility route that now delegates to `/view/:id`.
 - Dashboard hides the `local-uploads` pseudo-torrent, so direct uploads do not
   appear with pause/reannounce controls after they complete.
+
+### Frontend visual system
+- Premium dark Plex/Linear-style aesthetic: near-black `#07070C` base, indigo
+  `#6366F1` accent, light text, subtle indigo aurora glow, and a faint green tint.
+- Typography uses Plus Jakarta Sans across the app.
+- Shared utility classes keep controls consistent: `.btn-primary`, `.btn-ghost`,
+  `.icon-btn`, `.field`, `.chip`, and `.card`.
+- Surfaces use translucent glass, backdrop blur, hairline borders, soft depth
+  shadows, and custom dark scrollbars.
+- Sidebar is reduced to three main nav items: Dashboard, Files, and System, with
+  active-route highlighting and a gradient logo.
+- Dashboard has no Recent files panel. It uses elevated stat cards, a clean
+  command bar for magnet entry, premium torrent rows, status-colored labels, and
+  a proper empty state.
+- System page has no Recent Activity panel and uses a wider Runtime grid.
 
 ---
 
@@ -336,9 +352,12 @@ Two layers must both allow a port:
 
 ### Fixes made during initial build/deploy
 
-- **Seedr-style UX pass:** premium light file-manager UI, dense file table,
-  fixed dashboard overflow, header storage quota, and click-to-auto-paste magnet
-  behavior over HTTPS.
+- **Premium dark redesign:** rebuilt the SPA around a Plex/Linear-style dark
+  design system using Plus Jakarta Sans, near-black surfaces, indigo accent,
+  glass cards, refined scrollbars, reusable component classes, simplified
+  sidebar navigation, dashboard stat cards, and cleaned System runtime layout.
+- **Seedr-style UX pass:** dense file table, fixed dashboard overflow, header
+  storage quota, and click-to-auto-paste magnet behavior over HTTPS.
 - **Unified file viewer:** added `/view/:id` for video, audio, image, PDF, text,
   and EPUB files. Audio uploads are now streamable/playable; EPUBs render
   in-browser via `epubjs`.
@@ -382,7 +401,7 @@ Nice-to-have:
 
 Done since the first handoff: wishlist, refresh tokens, multi-user isolation,
 2FA, OpenAPI docs, automated tests, file previews, EPUB reader, clipboard
-auto-paste, header storage quota.
+auto-paste, header storage quota, premium dark redesign.
 
 ---
 
