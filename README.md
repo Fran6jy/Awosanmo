@@ -20,8 +20,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
   server-side logout, and optional **TOTP two-factor** (Google Authenticator /
   Authy) enrolled via QR.
 - **Torrent engine** — magnet links & `.torrent` uploads, live peers/seeds/ETA/
-  speeds, pause/resume/reannounce, sequential download for streaming, session
-  persistence + restore after restart, crash-safe error handling, and
+  speeds, sticky pause/resume/reannounce, sequential download for streaming,
+  session persistence + restore after restart, crash-safe error handling, and
   Seedr-style auto-stop when downloads complete.
 - **Wishlist** — save magnets to add to downloads later (header star + panel).
 - **Streaming + previews** — HTTP range requests / 206 partial content, fast seek,

@@ -199,10 +199,10 @@ export class TorrentService {
   pause(id: string, userId: string) {
     if (!this.owns(id, userId)) return false;
     const torrent = this.find(id);
-    if (!torrent) return false;
-    torrent.pause();
-    db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("paused", id);
+    torrent?.pause();
+    db.prepare("UPDATE torrents SET status = ?, download_speed = 0, upload_speed = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("paused", id);
     this.notifyUser(userId, "torrent:paused", { id });
+    this.publishStats();
     return true;
   }
 
@@ -213,6 +213,7 @@ export class TorrentService {
     torrent.resume();
     db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("downloading", id);
     this.notifyUser(userId, "torrent:resumed", { id });
+    this.publishStats();
     return true;
   }
 
@@ -261,14 +262,16 @@ export class TorrentService {
     this.active.set(id, torrent);
     torrent.on("metadata", () => {
       const ownerId = this.ownerOf(id);
+      const current = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
+      const nextStatus = current?.status === "paused" ? "paused" : "downloading";
       try {
         db.prepare("UPDATE torrents SET info_hash = ?, name = ?, size = ?, status = ? WHERE id = ?").run(
-          torrent.infoHash, torrent.name, torrent.length, "downloading", id,
+          torrent.infoHash, torrent.name, torrent.length, nextStatus, id,
         );
       } catch (error: any) {
         if (error?.code !== "SQLITE_CONSTRAINT_UNIQUE") throw error;
         db.prepare("UPDATE torrents SET name = ?, size = ?, status = ? WHERE id = ?").run(
-          torrent.name, torrent.length, "downloading", id,
+          torrent.name, torrent.length, nextStatus, id,
         );
       }
       const insert = db.prepare(`INSERT OR IGNORE INTO files
@@ -301,6 +304,14 @@ export class TorrentService {
   }
 
   private update(id: string, torrent: Torrent, status = "downloading") {
+    const current = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
+    if (current?.status === "paused") {
+      db.prepare(`UPDATE torrents SET progress = ?, download_speed = 0, upload_speed = 0,
+        downloaded = ?, uploaded = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
+        torrent.progress, torrent.downloaded, torrent.uploaded, id,
+      );
+      return;
+    }
     if (status !== "completed" && torrent.progress >= 0.999) {
       this.completeTorrent(id, torrent);
       return;

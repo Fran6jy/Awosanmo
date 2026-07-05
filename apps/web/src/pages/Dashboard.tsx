@@ -93,7 +93,23 @@ export function Dashboard() {
   const action = useMutation({
     mutationFn: ({ id, kind }: { id: string; kind: "pause" | "resume" | "reannounce" | "delete" }) =>
       kind === "delete" ? api(`/api/torrents/${id}?destroy=false`, { method: "DELETE" }) : api(`/api/torrents/${id}/${kind}`, { method: "POST" }),
+    onMutate: async ({ id, kind }) => {
+      await qc.cancelQueries({ queryKey: ["torrents"] });
+      const previous = qc.getQueryData<Torrent[]>(["torrents"]);
+      if (kind === "pause" || kind === "resume") {
+        qc.setQueryData<Torrent[]>(["torrents"], (rows = []) => rows.map((row) =>
+          row.id === id
+            ? { ...row, status: kind === "pause" ? "paused" : "downloading", download_speed: kind === "pause" ? 0 : row.download_speed, upload_speed: kind === "pause" ? 0 : row.upload_speed }
+            : row
+        ));
+      }
+      if (kind === "delete") qc.setQueryData<Torrent[]>(["torrents"], (rows = []) => rows.filter((row) => row.id !== id));
+      return { previous };
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["torrents"] }); qc.invalidateQueries({ queryKey: ["files"] }); },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) qc.setQueryData(["torrents"], context.previous);
+    },
   });
 
   const stats = useMemo(() => {
