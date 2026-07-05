@@ -10,6 +10,7 @@ import { pushToast } from "../components/Toast";
 import { Shell } from "../components/Shell";
 
 type Torrent = { id: string; name: string; progress: number; status: string; download_speed: number; upload_speed: number; size: number };
+type AddTorrentResponse = { id: string; reused?: boolean };
 type StorageStats = { used: number; available: number; total: number };
 
 const fmt = (bytes = 0) =>
@@ -32,9 +33,38 @@ export function Dashboard() {
   const storage = useQuery({ queryKey: ["storage"], queryFn: () => api<StorageStats>("/api/storage"), refetchInterval: 8000, enabled: authed });
 
   const add = useMutation({
-    mutationFn: () => api("/api/torrents", { method: "POST", body: JSON.stringify({ magnetUri }) }),
-    onSuccess: () => { setMagnetUri(""); qc.invalidateQueries({ queryKey: ["torrents"] }); pushToast({ type: "success", title: "Added to swarm", body: "Fetching metadata…" }); },
-    onError: (e: Error) => pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) }),
+    mutationFn: (uri: string) => api<AddTorrentResponse>("/api/torrents", { method: "POST", body: JSON.stringify({ magnetUri: uri }) }),
+    onMutate: async (uri) => {
+      const tempId = `optimistic-${Date.now()}`;
+      await qc.cancelQueries({ queryKey: ["torrents"] });
+      const previous = qc.getQueryData<Torrent[]>(["torrents"]);
+      qc.setQueryData<Torrent[]>(["torrents"], (rows = []) => [
+        {
+          id: tempId,
+          name: "Fetching metadata",
+          progress: 0,
+          status: "connecting",
+          download_speed: 0,
+          upload_speed: 0,
+          size: 0
+        },
+        ...rows
+      ]);
+      setMagnetUri("");
+      pushToast({ type: "success", title: "Magnet accepted", body: "Awosanmo is joining the swarm." });
+      return { previous, tempId, uri };
+    },
+    onSuccess: (result, _uri, context) => {
+      qc.setQueryData<Torrent[]>(["torrents"], (rows = []) => rows.filter((row) => row.id !== context?.tempId));
+      qc.invalidateQueries({ queryKey: ["torrents"] });
+      if (result.reused) pushToast({ type: "success", title: "Already in your library", body: "Using the existing torrent entry." });
+    },
+    onError: (e: Error, _uri, context) => {
+      if (context?.previous) qc.setQueryData(["torrents"], context.previous);
+      else qc.invalidateQueries({ queryKey: ["torrents"] });
+      setMagnetUri(context?.uri ?? "");
+      pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) });
+    },
   });
   async function autoPasteMagnet() {
     if (magnetUri.trim().startsWith("magnet:")) return;
@@ -106,7 +136,7 @@ export function Dashboard() {
 
       {/* Command bar */}
       <section className="glass mt-4 min-w-0 rounded-2xl p-4">
-        <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} className="flex flex-col gap-3 md:flex-row">
+        <form onSubmit={(e) => { e.preventDefault(); const uri = magnetUri.trim(); if (uri.startsWith("magnet:")) add.mutate(uri); }} className="flex flex-col gap-3 md:flex-row">
           <label className="sr-only" htmlFor="magnet">Magnet link</label>
           <div className="relative flex-1">
             <Plus className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />

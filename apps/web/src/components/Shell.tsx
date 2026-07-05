@@ -14,6 +14,7 @@ import { pushToast } from "./Toast";
 import { ThemeToggle } from "./ThemeToggle";
 
 type StorageStats = { used: number; available: number; total: number };
+type AddTorrentResponse = { id: string; reused?: boolean };
 
 function AddMagnet() {
   const [open, setOpen] = useState(false);
@@ -21,12 +22,16 @@ function AddMagnet() {
   const qc = useQueryClient();
   const nav = useNavigate();
   const add = useMutation({
-    mutationFn: () => api("/api/torrents", { method: "POST", body: JSON.stringify({ magnetUri: magnet.trim() }) }),
-    onSuccess: () => {
+    mutationFn: () => api<AddTorrentResponse>("/api/torrents", { method: "POST", body: JSON.stringify({ magnetUri: magnet.trim() }) }),
+    onSuccess: (result) => {
       setMagnet("");
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["torrents"] });
-      pushToast({ type: "success", title: "Added to swarm", body: "Fetching metadata…" });
+      pushToast({
+        type: "success",
+        title: result.reused ? "Already in your library" : "Magnet accepted",
+        body: result.reused ? "Using the existing torrent entry." : "Awosanmo is joining the swarm."
+      });
       nav("/");
     },
     onError: (e: Error) => pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) }),

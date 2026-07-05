@@ -132,7 +132,9 @@ using the refresh token (30d), which is whitelisted in the DB for revocation.
 
 ### Torrents
 - `GET /api/torrents` — list
-- `POST /api/torrents` `{ magnetUri }` — add magnet
+- `POST /api/torrents` `{ magnetUri }` — add magnet. Fast-mode behavior:
+  returns `202` immediately, pushes the new row through Socket.IO, and reuses the
+  caller's existing torrent row when the same magnet/info-hash is already known.
 - `POST /api/torrents/upload` (multipart `torrent`) — add a `.torrent` file
 - `GET /api/torrents/:id` — detail (peers, trackers, pieces, ETA, health)
 - `GET /api/torrents/:id/files`
@@ -196,6 +198,8 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
 - `/watch/:id` — compatibility route that now delegates to `/view/:id`.
 - Dashboard hides the `local-uploads` pseudo-torrent, so direct uploads do not
   appear with pause/reannounce controls after they complete.
+- Dashboard uses optimistic magnet rows, so a new magnet appears as "Fetching
+  metadata" immediately instead of waiting for the next poll/socket tick.
 
 ### Frontend visual system
 - Premium dark Plex/Linear-style aesthetic: near-black `#07070C` base, indigo
@@ -364,6 +368,9 @@ Two layers must both allow a port:
 - **Light theme + themed viewer:** added a persistent dark/light toggle and
   updated the file viewer so image/PDF/text/audio/EPUB pages use the shared
   design system instead of the old light-only preview shell.
+- **Low-cost fast magnet mode:** magnet submits now feel instant via optimistic
+  dashboard rows, immediate Socket.IO publication, and same-user duplicate
+  magnet/info-hash reuse. This does not create a large Seedr-style shared cache.
 - **Seedr-style UX pass:** dense file table, fixed dashboard overflow, header
   storage quota, and click-to-auto-paste magnet behavior over HTTPS.
 - **Unified file viewer:** added `/view/:id` for video, audio, image, PDF, text,
@@ -409,7 +416,8 @@ Nice-to-have:
 
 Done since the first handoff: wishlist, refresh tokens, multi-user isolation,
 2FA, OpenAPI docs, automated tests, file previews, EPUB reader, clipboard
-auto-paste, header storage quota, premium dark redesign, light theme toggle.
+auto-paste, header storage quota, premium dark redesign, light theme toggle,
+low-cost fast magnet mode.
 
 ---
 

@@ -9,6 +9,7 @@ import { logger } from "../../logger.js";
 
 const videoExt = new Set([".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".mpeg", ".mpg"]);
 const audioExt = new Set([".aac", ".flac", ".m4a", ".mp3", ".oga", ".ogg", ".opus", ".wav", ".weba"]);
+const base32Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 /** Each user gets their own uploads pseudo-torrent so direct uploads stay siloed. */
 export function uploadsIdFor(userId: string): string {
@@ -26,6 +27,29 @@ export function classifyFile(name: string): { kind: string; streamable: number; 
   const mimeType = (mime.lookup(name) || null) as string | null;
   const kind = videoExt.has(ext) ? "video" : audioExt.has(ext) ? "audio" : mimeType?.split("/")[0] ?? "file";
   return { kind, streamable: kind === "video" || kind === "audio" ? 1 : 0, mimeType };
+}
+
+function extractInfoHash(magnetUri: string): string | null {
+  const match = magnetUri.match(/(?:^|[?&])xt=urn:btih:([^&]+)/i);
+  if (!match) return null;
+  const raw = decodeURIComponent(match[1]).trim();
+  if (/^[a-f0-9]{40}$/i.test(raw)) return raw.toLowerCase();
+  if (/^[a-z2-7]{32}$/i.test(raw)) return base32ToHex(raw);
+  return null;
+}
+
+function base32ToHex(value: string): string | null {
+  let bits = "";
+  for (const char of value.toUpperCase().replace(/=+$/, "")) {
+    const index = base32Alphabet.indexOf(char);
+    if (index === -1) return null;
+    bits += index.toString(2).padStart(5, "0");
+  }
+  let hex = "";
+  for (let i = 0; i + 4 <= bits.length; i += 4) {
+    hex += Number.parseInt(bits.slice(i, i + 4), 2).toString(16);
+  }
+  return hex.length >= 40 ? hex.slice(0, 40).toLowerCase() : null;
 }
 
 export class TorrentService {
@@ -51,12 +75,28 @@ export class TorrentService {
   }
 
   add(magnetUri: string, userId: string) {
+    const infoHash = extractInfoHash(magnetUri);
+    const byHash = infoHash
+      ? db.prepare("SELECT id, status FROM torrents WHERE user_id = ? AND info_hash = ?").get(userId, infoHash) as any
+      : null;
+    const existing = byHash ?? db.prepare("SELECT id, status FROM torrents WHERE user_id = ? AND magnet_uri = ?").get(userId, magnetUri) as any;
+    if (existing) {
+      if (!this.find(existing.id) && !["completed", "paused"].includes(existing.status)) this.start(existing.id, magnetUri, "resuming");
+      this.publishStats();
+      return { id: existing.id, reused: true };
+    }
+    const globalHashOwner = infoHash
+      ? db.prepare("SELECT user_id FROM torrents WHERE info_hash = ?").get(infoHash) as any
+      : null;
+    const storableInfoHash = globalHashOwner ? null : infoHash;
+
     const id = crypto.randomUUID();
-    db.prepare("INSERT INTO torrents (id, user_id, name, magnet_uri, status) VALUES (?, ?, ?, ?, ?)").run(
-      id, userId, "Fetching metadata", magnetUri, "connecting",
+    db.prepare("INSERT INTO torrents (id, user_id, info_hash, name, magnet_uri, status) VALUES (?, ?, ?, ?, ?, ?)").run(
+      id, userId, storableInfoHash, "Fetching metadata", magnetUri, "connecting",
     );
     this.start(id, magnetUri, "downloading");
-    return { id };
+    this.publishStats();
+    return { id, reused: false };
   }
 
   /** Add a torrent from an uploaded .torrent file buffer. */
@@ -216,9 +256,16 @@ export class TorrentService {
     this.active.set(id, torrent);
     torrent.on("metadata", () => {
       const ownerId = this.ownerOf(id);
-      db.prepare("UPDATE torrents SET info_hash = ?, name = ?, size = ?, status = ? WHERE id = ?").run(
-        torrent.infoHash, torrent.name, torrent.length, "downloading", id,
-      );
+      try {
+        db.prepare("UPDATE torrents SET info_hash = ?, name = ?, size = ?, status = ? WHERE id = ?").run(
+          torrent.infoHash, torrent.name, torrent.length, "downloading", id,
+        );
+      } catch (error: any) {
+        if (error?.code !== "SQLITE_CONSTRAINT_UNIQUE") throw error;
+        db.prepare("UPDATE torrents SET name = ?, size = ?, status = ? WHERE id = ?").run(
+          torrent.name, torrent.length, "downloading", id,
+        );
+      }
       const insert = db.prepare(`INSERT OR IGNORE INTO files
         (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
