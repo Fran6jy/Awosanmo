@@ -376,12 +376,16 @@ export function FilesPage() {
 }
 
 function fileDetail(file: FileRow) {
-  const probe = (file.media_kind === "video" || file.media_kind === "audio") && file.probe_status && !["ready", "pending"].includes(file.probe_status)
-    ? file.probe_status
-    : null;
-  return [file.width && file.height ? `${file.width}x${file.height}` : null, file.codec_video?.toUpperCase(), formatDuration(file.duration), probe]
+  const transcode = previewKind(file) === "video" && needsBrowserTranscode(file.name, file.codec_video) ? "browser transcode" : null;
+  return [file.width && file.height ? `${file.width}x${file.height}` : null, file.codec_video?.toUpperCase(), formatDuration(file.duration), transcode]
     .filter(Boolean)
     .join(" · ") || file.path;
+}
+
+function needsBrowserTranscode(name: string, codec?: string | null) {
+  const ext = name.split(".").pop()?.toLowerCase();
+  const normalizedCodec = codec?.toLowerCase();
+  return ["mkv", "avi", "flv", "wmv", "mpeg", "mpg"].includes(ext ?? "") || normalizedCodec === "hevc" || normalizedCodec === "h265";
 }
 
 function FileGlyph({ file }: { file: FileRow }) {

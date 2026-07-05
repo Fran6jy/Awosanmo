@@ -26,7 +26,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
 - **Wishlist** — save magnets to add to downloads later (header star + panel).
 - **Streaming + previews** — HTTP range requests / 206 partial content, fast seek,
   no full buffering, token-authenticated per file, video resume position, audio
-  playback, image/PDF/text previews, and an in-browser EPUB reader.
+  playback, browser-compatible MKV/HEVC transcode fallback, image/PDF/text
+  previews, and an in-browser EPUB reader.
 - **Files** — upload any file (streamed to disk), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/
   rename/delete/move with breadcrumbs), **right-click context menus**,
@@ -55,7 +56,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
 - **Documented & tested** — interactive Swagger UI at `/api/docs` (OpenAPI 3.0)
   and a Vitest suite (auth, refresh, 2FA, isolation) run in CI.
 - **Low-memory by design** — Node streams end-to-end, `--max-old-space-size=384`,
-  WAL SQLite with a small page cache, capped torrent connections.
+  WAL SQLite with a small page cache, capped torrent connections, and one
+  protected ffmpeg transcode slot.
 - **Background resilience** — production runs as a detached Docker Compose
   service with `restart: unless-stopped`, so crashes/OOM exits are restarted by
   Docker without an SSH login.

@@ -19,6 +19,7 @@ import { getOwnedFile } from "./modules/files/fileService.js";
 import { torrentRoutes } from "./modules/torrents/routes.js";
 import { torrentService } from "./modules/torrents/torrentService.js";
 import { streamFile } from "./modules/streaming/streamController.js";
+import { transcodeFile } from "./modules/streaming/transcodeController.js";
 import { getStorageStats } from "./modules/storage/storageService.js";
 import { mediaWorker } from "./modules/media/mediaWorker.js";
 import { fileRoutes } from "./modules/files/routes.js";
@@ -155,6 +156,7 @@ app.post("/api/subtitle-token/:id", requireAuth, ownsFile, (req: any, res) => {
   res.json({ subtitleToken: signSubtitleToken(req.user.id, req.params.id), expiresIn: config.streamTokenTtlSeconds });
 });
 app.get("/api/stream/:id", requireStreamAuth, streamFile);
+app.get("/api/transcode/:id", requireStreamAuth, transcodeFile);
 app.get("/api/download/:id", requireDownloadAuth, downloadFile);
 app.get("/api/subtitle/:id", requireSubtitleAuth, subtitleFile);
 app.get("/api/stats", requireAuth, (req: any, res) => {

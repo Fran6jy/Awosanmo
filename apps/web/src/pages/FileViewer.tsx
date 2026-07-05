@@ -10,6 +10,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 type FileRow = {
   id: string; name: string; path: string; size: number; mime?: string | null; media_kind: string; streamable: number;
   duration?: number | null; width?: number | null; height?: number | null;
+  codec_video?: string | null; codec_audio?: string | null; probe_status?: string | null;
 };
 type Playback = { positionSeconds: number; updatedAt: string | null; subtitles: { id: string; name: string; path: string }[] };
 
@@ -18,6 +19,7 @@ export function FileViewer() {
   const { id } = useParams();
   const mediaRef = useRef<HTMLVideoElement | null>(null);
   const [text, setText] = useState<string | null>(null);
+  const [forceTranscode, setForceTranscode] = useState(false);
   const file = useQuery({ queryKey: ["file", id], queryFn: () => api<FileRow>(`/api/files/${id}`), enabled: Boolean(id) && authed });
   const stream = useQuery({
     queryKey: ["stream-token", id],
@@ -42,6 +44,9 @@ export function FileViewer() {
   });
   const src = stream.data ? `${API_URL}/api/stream/${id}?st=${encodeURIComponent(stream.data.streamToken)}` : undefined;
   const kind = previewKind(file.data ?? { name: "" });
+  const meta = file.data;
+  const shouldTranscode = Boolean(meta && kind === "video" && (forceTranscode || needsTranscode(meta)));
+  const videoSrc = stream.data && shouldTranscode ? `${API_URL}/api/transcode/${id}?st=${encodeURIComponent(stream.data.streamToken)}` : src;
   const tracks = useMemo(() => {
     return (playback.data?.subtitles ?? []).map((subtitle, index) => {
       const subtitleToken = subtitleTokens[index]?.data?.subtitleToken;
@@ -69,7 +74,7 @@ export function FileViewer() {
     };
     video.addEventListener("loadedmetadata", apply, { once: true });
     return () => video.removeEventListener("loadedmetadata", apply);
-  }, [kind, playback.data?.positionSeconds, src]);
+  }, [kind, playback.data?.positionSeconds, videoSrc]);
 
   useEffect(() => {
     const video = mediaRef.current;
@@ -89,13 +94,16 @@ export function FileViewer() {
     };
   }, [id, kind, savePosition]);
 
+  useEffect(() => {
+    setForceTranscode(false);
+  }, [id]);
+
   async function download() {
     const { downloadToken } = await api<{ downloadToken: string }>(`/api/download-token/${id}`, { method: "POST" });
     window.location.href = `${API_URL}/api/download/${id}?dt=${encodeURIComponent(downloadToken)}`;
   }
 
   if (!authed) return <Navigate to="/login" replace />;
-  const meta = file.data;
 
   return (
     <main className="min-h-screen text-slate-100">
@@ -121,7 +129,23 @@ export function FileViewer() {
           {!src || !meta ? <Empty icon={FileText} title="Preparing preview" detail="Creating a short-lived private media link." /> : null}
           {src && meta && kind === "video" ? (
             <div className="bg-black p-3">
-              <video ref={mediaRef} className="h-[72vh] w-full rounded-xl bg-black" controls preload="metadata" playsInline src={src}>
+              {shouldTranscode ? (
+                <div className="mb-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                  Playing through browser-compatible transcode. Start-up can take a moment on the 1 GB server.
+                </div>
+              ) : null}
+              <video
+                key={shouldTranscode ? "transcode" : "native"}
+                ref={mediaRef}
+                className="h-[72vh] w-full rounded-xl bg-black"
+                controls
+                preload="metadata"
+                playsInline
+                src={videoSrc}
+                onError={() => {
+                  if (!shouldTranscode) setForceTranscode(true);
+                }}
+              >
                 {tracks.map((track, index) => <track key={track.id} kind="subtitles" label={track.name} src={track.src} default={index === 0} />)}
               </video>
             </div>
@@ -223,4 +247,10 @@ function Empty({ icon: Icon, title, detail, children }: { icon: typeof Video | t
       </div>
     </div>
   );
+}
+
+function needsTranscode(file: FileRow) {
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  const codec = file.codec_video?.toLowerCase();
+  return ["mkv", "avi", "flv", "wmv", "mpeg", "mpg"].includes(ext ?? "") || codec === "hevc" || codec === "h265";
 }

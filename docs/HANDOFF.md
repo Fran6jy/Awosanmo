@@ -158,6 +158,13 @@ single matching filename/size and repairs the stored path. This prevents a
 completed torrent from returning "File is not available yet" when WebTorrent's
 on-disk path differs from the stored row.
 
+Browser playback: `/api/stream/:id` still serves the original file for normal
+HTML5 playback and range requests. `/api/transcode/:id` uses ffmpeg to emit a
+fragmented MP4 (`H.264 + AAC`) for browser-hostile containers/codecs such as
+MKV/HEVC/DD5.1. The React viewer selects transcode automatically for MKV/AVI/FLV
+or after native playback errors. `MAX_TRANSCODES` defaults to `1` to protect the
+1 GB VM; a second transcode request returns 429 until the active one closes.
+
 Pause/resume behavior: pause is authoritative and sticky. The dashboard updates
 optimistically on the first click. The backend writes the row to `paused`, zeroes
 transfer speeds, calls WebTorrent pause when an active session exists, and
@@ -438,6 +445,9 @@ Two layers must both allow a port:
 - **Completed-file path healing:** download/stream/ZIP/probe now repair stale
   torrent file paths by matching the actual completed file inside the torrent
   folder, avoiding false "File is not available yet" responses.
+- **MKV/HEVC browser playback:** added `/api/transcode/:id` and automatic viewer
+  fallback for MKV/AVI/FLV/HEVC files; the file list shows "browser transcode"
+  instead of a raw probe `failed` label for these playable-but-not-native videos.
 - **Sticky pause/resume:** pause now updates on the first click in the dashboard,
   zeroes speeds, and cannot be overwritten back to downloading by later
   WebTorrent progress/metadata events; resume is explicit.
