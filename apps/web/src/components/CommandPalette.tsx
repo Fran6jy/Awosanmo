@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, File, Film, Gauge, Search, Server } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -49,9 +50,10 @@ export function CommandPalette() {
       <button onClick={() => setOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-stream">
         <Search className="h-4 w-4" /> Search <span className="rounded-md border border-line px-1.5 py-0.5 font-mono text-xs text-slate-400">Ctrl K</span>
       </button>
-      {open ? (
-        <div className="fixed inset-0 z-50 bg-black/60 px-4 pt-24" onMouseDown={() => setOpen(false)}>
-          <div className="mx-auto max-w-2xl overflow-hidden rounded-2xl glass" onMouseDown={(event) => event.stopPropagation()}>
+      {createPortal(
+        open ? (
+        <div className="scrim px-4 pt-24" onMouseDown={() => setOpen(false)}>
+          <div className="panel mx-auto max-w-2xl overflow-hidden" onMouseDown={(event) => event.stopPropagation()}>
             <div className="flex items-center gap-3 border-b border-line px-4">
               <Search className="h-5 w-5 text-stream" />
               <input
@@ -81,7 +83,9 @@ export function CommandPalette() {
             </div>
           </div>
         </div>
-      ) : null}
+        ) : null,
+        document.body
+      )}
     </>
   );
 }
