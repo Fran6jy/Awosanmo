@@ -208,6 +208,14 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
 ### Frontend routes and viewers
 - `/files` — dense Seedr-style file manager with folders, search, bulk actions,
   right-click context menus, and download/rename/delete actions.
+  - **Drag to move:** drag a file (or the whole current selection) onto a folder
+    row or the "Library" breadcrumb to move it. During a drag the entire list
+    accepts the drop (`dropEffect="move"`), so the cursor never flips to the red
+    not-allowed icon; folders highlight as drop zones, a custom indigo "Move N
+    files" ghost follows the cursor, and a bottom hint banner explains the action.
+    A drop only moves when it lands on a folder/breadcrumb; anywhere else cancels.
+  - **Delete confirmation:** every delete path (row button, context-menu Delete,
+    and the bulk Delete bar) opens a confirmation modal before removing files.
 - `/view/:id` — unified viewer. Supports video, audio, images, PDFs, text-like
   files, and EPUBs. EPUB rendering uses `epubjs`.
 - `/watch/:id` — compatibility route that now delegates to `/view/:id`.
@@ -226,9 +234,12 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
   `document.documentElement.dataset.theme` before React renders.
 - Typography uses Plus Jakarta Sans across the app.
 - Shared utility classes keep controls consistent: `.btn-primary`, `.btn-ghost`,
-  `.icon-btn`, `.field`, `.chip`, and `.card`.
+  `.btn-danger`, `.icon-btn`, `.field`, `.chip`, and `.card`.
 - Surfaces use translucent glass, backdrop blur, hairline borders, soft depth
   shadows, and custom dark scrollbars.
+- **Floating overlays** (modals, dropdowns, the right-click menu) use the opaque
+  `.panel` surface + `.scrim` backdrop rather than translucent glass, so content
+  underneath never bleeds through. Use `.panel`/`.scrim` for any new overlay.
 - Sidebar is reduced to three main nav items: Dashboard, Files, and System, with
   active-route highlighting and a gradient logo.
 - Dashboard has no Recent files panel. It uses elevated stat cards, a clean
@@ -402,6 +413,12 @@ Two layers must both allow a port:
   design system using Plus Jakarta Sans, near-black surfaces, indigo accent,
   glass cards, refined scrollbars, reusable component classes, simplified
   sidebar navigation, dashboard stat cards, and cleaned System runtime layout.
+- **Overlay + file-manager interaction pass:** made all floating overlays opaque
+  (`.panel`/`.scrim`) so the right-click menu/modals no longer show content
+  bleeding through; added drag-a-file-onto-a-folder moves with clear affordances
+  (list-wide `dropEffect=move` to kill the not-allowed cursor, folder drop-zone
+  highlights, a "Move N files" ghost, and a hint banner); and added a delete
+  confirmation modal across all delete paths.
 - **Light theme + themed viewer:** added a persistent dark/light toggle and
   updated the file viewer so image/PDF/text/audio/EPUB pages use the shared
   design system instead of the old light-only preview shell.
@@ -453,14 +470,14 @@ Resource-dependent (free software, but heavy on a 1 vCPU / 1 GB VM):
 
 Nice-to-have:
 - Nested-folder move picker as a tree (currently a flat list).
-- Drag-and-drop into folders.
 - Remote URL / FTP / SFTP fetch, cloud-storage integrations, share links, RSS,
   plugin architecture (see the original spec).
 
 Done since the first handoff: wishlist, refresh tokens, multi-user isolation,
 2FA, OpenAPI docs, automated tests, file previews, EPUB reader, clipboard
 auto-paste, header storage quota, premium dark redesign, light theme toggle,
-low-cost fast magnet mode, Seedr-style completion cleanup.
+low-cost fast magnet mode, Seedr-style completion cleanup, opaque overlays,
+drag-and-drop into folders, and a delete confirmation modal.
 
 ---
 

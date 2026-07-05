@@ -29,10 +29,13 @@ RAM box (the Oracle Cloud Free Tier in particular).
   playback, image/PDF/text previews, and an in-browser EPUB reader.
 - **Files** — upload any file (streamed to disk), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/
-  rename/delete/move with breadcrumbs), and **right-click context menus**.
+  rename/delete/move with breadcrumbs), **right-click context menus**,
+  **drag-and-drop into folders**, and a **delete confirmation** on every path.
 - **Seedr-style workflow** — click the magnet box to auto-fill a clipboard magnet
-  link over HTTPS, header storage quota bar, dense file-manager list view, and
-  completed uploads kept out of active torrent controls.
+  link over HTTPS, header storage quota bar, dense file-manager list view, drag a
+  file onto a folder to move it (with clear drop-zone highlighting and a move
+  cursor, never the not-allowed icon), and completed uploads kept out of active
+  torrent controls.
 - **Low-cost fast mode** — magnets appear in the dashboard immediately, duplicate
   same-user magnets/info-hashes reuse the existing torrent row, and metadata
   continues resolving in the background without storing a giant shared cache.
@@ -196,7 +199,7 @@ static frontend can be deployed there, pointed at your VPS API via
 Implemented: multi-user isolation + open sign-up, refresh tokens, TOTP 2FA,
 wishlist, torrent engine (magnet + `.torrent`), Seedr-style clipboard auto-paste,
 streaming, uploads, file manager (search/rename/delete/bulk/ZIP/folders/
-context-menus), video/audio/image/PDF/text/EPUB viewing, themed file previews,
+context-menus/drag-to-folder/delete-confirm), video/audio/image/PDF/text/EPUB viewing, themed file previews,
 header storage quota, low-cost fast magnet mode, premium dark/light redesign,
 automatic completion cleanup, live per-user updates, media probing, OpenAPI docs,
 automated tests, deploy tooling.
