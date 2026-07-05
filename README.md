@@ -21,7 +21,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
   Authy) enrolled via QR.
 - **Torrent engine** — magnet links & `.torrent` uploads, live peers/seeds/ETA/
   speeds, pause/resume/reannounce, sequential download for streaming, session
-  persistence + restore after restart, crash-safe error handling.
+  persistence + restore after restart, crash-safe error handling, and
+  Seedr-style auto-stop when downloads complete.
 - **Wishlist** — save magnets to add to downloads later (header star + panel).
 - **Streaming + previews** — HTTP range requests / 206 partial content, fast seek,
   no full buffering, token-authenticated per file, video resume position, audio
@@ -35,6 +36,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
 - **Low-cost fast mode** — magnets appear in the dashboard immediately, duplicate
   same-user magnets/info-hashes reuse the existing torrent row, and metadata
   continues resolving in the background without storing a giant shared cache.
+- **Completion cleanup** — when a torrent reaches 100%, Awosanmo marks it
+  completed, stops the seeding session, and leaves the files available in Files.
 - **Real-time UI** — Socket.IO pushes torrent progress live; toast + desktop
   notifications on completion.
 - **Media metadata** — `ffprobe` extracts resolution, codec, duration, bitrate,
@@ -192,8 +195,8 @@ wishlist, torrent engine (magnet + `.torrent`), Seedr-style clipboard auto-paste
 streaming, uploads, file manager (search/rename/delete/bulk/ZIP/folders/
 context-menus), video/audio/image/PDF/text/EPUB viewing, themed file previews,
 header storage quota, low-cost fast magnet mode, premium dark/light redesign,
-live per-user updates, media probing, OpenAPI docs, automated tests, deploy
-tooling.
+automatic completion cleanup, live per-user updates, media probing, OpenAPI docs,
+automated tests, deploy tooling.
 
 Fast mode is deliberately cheap: it improves perceived speed with optimistic UI,
 immediate socket publication, and same-user duplicate reuse. It does **not** keep

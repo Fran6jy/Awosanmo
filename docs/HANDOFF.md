@@ -146,6 +146,11 @@ using the refresh token (30d), which is whitelisted in the DB for revocation.
 - `POST /api/torrents/files/:fileId/probe` — queue media probe
 - `DELETE /api/torrents/:id?destroy=true|false`
 
+Completed torrent behavior: when WebTorrent reports `done`, or progress reaches
+`>= 0.999`, the backend marks the row `completed`, zeroes transfer speeds, stops
+the active torrent with `destroyStore: false`, and leaves files on disk for the
+library/viewer. Completed rows are not restored for seeding on app restart.
+
 ### Files
 - `GET /api/files?q=<search>&folderId=root|<id>`
 - `GET /api/files/:id` — file metadata for the preview route
@@ -202,6 +207,8 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
 - `/watch/:id` — compatibility route that now delegates to `/view/:id`.
 - Dashboard hides the `local-uploads` pseudo-torrent, so direct uploads do not
   appear with pause/reannounce controls after they complete.
+- Dashboard hides completed torrent rows from the active Downloads panel; the
+  downloaded files remain available under `/files`.
 - Dashboard uses optimistic magnet rows, so a new magnet appears as "Fetching
   metadata" immediately instead of waiting for the next poll/socket tick.
 
@@ -395,6 +402,9 @@ Two layers must both allow a port:
 - **Low-cost fast magnet mode:** magnet submits now feel instant via optimistic
   dashboard rows, immediate Socket.IO publication, and same-user duplicate
   magnet/info-hash reuse. This does not create a large Seedr-style shared cache.
+- **Seedr-style completion cleanup:** torrents now auto-finalize at completion,
+  stop seeding while preserving downloaded files, and disappear from active
+  dashboard transfers.
 - **Seedr-style UX pass:** dense file table, fixed dashboard overflow, header
   storage quota, and click-to-auto-paste magnet behavior over HTTPS.
 - **Unified file viewer:** added `/view/:id` for video, audio, image, PDF, text,
@@ -441,7 +451,7 @@ Nice-to-have:
 Done since the first handoff: wishlist, refresh tokens, multi-user isolation,
 2FA, OpenAPI docs, automated tests, file previews, EPUB reader, clipboard
 auto-paste, header storage quota, premium dark redesign, light theme toggle,
-low-cost fast magnet mode.
+low-cost fast magnet mode, Seedr-style completion cleanup.
 
 ---
 

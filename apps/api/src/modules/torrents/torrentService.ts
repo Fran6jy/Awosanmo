@@ -117,6 +117,11 @@ export class TorrentService {
   }
 
   restore() {
+    db.prepare(`
+      UPDATE torrents
+      SET status = 'completed', progress = 1, download_speed = 0, updated_at = CURRENT_TIMESTAMP
+      WHERE progress >= 0.999 AND status NOT IN ('completed', 'paused', 'error')
+    `).run();
     const rows = db.prepare("SELECT id, magnet_uri, status FROM torrents WHERE status != ? ORDER BY created_at").all("completed") as any[];
     for (const row of rows) {
       if (row.status === "paused") continue;
@@ -280,9 +285,7 @@ export class TorrentService {
     torrent.on("download", () => this.update(id, torrent));
     torrent.on("upload", () => this.update(id, torrent));
     torrent.on("done", () => {
-      this.update(id, torrent, "completed");
-      const ownerId = this.ownerOf(id);
-      if (ownerId) this.notifyUser(ownerId, "notification", { type: "success", title: "Torrent completed", body: torrent.name });
+      this.completeTorrent(id, torrent);
     });
     torrent.on("error", (error: Error) => {
       logger.error({ error, id }, "Torrent error");
@@ -298,10 +301,37 @@ export class TorrentService {
   }
 
   private update(id: string, torrent: Torrent, status = "downloading") {
+    if (status !== "completed" && torrent.progress >= 0.999) {
+      this.completeTorrent(id, torrent);
+      return;
+    }
     db.prepare(`UPDATE torrents SET progress = ?, download_speed = ?, upload_speed = ?,
       downloaded = ?, uploaded = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
       torrent.progress, torrent.downloadSpeed, torrent.uploadSpeed, torrent.downloaded, torrent.uploaded, status, id,
     );
+  }
+
+  private completeTorrent(id: string, torrent: Torrent) {
+    const alreadyCompleted = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
+    db.prepare(`UPDATE torrents SET progress = ?, download_speed = 0, upload_speed = 0,
+      downloaded = ?, uploaded = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
+      1, torrent.downloaded, torrent.uploaded, "completed", id,
+    );
+    const ownerId = this.ownerOf(id);
+    if (ownerId && alreadyCompleted?.status !== "completed") {
+      this.notifyUser(ownerId, "notification", { type: "success", title: "Torrent completed", body: torrent.name });
+    }
+    this.stopSeeding(id, torrent);
+    this.publishStats();
+  }
+
+  private stopSeeding(id: string, torrent: Torrent) {
+    this.active.delete(id);
+    try {
+      this.client.remove(torrent.infoHash, { destroyStore: false });
+    } catch (error) {
+      logger.warn({ error, id }, "Could not stop completed torrent");
+    }
   }
 
   /** Emit an event only to the sockets belonging to one user. */

@@ -105,7 +105,10 @@ export function Dashboard() {
       stored: storage.data?.used ?? rows.reduce((s, r) => s + r.size * r.progress, 0),
     };
   }, [storage.data?.used, torrents.data]);
-  const visibleTorrents = useMemo(() => (torrents.data ?? []).filter((t) => !t.id.startsWith("local-uploads")), [torrents.data]);
+  const visibleTorrents = useMemo(
+    () => (torrents.data ?? []).filter((t) => !t.id.startsWith("local-uploads") && t.status !== "completed"),
+    [torrents.data]
+  );
 
   if (!authed) return <Navigate to="/login" replace />;
 
