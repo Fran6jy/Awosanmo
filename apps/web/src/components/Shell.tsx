@@ -52,9 +52,9 @@ function AddMagnet() {
       <motion.button
         whileTap={{ scale: 0.98 }}
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-sm font-bold text-white shadow-sm transition hover:bg-accent2 focus:outline-none focus:ring-2 focus:ring-stream"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-4 text-sm font-bold text-white shadow-sm transition hover:bg-accent2 focus:outline-none focus:ring-2 focus:ring-stream sm:px-5"
       >
-        <Upload className="h-5 w-5" /> Add magnet
+        <Upload className="h-5 w-5" /> <span className="hidden sm:inline">Add magnet</span>
       </motion.button>
       {createPortal(
         <AnimatePresence>
@@ -123,7 +123,7 @@ function StorageQuota() {
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
 
   return (
-    <div className="min-w-0 rounded-xl border border-line bg-white/5 px-3 py-2 md:w-64">
+    <div className="order-last w-full min-w-0 rounded-xl border border-line bg-white/5 px-3 py-2 sm:order-none sm:w-52 md:w-64">
       <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
         <span className="inline-flex items-center gap-2 font-medium"><HardDrive className="h-4 w-4 text-stream" /> Storage</span>
         <span className="shrink-0 font-mono text-slate-400">{formatBytes(used)} / {formatBytes(total)}</span>
@@ -171,15 +171,45 @@ function Sidebar() {
   );
 }
 
+function MobileNav() {
+  const { pathname } = useLocation();
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-white/10 bg-panel/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
+      {NAV.map(({ icon: Icon, href, label }) => {
+        const active = isActive(href);
+        return (
+          <Link key={href} to={href} className={`flex min-h-[60px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition ${active ? "text-accent2" : "text-slate-400"}`}>
+            <Icon className="h-5 w-5" />
+            {label}
+          </Link>
+        );
+      })}
+      <button onClick={() => logout()} className="flex min-h-[60px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-400 transition active:text-rose-400" aria-label="Log out">
+        <LogOut className="h-5 w-5" />
+        Log out
+      </button>
+    </nav>
+  );
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen overflow-x-hidden">
       <Sidebar />
-      <main className="min-w-0 px-4 py-4 lg:ml-28 lg:max-w-[calc(100vw-8rem)] lg:pr-6">
-        <header className="glass mb-5 flex flex-col gap-4 rounded-2xl p-4 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-accent2">Awosanmo Private Cloud</p>
-            <h1 className="mt-0.5 max-w-2xl text-2xl font-extrabold tracking-tight text-white md:text-[28px]">Your private cloud workspace</h1>
+      <MobileNav />
+      {/* Bottom padding on mobile keeps content clear of the fixed bottom nav. */}
+      <main className="min-w-0 px-3 pb-24 pt-3 sm:px-4 sm:pt-4 lg:ml-28 lg:max-w-[calc(100vw-8rem)] lg:pb-6 lg:pr-6">
+        <header className="glass mb-4 flex flex-col gap-3 rounded-2xl p-4 sm:mb-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            {/* Compact logo shows on mobile where the sidebar is hidden. */}
+            <Link to="/" aria-label="Awosanmo" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-accent to-violet shadow-glow lg:hidden">
+              <Cloud className="h-5 w-5 text-white" />
+            </Link>
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-accent2 sm:text-[11px]">Awosanmo Private Cloud</p>
+              <h1 className="mt-0.5 truncate text-xl font-extrabold tracking-tight text-white sm:text-2xl md:text-[28px]">Your private cloud</h1>
+            </div>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <StorageQuota />

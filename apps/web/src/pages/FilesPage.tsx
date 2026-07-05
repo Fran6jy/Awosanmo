@@ -300,21 +300,21 @@ export function FilesPage() {
           ))}
           {/* Files */}
           {rows.map((file) => (
-            <article key={file.id} draggable onDragStart={(e) => onFileDragStart(e, file)} onDragEnd={onFileDragEnd} onContextMenu={(e) => openFileMenu(e, file)} className={`grid min-w-0 cursor-grab gap-3 px-4 py-3 transition active:cursor-grabbing md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-accent/10" : "hover:bg-white/5"}`}>
-              <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
-              <div className="flex min-w-0 items-center gap-3">
+            <article key={file.id} draggable onDragStart={(e) => onFileDragStart(e, file)} onDragEnd={onFileDragEnd} onContextMenu={(e) => openFileMenu(e, file)} className={`flex min-w-0 cursor-grab items-center gap-3 px-3 py-3 transition active:cursor-grabbing sm:px-4 md:grid md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-accent/10" : "hover:bg-white/5"}`}>
+              <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 shrink-0 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <FileGlyph file={file} />
                 <div className="min-w-0">
                   {canPreview(file) ? <Link to={`/view/${file.id}`} className="block truncate font-semibold text-white transition hover:text-stream">{file.name}</Link> : <p className="truncate font-semibold text-white">{file.name}</p>}
-                  <p className="mt-1 truncate text-xs text-slate-400">{fileDetail(file)}</p>
+                  <p className="mt-1 truncate text-xs text-slate-400">{formatBytes(file.size)} · {fileDetail(file)}</p>
                 </div>
               </div>
               <span className="hidden text-sm capitalize text-slate-400 md:block">{previewKind(file)}</span>
               <span className="hidden font-mono text-sm text-slate-300 md:block">{formatBytes(file.size)}</span>
-              <div className="flex flex-wrap gap-1 md:justify-end">
-                {canPreview(file) ? <Link to={`/view/${file.id}`} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Open"><Eye className="h-4 w-4" /></Link> : null}
+              <div className="flex shrink-0 gap-1 md:justify-end">
+                {canPreview(file) ? <Link to={`/view/${file.id}`} className="hidden h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream sm:grid" aria-label="Open"><Eye className="h-4 w-4" /></Link> : null}
                 <button onClick={() => void downloadOne(file.id)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Download"><Download className="h-4 w-4" /></button>
-                <button onClick={() => setRenaming(file)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Rename"><Pencil className="h-4 w-4" /></button>
+                <button onClick={() => setRenaming(file)} className="hidden h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream sm:grid" aria-label="Rename"><Pencil className="h-4 w-4" /></button>
                 <button onClick={() => setConfirmDel({ ids: [file.id], label: file.name })} className="grid h-10 w-10 place-items-center rounded-lg text-rose-400 transition hover:bg-rose-500/10 focus:outline-none focus:ring-2 focus:ring-rose-500/40" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
               </div>
             </article>
