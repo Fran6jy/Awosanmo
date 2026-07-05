@@ -127,16 +127,80 @@ export function FileViewer() {
           {src && meta && kind === "pdf" ? <iframe title={meta.name} src={src} className="h-[78vh] w-full border-0" /> : null}
           {src && meta && kind === "text" ? <pre className="max-h-[78vh] overflow-auto whitespace-pre-wrap p-6 font-mono text-sm leading-6 text-slate-800">{text ?? "Loading text preview..."}</pre> : null}
           {src && meta && kind === "epub" ? (
-            <Empty icon={FileText} title="EPUB saved in your library" detail="Most browsers do not render EPUB files natively yet. Download it to open in your reader app.">
-              <button onClick={() => void download()} className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-slate-800">
-                <Download className="h-4 w-4" /> Download EPUB
-              </button>
-            </Empty>
+            <EpubReader src={src} title={meta.name} />
           ) : null}
           {src && meta && kind === "file" ? <Empty icon={FileText} title="Preview unavailable" detail="This file type can be downloaded from your library." /> : null}
         </div>
       </section>
     </main>
+  );
+}
+
+function EpubReader({ src, title }: { src: string; title: string }) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const bookRef = useRef<any>(null);
+  const renditionRef = useRef<any>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let disposed = false;
+    setReady(false);
+    setError("");
+    async function open() {
+      try {
+        const { default: epub } = await import("epubjs");
+        if (!hostRef.current || disposed) return;
+        hostRef.current.replaceChildren();
+        const book = epub(src, { openAs: "epub" });
+        const rendition = book.renderTo(hostRef.current, {
+          width: "100%",
+          height: "100%",
+          flow: "paginated",
+          spread: "auto",
+          manager: "default"
+        });
+        bookRef.current = book;
+        renditionRef.current = rendition;
+        await rendition.display();
+        if (!disposed) setReady(true);
+      } catch (e) {
+        if (!disposed) setError((e as Error).message || "Could not open EPUB.");
+      }
+    }
+    void open();
+    return () => {
+      disposed = true;
+      renditionRef.current?.destroy?.();
+      bookRef.current?.destroy?.();
+      renditionRef.current = null;
+      bookRef.current = null;
+    };
+  }, [src]);
+
+  function prev() {
+    renditionRef.current?.prev?.();
+  }
+
+  function next() {
+    renditionRef.current?.next?.();
+  }
+
+  return (
+    <div className="flex h-[78vh] flex-col bg-[#fbfaf7]">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+        <p className="truncate text-sm font-semibold text-slate-700">{title}</p>
+        <div className="flex gap-2">
+          <button onClick={prev} className="min-h-10 rounded-xl border border-line px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">Previous</button>
+          <button onClick={next} className="min-h-10 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-slate-800">Next</button>
+        </div>
+      </div>
+      <div className="relative min-h-0 flex-1">
+        {!ready && !error ? <div className="absolute inset-0 grid place-items-center text-sm text-slate-500">Opening EPUB...</div> : null}
+        {error ? <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-slate-500">{error}</div> : null}
+        <div ref={hostRef} className="h-full w-full px-4 py-5 md:px-10" />
+      </div>
+    </div>
   );
 }
 

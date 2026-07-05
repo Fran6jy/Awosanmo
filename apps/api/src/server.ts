@@ -39,7 +39,16 @@ torrentService.attach(io);
 torrentService.restore();
 mediaWorker.start();
 
-app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      "frame-src": ["'self'", "blob:"],
+      "child-src": ["'self'", "blob:"],
+      "img-src": ["'self'", "data:", "blob:"]
+    }
+  }
+}));
 app.use(cors({ origin: config.corsOrigin, credentials: true }));
 app.use(compression());
 const pinoHttp = pinoHttpImport as unknown as typeof import("pino-http").default;

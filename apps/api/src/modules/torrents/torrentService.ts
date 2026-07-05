@@ -8,6 +8,7 @@ import { db } from "../../db/schema.js";
 import { logger } from "../../logger.js";
 
 const videoExt = new Set([".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".mpeg", ".mpg"]);
+const audioExt = new Set([".aac", ".flac", ".m4a", ".mp3", ".oga", ".ogg", ".opus", ".wav", ".weba"]);
 
 /** Fixed pseudo-torrent that groups directly-uploaded files. */
 export const UPLOADS_ID = "local-uploads";
@@ -21,8 +22,8 @@ export function uploadsDir(): string {
 export function classifyFile(name: string): { kind: string; streamable: number; mimeType: string | null } {
   const ext = path.extname(name).toLowerCase();
   const mimeType = (mime.lookup(name) || null) as string | null;
-  const kind = videoExt.has(ext) ? "video" : mimeType?.split("/")[0] ?? "file";
-  return { kind, streamable: kind === "video" ? 1 : 0, mimeType };
+  const kind = videoExt.has(ext) ? "video" : audioExt.has(ext) ? "audio" : mimeType?.split("/")[0] ?? "file";
+  return { kind, streamable: kind === "video" || kind === "audio" ? 1 : 0, mimeType };
 }
 
 export class TorrentService {
@@ -139,9 +140,10 @@ export class TorrentService {
     this.ensureUploadsBucket();
     const { kind, streamable, mimeType } = classifyFile(meta.displayName);
     const fileId = crypto.randomUUID();
-    db.prepare(`INSERT INTO files (id, torrent_id, name, path, size, mime, media_kind, streamable)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(fileId, UPLOADS_ID, meta.displayName, meta.relativeName, meta.size, mimeType, kind, streamable);
+    const probeStatus = streamable ? "pending" : "ready";
+    db.prepare(`INSERT INTO files (id, torrent_id, name, path, size, mime, media_kind, streamable, probe_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(fileId, UPLOADS_ID, meta.displayName, meta.relativeName, meta.size, mimeType, kind, streamable, probeStatus);
 
     const total = db.prepare("SELECT COALESCE(SUM(size),0) AS s FROM files WHERE torrent_id = ?").get(UPLOADS_ID) as any;
     db.prepare("UPDATE torrents SET size = ?, downloaded = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
@@ -221,12 +223,11 @@ export class TorrentService {
         id
       );
       const insert = db.prepare(`INSERT OR IGNORE INTO files
-        (id, torrent_id, name, path, size, mime, media_kind, streamable)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+        (id, torrent_id, name, path, size, mime, media_kind, streamable, probe_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
       for (const file of torrent.files) {
-        const ext = path.extname(file.name).toLowerCase();
-        const kind = videoExt.has(ext) ? "video" : mime.lookup(file.name)?.toString().split("/")[0] ?? "file";
-        insert.run(crypto.randomUUID(), id, file.name, file.path, file.length, mime.lookup(file.name) || null, kind, kind === "video" ? 1 : 0);
+        const { kind, streamable, mimeType } = classifyFile(file.name);
+        insert.run(crypto.randomUUID(), id, file.name, file.path, file.length, mimeType, kind, streamable, streamable ? "pending" : "ready");
         if (kind === "video") file.select();
       }
       this.io?.emit("torrent:metadata", { id, name: torrent.name });

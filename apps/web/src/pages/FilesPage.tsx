@@ -239,7 +239,7 @@ export function FilesPage() {
                 <FileGlyph file={file} />
                 <div className="min-w-0">
                   {canPreview(file) ? <Link to={`/view/${file.id}`} className="block truncate font-semibold text-slate-900 transition hover:text-stream">{file.name}</Link> : <p className="truncate font-semibold text-slate-900">{file.name}</p>}
-                  <p className="mt-1 truncate text-xs text-slate-500">{[file.width && file.height ? `${file.width}x${file.height}` : null, file.codec_video?.toUpperCase(), formatDuration(file.duration), file.probe_status].filter(Boolean).join(" · ") || file.path}</p>
+                  <p className="mt-1 truncate text-xs text-slate-500">{fileDetail(file)}</p>
                 </div>
               </div>
               <span className="hidden text-sm capitalize text-slate-500 md:block">{previewKind(file)}</span>
@@ -277,6 +277,15 @@ export function FilesPage() {
       ) : null}
     </Shell>
   );
+}
+
+function fileDetail(file: FileRow) {
+  const probe = (file.media_kind === "video" || file.media_kind === "audio") && file.probe_status && !["ready", "pending"].includes(file.probe_status)
+    ? file.probe_status
+    : null;
+  return [file.width && file.height ? `${file.width}x${file.height}` : null, file.codec_video?.toUpperCase(), formatDuration(file.duration), probe]
+    .filter(Boolean)
+    .join(" · ") || file.path;
 }
 
 function FileGlyph({ file }: { file: FileRow }) {

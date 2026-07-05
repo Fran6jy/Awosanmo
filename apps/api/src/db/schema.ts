@@ -75,6 +75,15 @@ export function migrate() {
   addColumn("files", "audio_tracks", "INTEGER NOT NULL DEFAULT 0");
   addColumn("files", "subtitle_tracks", "INTEGER NOT NULL DEFAULT 0");
   addColumn("files", "probed_at", "TEXT");
+  db.exec(`
+    UPDATE files
+    SET streamable = 1, probe_status = 'pending'
+    WHERE media_kind = 'audio' AND streamable = 0;
+
+    UPDATE files
+    SET probe_status = 'ready'
+    WHERE streamable = 0 AND probe_status = 'pending';
+  `);
 }
 
 function addColumn(table: string, column: string, definition: string) {

@@ -100,6 +100,7 @@ export function Dashboard() {
       stored: storage.data?.used ?? rows.reduce((sum, row) => sum + row.size * row.progress, 0)
     };
   }, [storage.data?.used, torrents.data]);
+  const visibleTorrents = useMemo(() => (torrents.data ?? []).filter((torrent) => torrent.id !== "local-uploads"), [torrents.data]);
 
   if (!authed) return <Navigate to="/login" replace />;
 
@@ -134,21 +135,26 @@ export function Dashboard() {
             </div>
           )}
           <div className="mt-5 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-line">
-            {(torrents.data ?? []).map((torrent) => (
+            {visibleTorrents.map((torrent) => (
               <article key={torrent.id} className="bg-white p-4 transition hover:bg-slate-50">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><Link to={`/torrents/${torrent.id}`} className="block truncate font-semibold text-slate-950 transition hover:text-stream">{torrent.name}</Link><p className="text-sm text-slate-500">{torrent.status} · {fmt(torrent.download_speed)}/s · {Math.round(torrent.progress * 100)}%</p></div>
                   <div className="flex gap-2">
-                    <button aria-label={torrent.status === "paused" ? "Resume" : "Pause"} onClick={() => action.mutate({ id: torrent.id, kind: torrent.status === "paused" ? "resume" : "pause" })} className="h-10 w-10 rounded-lg text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-stream">
-                      {torrent.status === "paused" ? <Play className="mx-auto h-4 w-4" /> : <Pause className="mx-auto h-4 w-4" />}
-                    </button>
-                    <button aria-label="Reannounce" onClick={() => action.mutate({ id: torrent.id, kind: "reannounce" })} className="h-10 w-10 rounded-lg text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-stream"><RefreshCw className="mx-auto h-4 w-4" /></button>
+                    {torrent.status !== "completed" ? (
+                      <>
+                        <button aria-label={torrent.status === "paused" ? "Resume" : "Pause"} onClick={() => action.mutate({ id: torrent.id, kind: torrent.status === "paused" ? "resume" : "pause" })} className="h-10 w-10 rounded-lg text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-stream">
+                          {torrent.status === "paused" ? <Play className="mx-auto h-4 w-4" /> : <Pause className="mx-auto h-4 w-4" />}
+                        </button>
+                        <button aria-label="Reannounce" onClick={() => action.mutate({ id: torrent.id, kind: "reannounce" })} className="h-10 w-10 rounded-lg text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-stream"><RefreshCw className="mx-auto h-4 w-4" /></button>
+                      </>
+                    ) : null}
                     <button aria-label="Delete" onClick={() => action.mutate({ id: torrent.id, kind: "delete" })} className="h-10 w-10 rounded-lg text-red-500 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-stream"><Trash2 className="mx-auto h-4 w-4" /></button>
                   </div>
                 </div>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-stream" style={{ width: `${Math.round(torrent.progress * 100)}%` }} /></div>
               </article>
             ))}
+            {!visibleTorrents.length ? <div className="bg-white p-6 text-center text-sm text-slate-500">No active torrents. Uploaded files live in Recent files and the Files library.</div> : null}
           </div>
         </div>
         <div className="min-w-0 rounded-2xl p-5 glass">
