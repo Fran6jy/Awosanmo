@@ -46,6 +46,9 @@ RAM box (the Oracle Cloud Free Tier in particular).
   and a Vitest suite (auth, refresh, 2FA, isolation) run in CI.
 - **Low-memory by design** — Node streams end-to-end, `--max-old-space-size=384`,
   WAL SQLite with a small page cache, capped torrent connections.
+- **Background resilience** — production runs as a detached Docker Compose
+  service with `restart: unless-stopped`, so crashes/OOM exits are restarted by
+  Docker without an SSH login.
 
 ---
 
@@ -168,6 +171,9 @@ static frontend can be deployed there, pointed at your VPS API via
 
 - **Monitoring:** `GET /health`, `GET /api/stats` (memory/uptime/torrent count),
   `GET /api/storage` (used/available). Container has a Docker healthcheck.
+- **Runtime supervision:** production uses Docker Compose, not PM2. The
+  `restart: unless-stopped` policy restarts the container after a crash or OOM
+  exit; healthcheck failures are visible but do not by themselves restart Docker.
 - **Logs:** structured JSON via pino (`docker logs`), plus nginx access/error logs.
 - **Backups:** `deploy/backup.sh` + `awosanmo-backup.timer` snapshot the SQLite DB.
   Downloaded media is re-downloadable and not backed up by default.
@@ -188,6 +194,10 @@ context-menus), video/audio/image/PDF/text/EPUB viewing, themed file previews,
 header storage quota, low-cost fast magnet mode, premium dark/light redesign,
 live per-user updates, media probing, OpenAPI docs, automated tests, deploy
 tooling.
+
+Fast mode is deliberately cheap: it improves perceived speed with optimistic UI,
+immediate socket publication, and same-user duplicate reuse. It does **not** keep
+a large shared Seedr-style cache of other users' torrents.
 
 Not yet built: **OAuth** (blocked on a domain for a stable redirect URL),
 thumbnails/posters, on-the-fly transcoding (heavy on 1 GB RAM), remote URL/FTP

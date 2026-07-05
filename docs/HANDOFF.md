@@ -67,6 +67,10 @@ Browser ──HTTP:80──> nginx ──> 127.0.0.1:4000 (Docker container)
   `/var/lib/awosanmo/downloads/<torrent-id>/`.
 - Memory kept low: Node `--max-old-space-size=384`, streams everywhere, capped
   torrent connections, small SQLite page cache.
+- Runtime supervision is Docker Compose, not PM2. `restart: unless-stopped`
+  restarts the app container after an actual process/container crash or OOM
+  exit. The Docker healthcheck marks bad states as unhealthy; it does not restart
+  the container by itself.
 
 ---
 
@@ -272,6 +276,22 @@ sudo docker compose -f docker-compose.prod.yml restart
 sudo docker compose -f docker-compose.prod.yml down
 ```
 
+### Crash / OOM recovery
+Production runs detached under Docker Compose with `restart: unless-stopped`.
+If the Node process exits, or the kernel kills the container for memory pressure,
+Docker should restart it automatically within a few seconds. Downloads and the
+SQLite database live on `/var/lib/awosanmo`, so they survive container restarts.
+
+Check restart/health state:
+```bash
+sudo docker inspect --format '{{.RestartCount}} {{.State.Status}} {{.State.Health.Status}}' awosanmo-awosanmo-1
+sudo docker logs --tail 100 awosanmo-awosanmo-1
+```
+
+Important caveat: Docker does not restart a container merely because its
+healthcheck says `unhealthy`. Add an external auto-heal/watchdog later if that
+behavior is required.
+
 ### Change the admin password
 The admin is seeded **once**. To reset it, delete **only the admin row** (never
 `DELETE FROM users` — that wipes every account now that it's multi-user), set a
@@ -321,6 +341,10 @@ Two layers must both allow a port:
   prompt for copy links; skips notifications/clipboard read when unsupported).
 - **Large uploads via the tunnel** are capped ~100 MB by Cloudflare's free plan.
   Use the direct IP (nginx has no size cap) or a paid Cloudflare plan for big files.
+- **Fast mode is not a Seedr shared cache.** It costs almost no extra storage:
+  optimistic rows, immediate Socket.IO publication, and same-user duplicate
+  magnet/info-hash reuse. Instant access to uncached public torrents still
+  depends on swarm health, trackers, DHT, and the 1 GB VM's network/CPU/RAM.
 - **Docker workspace deps.** Some npm deps (e.g. `archiver`) are not hoisted to
   the root `node_modules`; the Dockerfile explicitly copies `apps/api/node_modules`.
   If you add a dep that lands there, that copy already covers it.
