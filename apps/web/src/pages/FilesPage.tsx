@@ -26,6 +26,9 @@ export function FilesPage() {
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const [confirmDel, setConfirmDel] = useState<{ ids: string[]; label: string } | null>(null);
+  const [dropFolder, setDropFolder] = useState<string | null>(null);
+  const dragIds = useRef<string[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
   const searching = query.trim().length > 0;
@@ -102,7 +105,7 @@ export function FilesPage() {
       { label: "Rename", icon: Pencil, onClick: () => setRenaming(file) },
       { label: "Move to folder…", icon: FolderInput, onClick: () => setMoveIds([file.id]) },
       "divider",
-      { label: "Delete", icon: Trash2, danger: true, onClick: () => remove.mutate(file.id) },
+      { label: "Delete", icon: Trash2, danger: true, onClick: () => setConfirmDel({ ids: [file.id], label: file.name }) },
     );
     setMenu({ x: e.clientX, y: e.clientY, items });
   }
@@ -151,6 +154,28 @@ export function FilesPage() {
     setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   }
 
+  // Drag a file (or the whole selection if the dragged file is selected) onto a folder.
+  function onFileDragStart(e: React.DragEvent, file: FileRow) {
+    const ids = selected.has(file.id) && selected.size > 0 ? Array.from(selected) : [file.id];
+    dragIds.current = ids;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", ids.join(","));
+  }
+  function onFolderDrop(e: React.DragEvent, target: string | null) {
+    e.preventDefault();
+    setDropFolder(null);
+    const raw = dragIds.current.length ? dragIds.current : (e.dataTransfer.getData("text/plain").split(",").filter(Boolean));
+    dragIds.current = [];
+    if (raw.length) move.mutate({ ids: raw, target });
+  }
+  // Run a delete after confirmation (single file via remove, multiple via bulk).
+  function runConfirmedDelete() {
+    if (!confirmDel) return;
+    if (confirmDel.ids.length === 1) remove.mutate(confirmDel.ids[0]!);
+    else bulkDelete.mutate(confirmDel.ids);
+    setConfirmDel(null);
+  }
+
   if (!authed) return <Navigate to="/login" replace />;
 
   return (
@@ -180,7 +205,13 @@ export function FilesPage() {
         {/* Breadcrumb */}
         {!searching && (
           <nav className="mt-4 flex flex-wrap items-center gap-1 text-sm text-slate-400">
-            <button onClick={() => setFolderId("root")} className="flex items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white"><Home className="h-4 w-4" /> Library</button>
+            <button
+              onClick={() => setFolderId("root")}
+              onDragOver={(e) => { e.preventDefault(); setDropFolder("root"); }}
+              onDragLeave={() => setDropFolder((cur) => (cur === "root" ? null : cur))}
+              onDrop={(e) => onFolderDrop(e, null)}
+              className={`flex items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white ${dropFolder === "root" ? "bg-accent/20 text-accent2 ring-1 ring-accent/50" : ""}`}
+            ><Home className="h-4 w-4" /> Library</button>
             {breadcrumb.map((f) => (
               <span key={f.id} className="flex items-center gap-1">
                 <ChevronRight className="h-4 w-4" />
@@ -202,7 +233,7 @@ export function FilesPage() {
             <div className="flex flex-wrap gap-2">
               <button onClick={() => downloadZip(Array.from(selected)).catch((e) => pushToast({ type: "error", title: "ZIP failed", body: (e as Error).message.slice(0, 120) }))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FileArchive className="h-4 w-4" /> Download ZIP</button>
               <button onClick={() => setMoveIds(Array.from(selected))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FolderInput className="h-4 w-4" /> Move</button>
-              <button onClick={() => bulkDelete.mutate(Array.from(selected))} disabled={bulkDelete.isPending} className="flex min-h-10 items-center gap-2 rounded-lg border border-red-400/40 px-3 text-sm text-red-200 transition hover:bg-red-500/10 disabled:opacity-50"><Trash2 className="h-4 w-4" /> Delete</button>
+              <button onClick={() => setConfirmDel({ ids: Array.from(selected), label: `${selected.size} file${selected.size === 1 ? "" : "s"}` })} disabled={bulkDelete.isPending} className="flex min-h-10 items-center gap-2 rounded-lg border border-rose-500/40 px-3 text-sm text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-50"><Trash2 className="h-4 w-4" /> Delete</button>
               <button onClick={() => setSelected(new Set())} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-slate-400 transition hover:bg-white/10"><X className="h-4 w-4" /> Clear</button>
             </div>
           )}
@@ -217,23 +248,30 @@ export function FilesPage() {
           <span>Size</span>
           <span className="text-right">Actions</span>
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-white/[0.06]">
           {/* Subfolders */}
           {!searching && subfolders.map((f) => (
-            <article key={f.id} onContextMenu={(e) => openFolderMenu(e, f)} className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition hover:bg-white/5 md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px]">
+            <article
+              key={f.id}
+              onContextMenu={(e) => openFolderMenu(e, f)}
+              onDragOver={(e) => { e.preventDefault(); setDropFolder(f.id); }}
+              onDragLeave={() => setDropFolder((cur) => (cur === f.id ? null : cur))}
+              onDrop={(e) => onFolderDrop(e, f.id)}
+              className={`grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] ${dropFolder === f.id ? "bg-accent/20 ring-1 ring-inset ring-accent/50" : "hover:bg-white/5"}`}
+            >
               <span />
               <button onClick={() => setFolderId(f.id)} className="flex min-w-0 items-center gap-3 text-left">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700"><Folder className="h-5 w-5" /></span>
-                <span className="truncate font-semibold text-white">{f.name}</span>
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400/15 text-amber-300"><Folder className="h-5 w-5" /></span>
+                <span className="truncate font-semibold text-white">{f.name}{dropFolder === f.id ? <span className="ml-2 text-xs font-medium text-accent2">Drop to move here</span> : null}</span>
               </button>
               <span className="hidden text-sm text-slate-400 md:block">Folder</span>
               <span className="hidden text-sm text-slate-400 md:block">--</span>
-              <button onClick={() => { if (confirm(`Delete folder "${f.name}"? Its files return to the library root.`)) deleteFolder.mutate(f.id); }} className="ml-auto grid h-10 w-10 place-items-center rounded-lg text-red-500 transition hover:bg-red-50" aria-label="Delete folder"><Trash2 className="h-4 w-4" /></button>
+              <button onClick={() => { if (confirm(`Delete folder "${f.name}"? Its files return to the library root.`)) deleteFolder.mutate(f.id); }} className="ml-auto grid h-10 w-10 place-items-center rounded-lg text-rose-400 transition hover:bg-rose-500/10" aria-label="Delete folder"><Trash2 className="h-4 w-4" /></button>
             </article>
           ))}
           {/* Files */}
           {rows.map((file) => (
-            <article key={file.id} onContextMenu={(e) => openFileMenu(e, file)} className={`grid min-w-0 gap-3 px-4 py-3 transition md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-emerald-50" : "hover:bg-white/5"}`}>
+            <article key={file.id} draggable onDragStart={(e) => onFileDragStart(e, file)} onContextMenu={(e) => openFileMenu(e, file)} className={`grid min-w-0 cursor-grab gap-3 px-4 py-3 transition active:cursor-grabbing md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-accent/10" : "hover:bg-white/5"}`}>
               <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
               <div className="flex min-w-0 items-center gap-3">
                 <FileGlyph file={file} />
@@ -248,7 +286,7 @@ export function FilesPage() {
                 {canPreview(file) ? <Link to={`/view/${file.id}`} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Open"><Eye className="h-4 w-4" /></Link> : null}
                 <button onClick={() => void downloadOne(file.id)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Download"><Download className="h-4 w-4" /></button>
                 <button onClick={() => setRenaming(file)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Rename"><Pencil className="h-4 w-4" /></button>
-                <button onClick={() => remove.mutate(file.id)} className="grid h-10 w-10 place-items-center rounded-lg text-red-500 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                <button onClick={() => setConfirmDel({ ids: [file.id], label: file.name })} className="grid h-10 w-10 place-items-center rounded-lg text-rose-400 transition hover:bg-rose-500/10 focus:outline-none focus:ring-2 focus:ring-rose-500/40" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
               </div>
             </article>
           ))}
@@ -262,15 +300,34 @@ export function FilesPage() {
       {/* Move modal */}
       {moveIds ? <MovePicker onClose={() => setMoveIds(null)} onPick={(target) => move.mutate({ ids: moveIds, target })} /> : null}
 
+      {/* Delete confirmation */}
+      {confirmDel ? (
+        <div className="scrim grid place-items-center px-4" onClick={() => setConfirmDel(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="panel w-full max-w-md p-6">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-500/15 text-rose-300"><Trash2 className="h-5 w-5" /></span>
+              <h2 className="text-lg font-bold text-white">Delete {confirmDel.ids.length === 1 ? "file" : `${confirmDel.ids.length} files`}?</h2>
+            </div>
+            <p className="mt-3 text-sm text-slate-400">
+              <span className="font-medium text-slate-200">{confirmDel.label}</span> will be permanently removed from your storage. This can’t be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setConfirmDel(null)} className="btn-ghost min-h-11">Cancel</button>
+              <button onClick={runConfirmedDelete} className="btn-danger min-h-11">Delete</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Rename modal */}
       {renaming ? (
-        <form onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); rename.mutate({ id: renaming.id, name: String(form.get("name") ?? "") }); }} className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4">
-          <div className="w-full max-w-md rounded-2xl p-5 glass">
-            <h2 className="text-xl font-bold">Rename file</h2>
-            <input name="name" defaultValue={renaming.name} className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white/[0.04] px-4 text-white outline-none focus:ring-2 focus:ring-stream" />
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setRenaming(null)} className="min-h-11 rounded-xl border border-line px-4 transition hover:bg-white/10">Cancel</button>
-              <button className="min-h-11 rounded-xl bg-accent px-4 font-bold text-white transition hover:bg-accent2">Save</button>
+        <form onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); rename.mutate({ id: renaming.id, name: String(form.get("name") ?? "") }); }} className="scrim grid place-items-center px-4">
+          <div className="panel w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-white">Rename file</h2>
+            <input name="name" defaultValue={renaming.name} autoFocus className="field mt-4" />
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setRenaming(null)} className="btn-ghost min-h-11">Cancel</button>
+              <button className="btn-primary min-h-11 px-5">Save</button>
             </div>
           </div>
         </form>
@@ -292,26 +349,26 @@ function FileGlyph({ file }: { file: FileRow }) {
   const kind = previewKind(file);
   const base = "grid h-10 w-10 shrink-0 place-items-center rounded-xl";
   if (kind === "video") return <span className={`${base} bg-emerald-500/15 text-emerald-300`}><Film className="h-5 w-5" /></span>;
-  if (kind === "audio") return <span className={`${base} bg-purple-100 text-purple-700`}><Music className="h-5 w-5" /></span>;
-  if (kind === "image") return <span className={`${base} bg-sky-100 text-sky-700`}><ImageIcon className="h-5 w-5" /></span>;
-  if (kind === "pdf" || kind === "epub" || kind === "text") return <span className={`${base} bg-rose-100 text-rose-700`}><FileText className="h-5 w-5" /></span>;
+  if (kind === "audio") return <span className={`${base} bg-violet/20 text-violet-300`}><Music className="h-5 w-5" /></span>;
+  if (kind === "image") return <span className={`${base} bg-sky-400/15 text-sky-300`}><ImageIcon className="h-5 w-5" /></span>;
+  if (kind === "pdf" || kind === "epub" || kind === "text") return <span className={`${base} bg-rose-400/15 text-rose-300`}><FileText className="h-5 w-5" /></span>;
   return <span className={`${base} bg-white/10 text-slate-300`}><FileArchive className="h-5 w-5" /></span>;
 }
 
 function MovePicker({ onClose, onPick }: { onClose: () => void; onPick: (target: string | null) => void }) {
   const all = useQuery({ queryKey: ["folders", "all"], queryFn: () => api<FolderList>("/api/folders?all=1") });
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl p-5 glass">
-        <h2 className="text-xl font-bold">Move to folder</h2>
+    <div className="scrim grid place-items-center px-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="panel w-full max-w-md p-5">
+        <h2 className="text-lg font-bold text-white">Move to folder</h2>
         <div className="mt-4 max-h-72 space-y-1 overflow-auto">
-          <button onClick={() => onPick(null)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/10"><Home className="h-4 w-4" /> Library root</button>
+          <button onClick={() => onPick(null)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-200 transition hover:bg-white/10"><Home className="h-4 w-4" /> Library root</button>
           {(all.data?.folders ?? []).map((f) => (
-            <button key={f.id} onClick={() => onPick(f.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-white/10"><Folder className="h-4 w-4 text-violet-300" /> {f.name}</button>
+            <button key={f.id} onClick={() => onPick(f.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-200 transition hover:bg-white/10"><Folder className="h-4 w-4 text-amber-300" /> {f.name}</button>
           ))}
           {!all.data?.folders.length ? <p className="px-3 py-2 text-sm text-slate-400">No folders yet. Create one first.</p> : null}
         </div>
-        <div className="mt-4 flex justify-end"><button onClick={onClose} className="min-h-11 rounded-xl border border-line px-4 transition hover:bg-white/10">Cancel</button></div>
+        <div className="mt-4 flex justify-end"><button onClick={onClose} className="btn-ghost min-h-11">Cancel</button></div>
       </div>
     </div>
   );

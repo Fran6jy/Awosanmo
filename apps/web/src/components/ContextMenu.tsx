@@ -49,7 +49,7 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
       transition={{ duration: 0.1 }}
       style={{ left: pos.x, top: pos.y }}
       onClick={(e) => e.stopPropagation()}
-      className="fixed z-[60] min-w-52 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] p-1 shadow-2xl shadow-slate-950/10"
+      className="panel fixed z-[60] min-w-56 overflow-hidden p-1.5"
     >
       {items.map((item, i) =>
         item === "divider" ? (
@@ -59,7 +59,7 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
             key={i}
             disabled={item.disabled}
             onClick={() => { item.onClick(); onClose(); }}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition disabled:opacity-40 ${item.danger ? "text-rose-300 hover:bg-rose-50" : "text-slate-200 hover:bg-white/10"}`}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition disabled:opacity-40 ${item.danger ? "text-rose-300 hover:bg-rose-500/15" : "text-slate-200 hover:bg-white/10"}`}
           >
             <item.icon className="h-4 w-4 shrink-0" />
             {item.label}
