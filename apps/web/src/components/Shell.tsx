@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Activity, Cloud, Files, Gauge, HardDrive, LogOut, Search, Settings, Upload, X } from "lucide-react";
+import { Cloud, Files, HardDrive, LayoutGrid, LogOut, Server, Upload, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CommandPalette } from "./CommandPalette";
 import { Wishlist } from "./Wishlist";
@@ -45,7 +45,7 @@ function AddMagnet() {
       <motion.button
         whileTap={{ scale: 0.98 }}
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-stream"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-sm font-bold text-white shadow-sm transition hover:bg-accent2 focus:outline-none focus:ring-2 focus:ring-stream"
       >
         <Upload className="h-5 w-5" /> Add magnet
       </motion.button>
@@ -68,11 +68,11 @@ function AddMagnet() {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">Add a magnet link</h2>
-                <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-950" aria-label="Close">
+                <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-1 text-slate-400 transition hover:bg-white/10 hover:text-white" aria-label="Close">
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <p className="mt-1 text-sm text-slate-500">Paste a magnet URI and Awosanmo joins the swarm on your server.</p>
+              <p className="mt-1 text-sm text-slate-400">Paste a magnet URI and Awosanmo joins the swarm on your server.</p>
               <input
                 autoFocus
                 value={magnet}
@@ -80,14 +80,14 @@ function AddMagnet() {
                 onFocus={autoPasteMagnet}
                 onClick={autoPasteMagnet}
                 placeholder="magnet:?xt=urn:btih:…"
-                className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white px-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream"
+                className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white/[0.04] px-4 text-white outline-none focus:ring-2 focus:ring-stream"
               />
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <button type="button" onClick={() => setOpen(false)} className="min-h-11 rounded-xl border border-line px-4 text-slate-700 transition hover:bg-slate-100">Cancel</button>
-                <button type="button" onClick={() => saveForLater.mutate()} disabled={saveForLater.isPending || !magnet.trim().startsWith("magnet:")} className="min-h-11 rounded-xl border border-line px-4 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="button" onClick={() => setOpen(false)} className="min-h-11 rounded-xl border border-line px-4 text-slate-200 transition hover:bg-white/10">Cancel</button>
+                <button type="button" onClick={() => saveForLater.mutate()} disabled={saveForLater.isPending || !magnet.trim().startsWith("magnet:")} className="min-h-11 rounded-xl border border-line px-4 font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
                   Save for later
                 </button>
-                <button disabled={add.isPending || !magnet.trim().startsWith("magnet:")} className="min-h-11 rounded-xl bg-slate-950 px-5 font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50">
+                <button disabled={add.isPending || !magnet.trim().startsWith("magnet:")} className="min-h-11 rounded-xl bg-accent px-5 font-bold text-white transition hover:bg-accent2 disabled:cursor-not-allowed disabled:opacity-50">
                   {add.isPending ? "Adding…" : "Join swarm"}
                 </button>
               </div>
@@ -113,45 +113,63 @@ function StorageQuota() {
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
 
   return (
-    <div className="min-w-0 rounded-xl border border-line bg-slate-50 px-3 py-2 md:w-64">
-      <div className="flex items-center justify-between gap-3 text-xs text-slate-600">
+    <div className="min-w-0 rounded-xl border border-line bg-white/5 px-3 py-2 md:w-64">
+      <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
         <span className="inline-flex items-center gap-2 font-medium"><HardDrive className="h-4 w-4 text-stream" /> Storage</span>
-        <span className="shrink-0 font-mono text-slate-500">{formatBytes(used)} / {formatBytes(total)}</span>
+        <span className="shrink-0 font-mono text-slate-400">{formatBytes(used)} / {formatBytes(total)}</span>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
         <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${pct}%` }} />
       </div>
-      <p className="mt-1 truncate text-xs text-slate-500">{storage.isLoading ? "Checking disk..." : `${formatBytes(available)} free`}</p>
+      <p className="mt-1 truncate text-xs text-slate-400">{storage.isLoading ? "Checking disk..." : `${formatBytes(available)} free`}</p>
     </div>
+  );
+}
+
+const NAV: { icon: typeof Files; href: string; label: string }[] = [
+  { icon: LayoutGrid, href: "/", label: "Dashboard" },
+  { icon: Files, href: "/files", label: "Files" },
+  { icon: Server, href: "/system", label: "System" },
+];
+
+function Sidebar() {
+  const { pathname } = useLocation();
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  return (
+    <aside className="fixed inset-y-4 left-4 z-20 hidden w-[68px] flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] py-4 backdrop-blur-xl lg:flex">
+      <Link to="/" aria-label="Awosanmo dashboard" className="mb-2 grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-accent to-violet shadow-glow">
+        <Cloud className="h-6 w-6 text-white" />
+      </Link>
+      <nav className="flex flex-1 flex-col items-center gap-1.5">
+        {NAV.map(({ icon: Icon, href, label }) => {
+          const active = isActive(href);
+          return (
+            <Link
+              key={href} to={href} aria-label={label} title={label}
+              className={`group relative grid h-11 w-11 place-items-center rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-accent/40 ${active ? "bg-accent/15 text-accent2" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}
+            >
+              {active && <span className="absolute -left-4 h-6 w-1 rounded-r-full bg-accent2" />}
+              <Icon className="h-5 w-5" />
+            </Link>
+          );
+        })}
+      </nav>
+      <button onClick={() => logout()} className="grid h-11 w-11 place-items-center rounded-xl text-slate-400 transition duration-200 hover:bg-rose-500/10 hover:text-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500/40" aria-label="Log out" title="Log out">
+        <LogOut className="h-5 w-5" />
+      </button>
+    </aside>
   );
 }
 
 export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen overflow-x-hidden">
-      <aside className="fixed inset-y-4 left-4 z-20 hidden w-20 rounded-2xl border border-slate-200 bg-white shadow-sm lg:flex lg:flex-col lg:items-center lg:gap-5 lg:py-5">
-        <Link to="/" aria-label="Awosanmo dashboard" className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-950"><Cloud className="h-7 w-7 text-white" /></Link>
-        {[
-          [Gauge, "/"],
-          [Files, "/files"],
-          [Search, "/files"],
-          [Activity, "/system"],
-          [HardDrive, "/system"],
-          [Settings, "/system"]
-        ].map(([Icon, href], index) => (
-          <Link to={href as string} key={index} className="grid h-11 w-11 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-stream" aria-label={(Icon as any).name}>
-            <Icon className="h-5 w-5" />
-          </Link>
-        ))}
-        <button onClick={() => logout()} className="mt-auto grid h-11 w-11 place-items-center rounded-xl text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-300" aria-label="Log out" title="Log out">
-          <LogOut className="h-5 w-5" />
-        </button>
-      </aside>
+      <Sidebar />
       <main className="min-w-0 px-4 py-4 lg:ml-28 lg:max-w-[calc(100vw-8rem)] lg:pr-6">
-        <header className="mb-5 flex flex-col gap-4 rounded-2xl p-4 glass md:flex-row md:items-center md:justify-between">
+        <header className="glass mb-5 flex flex-col gap-4 rounded-2xl p-4 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <p className="font-mono text-xs font-bold uppercase text-stream">Awosanmo Private Cloud</p>
-            <h1 className="max-w-2xl text-2xl font-extrabold tracking-tight md:text-3xl">Files, torrents, and streaming in one workspace.</h1>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-accent2">Awosanmo Private Cloud</p>
+            <h1 className="mt-0.5 max-w-2xl text-2xl font-extrabold tracking-tight text-white md:text-[28px]">Your private cloud workspace</h1>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <StorageQuota />

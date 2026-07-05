@@ -3,28 +3,104 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+:root {
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
   min-height: 100%;
   overflow-x: hidden;
 }
+
 body {
   margin: 0;
   min-width: 320px;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f8fb 34%, #eef2f7 100%);
-  color: #0f172a;
+  color: #e6e8f0;
+  /* Deep near-black base with a soft indigo aurora up top. */
+  background-color: #07070c;
+  background-image:
+    radial-gradient(1100px 600px at 12% -8%, rgba(99, 102, 241, 0.18), transparent 60%),
+    radial-gradient(900px 520px at 100% 0%, rgba(34, 197, 94, 0.08), transparent 55%),
+    linear-gradient(180deg, #08080f 0%, #06060b 100%);
+  background-attachment: fixed;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
-.glass {
-  border: 1px solid rgba(226,232,240,.95);
-  background: rgba(255,255,255,.9);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 18px 55px rgba(15,23,42,.08);
+
+@layer components {
+  /* Glass card — the primary surface. */
+  .glass {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+    backdrop-filter: blur(20px);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
+      0 24px 60px -24px rgba(0, 0, 0, 0.7);
+  }
+
+  /* Interactive card: subtle lift + border glow on hover. */
+  .card {
+    @apply rounded-2xl border border-white/[0.07] bg-white/[0.025] transition duration-200;
+  }
+  .card-hover {
+    @apply hover:border-white/15 hover:bg-white/[0.05];
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-5 text-sm font-bold text-white shadow-[0_8px_24px_-8px_rgba(99,102,241,0.7)] transition duration-200 hover:bg-accent2 focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-semibold text-slate-200 transition duration-200 hover:border-white/20 hover:bg-white/[0.07] focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 text-sm font-semibold text-rose-300 transition duration-200 hover:bg-rose-500/20 focus:outline-none focus:ring-2 focus:ring-rose-500/40 disabled:opacity-50;
+  }
+  /* Icon-only square button. */
+  .icon-btn {
+    @apply grid h-10 w-10 place-items-center rounded-lg text-slate-400 transition duration-200 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-accent/40;
+  }
+  /* Text input / field. */
+  .field {
+    @apply min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 text-slate-100 placeholder:text-slate-500 outline-none transition focus:border-accent/50 focus:ring-2 focus:ring-accent/30;
+  }
+  /* Small pill/badge. */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-300;
+  }
 }
-button, a { cursor: pointer; }
+
+button,
+a {
+  cursor: pointer;
+}
+
+/* Refined dark scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+  background-clip: content-box;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -46,8 +46,8 @@ export function CommandPalette() {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-stream">
-        <Search className="h-4 w-4" /> Search <span className="rounded-md border border-line px-1.5 py-0.5 font-mono text-xs text-slate-500">Ctrl K</span>
+      <button onClick={() => setOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-stream">
+        <Search className="h-4 w-4" /> Search <span className="rounded-md border border-line px-1.5 py-0.5 font-mono text-xs text-slate-400">Ctrl K</span>
       </button>
       {open ? (
         <div className="fixed inset-0 z-50 bg-black/60 px-4 pt-24" onMouseDown={() => setOpen(false)}>
@@ -64,20 +64,20 @@ export function CommandPalette() {
                   if (event.key === "Enter" && rows[active]) choose(rows[active]);
                 }}
                 placeholder="Search torrents, files, videos, or actions"
-                className="h-14 flex-1 bg-transparent text-slate-950 outline-none placeholder:text-slate-400"
+                className="h-14 flex-1 bg-transparent text-white outline-none placeholder:text-slate-400"
               />
             </div>
             <div className="max-h-[60vh] overflow-auto p-2">
               {rows.map((row, index) => (
-                <button key={`${row.type}-${row.id}`} onClick={() => choose(row)} onMouseEnter={() => setActive(index)} className={`flex min-h-14 w-full items-center gap-3 rounded-xl px-3 text-left transition ${index === active ? "bg-slate-100" : "hover:bg-slate-50"}`}>
+                <button key={`${row.type}-${row.id}`} onClick={() => choose(row)} onMouseEnter={() => setActive(index)} className={`flex min-h-14 w-full items-center gap-3 rounded-xl px-3 text-left transition ${index === active ? "bg-white/10" : "hover:bg-white/5"}`}>
                   <ResultIcon type={row.type} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-slate-950">{row.title}</span>
-                    <span className="block truncate text-sm text-slate-500">{row.subtitle}</span>
+                    <span className="block truncate font-medium text-white">{row.title}</span>
+                    <span className="block truncate text-sm text-slate-400">{row.subtitle}</span>
                   </span>
                 </button>
               ))}
-              {!rows.length ? <div className="p-8 text-center text-slate-500">{query ? "No matches yet." : "Start typing to search."}</div> : null}
+              {!rows.length ? <div className="p-8 text-center text-slate-400">{query ? "No matches yet." : "Start typing to search."}</div> : null}
             </div>
           </div>
         </div>

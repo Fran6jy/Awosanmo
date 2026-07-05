@@ -55,16 +55,16 @@ export function Toaster() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 40, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/10"
+            className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-slate-950/10"
           >
             <div className="mt-0.5">{icons[toast.type]}</div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-slate-950">{toast.title}</p>
-              {toast.body && <p className="mt-0.5 text-xs text-slate-500">{toast.body}</p>}
+              <p className="text-sm font-semibold text-white">{toast.title}</p>
+              {toast.body && <p className="mt-0.5 text-xs text-slate-400">{toast.body}</p>}
             </div>
             <button
               onClick={() => dismiss(toast.id)}
-              className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
+              className="rounded-lg p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
               aria-label="Dismiss notification"
             >
               <X className="h-4 w-4" />

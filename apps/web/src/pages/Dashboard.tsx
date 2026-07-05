@@ -1,55 +1,40 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Film, Folder, MoreHorizontal, Pause, Play, Radio, RefreshCw, Server, Trash2, Upload } from "lucide-react";
+import { ArrowUpRight, Download, Gauge, Pause, Play, Plus, RefreshCw, Trash2, Upload, Waves } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { api, token, uploadFile, uploadTorrentFile } from "../lib/api";
 import { readClipboardMagnet } from "../lib/clipboard";
 import { pushToast } from "../components/Toast";
 import { Shell } from "../components/Shell";
-import { formatDuration } from "../lib/format";
-import { canPreview } from "../lib/fileTypes";
 
 type Torrent = { id: string; name: string; progress: number; status: string; download_speed: number; upload_speed: number; size: number };
-type FileRow = {
-  id: string;
-  name: string;
-  media_kind: string;
-  size: number;
-  streamable: number;
-  duration?: number | null;
-  width?: number | null;
-  height?: number | null;
-  codec_video?: string | null;
-  mime?: string | null;
-  probe_status?: string;
-};
 type StorageStats = { used: number; available: number; total: number };
 
-const fmt = (bytes = 0) => bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
-type StatCard = [string, string | number, LucideIcon];
+const fmt = (bytes = 0) =>
+  bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : bytes < 1073741824 ? `${(bytes / 1048576).toFixed(1)} MB` : `${(bytes / 1073741824).toFixed(2)} GB`;
+
+const statusTone: Record<string, string> = {
+  downloading: "text-stream",
+  completed: "text-emerald-400",
+  paused: "text-amber-400",
+  connecting: "text-sky-400",
+  resuming: "text-sky-400",
+  error: "text-rose-400",
+};
 
 export function Dashboard() {
-  // NOTE: never early-return before the hooks below. Removing the token on a 401
-  // would flip this condition mid-session and change the hook count between
-  // renders, which crashes React. Guard after all hooks instead.
   const authed = !!token();
   const qc = useQueryClient();
   const [magnetUri, setMagnetUri] = useState("");
-  // Live updates arrive over Socket.IO (see LiveSync); the interval is only a
-  // fallback for when the socket is temporarily disconnected.
   const torrents = useQuery({ queryKey: ["torrents"], queryFn: () => api<Torrent[]>("/api/torrents"), refetchInterval: 15000, enabled: authed });
-  const files = useQuery({ queryKey: ["files"], queryFn: () => api<FileRow[]>("/api/files"), refetchInterval: 3000, enabled: authed });
   const storage = useQuery({ queryKey: ["storage"], queryFn: () => api<StorageStats>("/api/storage"), refetchInterval: 8000, enabled: authed });
+
   const add = useMutation({
     mutationFn: () => api("/api/torrents", { method: "POST", body: JSON.stringify({ magnetUri }) }),
-    onSuccess: () => {
-      setMagnetUri("");
-      qc.invalidateQueries({ queryKey: ["torrents"] });
-      pushToast({ type: "success", title: "Added to swarm", body: "Fetching metadata…" });
-    },
-    onError: (e: Error) => pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) })
+    onSuccess: () => { setMagnetUri(""); qc.invalidateQueries({ queryKey: ["torrents"] }); pushToast({ type: "success", title: "Added to swarm", body: "Fetching metadata…" }); },
+    onError: (e: Error) => pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) }),
   });
   async function autoPasteMagnet() {
     if (magnetUri.trim().startsWith("magnet:")) return;
@@ -65,112 +50,125 @@ export function Dashboard() {
       const isTorrent = file.name.toLowerCase().endsWith(".torrent");
       try {
         setUploadPct(0);
-        if (isTorrent) {
-          await uploadTorrentFile(file);
-          pushToast({ type: "success", title: "Torrent added", body: file.name });
-        } else {
-          await uploadFile(file, (f) => setUploadPct(Math.round(f * 100)));
-          pushToast({ type: "success", title: "Upload complete", body: file.name });
-        }
+        if (isTorrent) { await uploadTorrentFile(file); pushToast({ type: "success", title: "Torrent added", body: file.name }); }
+        else { await uploadFile(file, (f) => setUploadPct(Math.round(f * 100))); pushToast({ type: "success", title: "Upload complete", body: file.name }); }
         qc.invalidateQueries({ queryKey: ["files"] });
         qc.invalidateQueries({ queryKey: ["torrents"] });
       } catch (e) {
         pushToast({ type: "error", title: isTorrent ? "Could not add torrent" : "Upload failed", body: (e as Error).message.slice(0, 140) });
-      } finally {
-        setUploadPct(null);
-      }
+      } finally { setUploadPct(null); }
     }
     if (fileInput.current) fileInput.current.value = "";
   }
   const action = useMutation({
-    mutationFn: ({ id, kind }: { id: string; kind: "pause" | "resume" | "reannounce" | "delete" }) => {
-      if (kind === "delete") return api(`/api/torrents/${id}?destroy=false`, { method: "DELETE" });
-      return api(`/api/torrents/${id}/${kind}`, { method: "POST" });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["torrents"] });
-      qc.invalidateQueries({ queryKey: ["files"] });
-    }
+    mutationFn: ({ id, kind }: { id: string; kind: "pause" | "resume" | "reannounce" | "delete" }) =>
+      kind === "delete" ? api(`/api/torrents/${id}?destroy=false`, { method: "DELETE" }) : api(`/api/torrents/${id}/${kind}`, { method: "POST" }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["torrents"] }); qc.invalidateQueries({ queryKey: ["files"] }); },
   });
+
   const stats = useMemo(() => {
     const rows = torrents.data ?? [];
     return {
-      active: rows.filter((row) => row.status === "downloading").length,
-      speed: rows.reduce((sum, row) => sum + row.download_speed, 0),
-      stored: storage.data?.used ?? rows.reduce((sum, row) => sum + row.size * row.progress, 0)
+      active: rows.filter((r) => r.status === "downloading").length,
+      down: rows.reduce((s, r) => s + r.download_speed, 0),
+      up: rows.reduce((s, r) => s + r.upload_speed, 0),
+      stored: storage.data?.used ?? rows.reduce((s, r) => s + r.size * r.progress, 0),
     };
   }, [storage.data?.used, torrents.data]);
-  const visibleTorrents = useMemo(() => (torrents.data ?? []).filter((torrent) => !torrent.id.startsWith("local-uploads")), [torrents.data]);
+  const visibleTorrents = useMemo(() => (torrents.data ?? []).filter((t) => !t.id.startsWith("local-uploads")), [torrents.data]);
 
   if (!authed) return <Navigate to="/login" replace />;
 
+  const cards: [string, string | number, LucideIcon, string][] = [
+    ["Active downloads", stats.active, Gauge, "text-accent2 bg-accent/15"],
+    ["Download", fmt(stats.down) + "/s", Download, "text-stream bg-stream/15"],
+    ["Upload", fmt(stats.up) + "/s", ArrowUpRight, "text-violet bg-violet/15"],
+    ["Stored", fmt(stats.stored), Waves, "text-sky-400 bg-sky-400/15"],
+  ];
+
   return (
     <Shell>
-      <section className="grid min-w-0 gap-4 md:grid-cols-3">
-        {([
-          ["Active downloads", stats.active, Radio],
-          ["Down speed", fmt(stats.speed) + "/s", Download],
-          ["Stored locally", fmt(stats.stored), Server]
-        ] satisfies StatCard[]).map(([label, value, Icon]) => (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={String(label)} className="min-w-0 rounded-2xl p-5 glass">
-            <div className="flex items-center justify-between text-sm font-semibold text-slate-500"><span>{label as string}</span><Icon className="h-5 w-5 text-stream" /></div>
-            <p className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950">{value as string}</p>
+      {/* Stat cards */}
+      <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map(([label, value, Icon, tone], i) => (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+            key={label} className="glass min-w-0 rounded-2xl p-5"
+          >
+            <div className="flex items-center gap-3">
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span>
+              <span className="truncate text-sm font-medium text-slate-400">{label}</span>
+            </div>
+            <p className="mt-4 text-3xl font-extrabold tracking-tight text-white">{value}</p>
           </motion.div>
         ))}
       </section>
-      <section className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,.75fr)]">
-        <div className="min-w-0 rounded-2xl p-5 glass">
-          <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} className="flex flex-col gap-3 md:flex-row">
-            <label className="sr-only" htmlFor="magnet">Magnet link</label>
-            <input id="magnet" value={magnetUri} onFocus={autoPasteMagnet} onClick={autoPasteMagnet} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste magnet link" className="min-h-12 flex-1 rounded-xl border border-line bg-white px-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream" />
-            <button disabled={add.isPending || !magnetUri.trim().startsWith("magnet:")} className="min-h-12 rounded-xl bg-slate-950 px-5 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Join swarm</button>
-            <button type="button" title="Upload any file, or a .torrent to add it to the swarm" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50">
-              <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
-            </button>
-            <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
-          </form>
-          {uploadPct !== null && (
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} />
-            </div>
-          )}
-          <div className="mt-5 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-line">
-            {visibleTorrents.map((torrent) => (
-              <article key={torrent.id} className="bg-white p-4 transition hover:bg-slate-50">
+
+      {/* Command bar */}
+      <section className="glass mt-4 min-w-0 rounded-2xl p-4">
+        <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} className="flex flex-col gap-3 md:flex-row">
+          <label className="sr-only" htmlFor="magnet">Magnet link</label>
+          <div className="relative flex-1">
+            <Plus className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input id="magnet" value={magnetUri} onFocus={autoPasteMagnet} onClick={autoPasteMagnet} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste a magnet link to start downloading…" className="field pl-11" />
+          </div>
+          <button disabled={add.isPending || !magnetUri.trim().startsWith("magnet:")} className="btn-primary min-h-12 px-6">{add.isPending ? "Adding…" : "Join swarm"}</button>
+          <button type="button" title="Upload any file, or a .torrent to add it to the swarm" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} className="btn-ghost min-h-12 px-5">
+            <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
+          </button>
+          <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
+        </form>
+        {uploadPct !== null && (
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} />
+          </div>
+        )}
+      </section>
+
+      {/* Torrents */}
+      <section className="glass mt-4 min-w-0 rounded-2xl p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">Downloads</h2>
+          <span className="chip">{visibleTorrents.length} active</span>
+        </div>
+        <div className="space-y-2.5">
+          {visibleTorrents.map((torrent) => {
+            const pct = Math.round(torrent.progress * 100);
+            return (
+              <article key={torrent.id} className="card card-hover rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><Link to={`/torrents/${torrent.id}`} className="block truncate font-semibold text-slate-950 transition hover:text-stream">{torrent.name}</Link><p className="text-sm text-slate-500">{torrent.status} · {fmt(torrent.download_speed)}/s · {Math.round(torrent.progress * 100)}%</p></div>
-                  <div className="flex gap-2">
-                    {torrent.status !== "completed" ? (
+                  <div className="min-w-0">
+                    <Link to={`/torrents/${torrent.id}`} className="block truncate font-semibold text-white transition hover:text-accent2">{torrent.name}</Link>
+                    <p className="mt-0.5 text-sm text-slate-400">
+                      <span className={`font-medium ${statusTone[torrent.status] ?? "text-slate-400"}`}>{torrent.status}</span>
+                      {" · "}{fmt(torrent.download_speed)}/s{" · "}{pct}%
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    {torrent.status !== "completed" && (
                       <>
-                        <button aria-label={torrent.status === "paused" ? "Resume" : "Pause"} onClick={() => action.mutate({ id: torrent.id, kind: torrent.status === "paused" ? "resume" : "pause" })} className="h-10 w-10 rounded-lg text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-stream">
-                          {torrent.status === "paused" ? <Play className="mx-auto h-4 w-4" /> : <Pause className="mx-auto h-4 w-4" />}
+                        <button aria-label={torrent.status === "paused" ? "Resume" : "Pause"} onClick={() => action.mutate({ id: torrent.id, kind: torrent.status === "paused" ? "resume" : "pause" })} className="icon-btn">
+                          {torrent.status === "paused" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
                         </button>
-                        <button aria-label="Reannounce" onClick={() => action.mutate({ id: torrent.id, kind: "reannounce" })} className="h-10 w-10 rounded-lg text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-stream"><RefreshCw className="mx-auto h-4 w-4" /></button>
+                        <button aria-label="Reannounce" onClick={() => action.mutate({ id: torrent.id, kind: "reannounce" })} className="icon-btn"><RefreshCw className="h-4 w-4" /></button>
                       </>
-                    ) : null}
-                    <button aria-label="Delete" onClick={() => action.mutate({ id: torrent.id, kind: "delete" })} className="h-10 w-10 rounded-lg text-red-500 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-stream"><Trash2 className="mx-auto h-4 w-4" /></button>
+                    )}
+                    <button aria-label="Delete" onClick={() => action.mutate({ id: torrent.id, kind: "delete" })} className="icon-btn hover:bg-rose-500/10 hover:text-rose-400"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-stream" style={{ width: `${Math.round(torrent.progress * 100)}%` }} /></div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+                  <div className={`h-full rounded-full ${torrent.status === "completed" ? "bg-emerald-400" : "bg-stream"}`} style={{ width: `${pct}%` }} />
+                </div>
               </article>
-            ))}
-            {!visibleTorrents.length ? <div className="bg-white p-6 text-center text-sm text-slate-500">No active torrents. Uploaded files live in Recent files and the Files library.</div> : null}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-2xl p-5 glass">
-          <div className="flex items-center justify-between"><h2 className="text-xl font-extrabold tracking-tight text-slate-950">Recent files</h2><MoreHorizontal className="h-5 w-5 text-slate-400" /></div>
-          <div className="mt-4 space-y-2">
-            {(files.data ?? []).map((file) => (
-              <Link to={canPreview(file) ? `/view/${file.id}` : "#"} key={file.id} className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl border border-transparent px-3 transition hover:border-line hover:bg-slate-50">
-                {file.media_kind === "video" ? <Film className="h-5 w-5 text-stream" /> : <Folder className="h-5 w-5 text-violet-300" />}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold text-slate-900">{file.name}</span>
-                  {file.streamable ? <span className="block truncate text-xs text-slate-500">{[file.width && file.height ? `${file.width}x${file.height}` : null, file.codec_video?.toUpperCase(), formatDuration(file.duration), file.probe_status].filter(Boolean).join(" · ")}</span> : null}
-                </span>
-                {canPreview(file) ? <Play className="h-4 w-4 text-slate-400" /> : <span className="text-sm text-slate-500">{fmt(file.size)}</span>}
-              </Link>
-            ))}
-          </div>
+            );
+          })}
+          {!visibleTorrents.length && (
+            <div className="rounded-xl border border-dashed border-white/10 px-6 py-14 text-center">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/15 text-accent2"><Download className="h-6 w-6" /></div>
+              <p className="mt-4 font-semibold text-white">No active downloads</p>
+              <p className="mt-1 text-sm text-slate-400">Paste a magnet link above, or upload a file to get started.</p>
+            </div>
+          )}
         </div>
       </section>
     </Shell>

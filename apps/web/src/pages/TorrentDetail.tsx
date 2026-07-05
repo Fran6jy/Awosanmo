@@ -87,7 +87,7 @@ export function TorrentDetail() {
                 <p className="mt-2 break-all text-sm text-slate-400">{torrent.info_hash ?? "Waiting for metadata"}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => action.mutate(torrent.status === "paused" ? "resume" : "pause")} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-stream px-4 font-bold text-ink transition hover:bg-emerald-300 focus:outline-none focus:ring-2 focus:ring-white">
+                <button onClick={() => action.mutate(torrent.status === "paused" ? "resume" : "pause")} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-stream px-4 font-bold text-white transition hover:bg-emerald-300 focus:outline-none focus:ring-2 focus:ring-white">
                   {torrent.status === "paused" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />} {torrent.status === "paused" ? "Resume" : "Pause"}
                 </button>
                 <button onClick={() => action.mutate("reannounce")} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line px-4 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-stream"><RefreshCw className="h-4 w-4" /> Reannounce</button>
@@ -179,7 +179,7 @@ export function TorrentDetail() {
                 {torrent.runtime.trackers.length ? torrent.runtime.trackers.map((tracker) => (
                   <div key={tracker.url} className="border-b border-line py-3 text-sm">
                     <p className="truncate text-slate-200">{tracker.url}</p>
-                    <p className="text-slate-500">{tracker.status}</p>
+                    <p className="text-slate-400">{tracker.status}</p>
                   </div>
                 )) : <p className="text-sm text-slate-400">Trackers appear after metadata is available.</p>}
               </div>
@@ -192,7 +192,7 @@ export function TorrentDetail() {
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl border border-line bg-white/[.03] p-3"><p className="text-slate-500">{label}</p><p className="mt-1 font-semibold">{value}</p></div>;
+  return <div className="rounded-xl border border-line bg-white/[.03] p-3"><p className="text-slate-400">{label}</p><p className="mt-1 font-semibold">{value}</p></div>;
 }
 
 function Badge({ value, icon }: { value?: string | null; icon?: "audio" | "subs" }) {

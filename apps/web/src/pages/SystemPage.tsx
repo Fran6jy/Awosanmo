@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Cpu, Database, HardDrive, MemoryStick, Radio, Server } from "lucide-react";
+import { Cpu, HardDrive, MemoryStick, Radio, Server } from "lucide-react";
 import { Shell } from "../components/Shell";
 import { TwoFactorSettings } from "../components/TwoFactorSettings";
 import { api, token } from "../lib/api";
@@ -29,22 +29,22 @@ export function SystemPage() {
   return (
     <Shell>
       {!data ? (
-        <div className="rounded-2xl p-8 text-slate-600 glass">Loading system status...</div>
+        <div className="rounded-2xl p-8 text-slate-300 glass">Loading system status...</div>
       ) : (
         <div className="space-y-4">
           <TwoFactorSettings />
-          <a href="/api/docs" target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-2xl p-5 glass transition hover:bg-slate-50">
+          <a href="/api/docs" target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-2xl p-5 glass transition hover:bg-white/5">
             <div>
               <p className="font-mono text-xs font-bold uppercase text-stream">Developers</p>
-              <h2 className="mt-1 text-xl font-bold text-slate-900">API documentation</h2>
-              <p className="mt-1 text-sm text-slate-500">Interactive Swagger UI for every endpoint (opens in a new tab).</p>
+              <h2 className="mt-1 text-xl font-bold text-white">API documentation</h2>
+              <p className="mt-1 text-sm text-slate-400">Interactive Swagger UI for every endpoint (opens in a new tab).</p>
             </div>
             <Server className="h-6 w-6 text-slate-400" />
           </a>
           <section className="rounded-2xl p-5 glass">
             <p className="font-mono text-xs font-bold uppercase text-stream">System</p>
-            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-950">Server Control Panel</h1>
-            <p className="mt-2 break-all text-sm text-slate-500">{data.app.env} · {data.app.node} · {data.app.dataDir}</p>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-white">Server Control Panel</h1>
+            <p className="mt-2 break-all text-sm text-slate-400">{data.app.env} · {data.app.node} · {data.app.dataDir}</p>
           </section>
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -60,31 +60,15 @@ export function SystemPage() {
             <Panel title="Media Probes" rows={data.probes.map((row) => [row.probe_status ?? "unknown", String(row.count)])} />
           </section>
 
-          <section className="grid gap-4 xl:grid-cols-[.9fr_1.1fr]">
-            <div className="rounded-2xl p-5 glass">
-              <h2 className="text-xl font-bold">Runtime</h2>
-              <div className="mt-4 grid gap-3 text-sm">
-                <Runtime label="Platform" value={`${data.host.platform} ${data.host.arch}`} />
-                <Runtime label="Torrent Port" value={String(data.app.torrentPort)} />
-                <Runtime label="Total RAM" value={formatBytes(data.host.totalMemory)} />
-                <Runtime label="Free RAM" value={formatBytes(data.host.freeMemory)} />
-                <Runtime label="Disk Total" value={formatBytes(data.storage.total)} />
-              </div>
-            </div>
-            <div className="rounded-2xl p-5 glass">
-              <h2 className="text-xl font-bold">Recent Activity</h2>
-              <div className="mt-4 max-h-96 overflow-auto">
-                {data.recent.map((row, index) => (
-                  <div key={`${row.type}-${row.title}-${index}`} className="grid grid-cols-[auto_1fr_auto] gap-3 border-b border-line py-3 text-sm">
-                    <Activity className="mt-0.5 h-4 w-4 text-stream" />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{row.title}</p>
-                      <p className="text-slate-500">{row.type} · {row.detail}</p>
-                    </div>
-                    <span className="text-slate-500">{new Date(row.timestamp).toLocaleDateString()}</span>
-                  </div>
-                ))}
-              </div>
+          <section className="rounded-2xl p-5 glass">
+            <h2 className="text-lg font-bold text-white">Runtime</h2>
+            <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+              <Runtime label="Platform" value={`${data.host.platform} ${data.host.arch}`} />
+              <Runtime label="Torrent Port" value={String(data.app.torrentPort)} />
+              <Runtime label="Total RAM" value={formatBytes(data.host.totalMemory)} />
+              <Runtime label="Free RAM" value={formatBytes(data.host.freeMemory)} />
+              <Runtime label="Disk Total" value={formatBytes(data.storage.total)} />
+              <Runtime label="Environment" value={data.app.env} />
             </div>
           </section>
         </div>
@@ -96,9 +80,9 @@ export function SystemPage() {
 function Metric({ icon: Icon, label, value, detail }: { icon: typeof Radio; label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-2xl p-5 glass">
-      <div className="flex items-center justify-between text-sm font-semibold text-slate-500"><span>{label}</span><Icon className="h-5 w-5 text-stream" /></div>
-      <p className="mt-4 text-2xl font-extrabold tracking-tight text-slate-950">{value}</p>
-      {detail ? <p className="mt-1 text-sm text-slate-500">{detail}</p> : null}
+      <div className="flex items-center justify-between text-sm font-semibold text-slate-400"><span>{label}</span><Icon className="h-5 w-5 text-stream" /></div>
+      <p className="mt-4 text-2xl font-extrabold tracking-tight text-white">{value}</p>
+      {detail ? <p className="mt-1 text-sm text-slate-400">{detail}</p> : null}
     </div>
   );
 }
@@ -109,16 +93,16 @@ function Panel({ title, rows }: { title: string; rows: [string, string][] }) {
       <h2 className="text-xl font-bold">{title}</h2>
       <div className="mt-4 space-y-2">
         {rows.length ? rows.map(([label, value]) => (
-          <div key={label} className="flex min-h-11 items-center justify-between rounded-xl border border-line bg-slate-50 px-3 text-sm">
-            <span className="capitalize text-slate-600">{label}</span>
-            <span className="font-semibold text-slate-950">{value}</span>
+          <div key={label} className="flex min-h-11 items-center justify-between rounded-xl border border-line bg-white/5 px-3 text-sm">
+            <span className="capitalize text-slate-300">{label}</span>
+            <span className="font-semibold text-white">{value}</span>
           </div>
-        )) : <p className="text-sm text-slate-500">No data yet.</p>}
+        )) : <p className="text-sm text-slate-400">No data yet.</p>}
       </div>
     </div>
   );
 }
 
 function Runtime({ label, value }: { label: string; value: string }) {
-  return <div className="flex justify-between rounded-xl border border-line bg-slate-50 px-3 py-2"><span className="text-slate-500">{label}</span><span className="font-medium text-slate-950">{value}</span></div>;
+  return <div className="flex justify-between rounded-xl border border-line bg-white/5 px-3 py-2"><span className="text-slate-400">{label}</span><span className="font-medium text-white">{value}</span></div>;
 }

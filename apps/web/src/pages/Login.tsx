@@ -61,19 +61,19 @@ export function Login() {
       <main className="grid min-h-screen place-items-center px-4">
         <form onSubmit={submitCode} className="w-full max-w-md rounded-2xl p-6 glass">
           <p className="font-mono text-xs font-bold uppercase text-stream">Awosanmo</p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">Two-factor code</h1>
-          <p className="mt-1 text-sm text-slate-500">Enter the 6-digit code from your authenticator app.</p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white">Two-factor code</h1>
+          <p className="mt-1 text-sm text-slate-400">Enter the 6-digit code from your authenticator app.</p>
           <input
             autoFocus inputMode="numeric" maxLength={6} value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            className="mt-4 h-14 w-full rounded-xl border border-line bg-white text-center text-2xl tracking-[0.5em] text-slate-950 outline-none focus:ring-2 focus:ring-stream"
+            className="mt-4 h-14 w-full rounded-xl border border-line bg-white/[0.04] text-center text-2xl tracking-[0.5em] text-white outline-none focus:ring-2 focus:ring-stream"
             placeholder="000000"
           />
-          {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
-          <button disabled={busy || code.length !== 6} className="mt-6 h-12 w-full rounded-xl bg-slate-950 font-bold text-white transition hover:bg-slate-800 disabled:opacity-60">
+          {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
+          <button disabled={busy || code.length !== 6} className="mt-6 h-12 w-full rounded-xl bg-accent font-bold text-white transition hover:bg-accent2 disabled:opacity-60">
             {busy ? "Verifying…" : "Verify"}
           </button>
-          <button type="button" onClick={() => { setTicket(null); setCode(""); setError(""); }} className="mt-4 w-full text-center text-sm text-slate-500 transition hover:text-slate-900">Back</button>
+          <button type="button" onClick={() => { setTicket(null); setCode(""); setError(""); }} className="mt-4 w-full text-center text-sm text-slate-400 transition hover:text-white">Back</button>
         </form>
       </main>
     );
@@ -83,17 +83,17 @@ export function Login() {
     <main className="grid min-h-screen place-items-center px-4">
       <form onSubmit={submit} className="w-full max-w-md rounded-2xl p-6 glass">
         <p className="font-mono text-xs font-bold uppercase text-stream">Awosanmo</p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">{mode === "login" ? "Sign in" : "Create account"}</h1>
-        <p className="mt-1 text-sm text-slate-500">{mode === "login" ? "Access your private cloud." : "Your files stay private to your account."}</p>
+        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white">{mode === "login" ? "Sign in" : "Create account"}</h1>
+        <p className="mt-1 text-sm text-slate-400">{mode === "login" ? "Access your private cloud." : "Your files stay private to your account."}</p>
         <label className="mt-6 block text-sm font-semibold" htmlFor="email">Email</label>
-        <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-line bg-white px-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream" />
+        <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-line bg-white/[0.04] px-4 text-white outline-none focus:ring-2 focus:ring-stream" />
         <label className="mt-4 block text-sm font-semibold" htmlFor="password">Password</label>
-        <input id="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-line bg-white px-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream" />
-        {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
-        <button disabled={busy} className="mt-6 h-12 w-full rounded-xl bg-slate-950 font-bold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-stream disabled:opacity-60">
+        <input id="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-line bg-white/[0.04] px-4 text-white outline-none focus:ring-2 focus:ring-stream" />
+        {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
+        <button disabled={busy} className="mt-6 h-12 w-full rounded-xl bg-accent font-bold text-white transition hover:bg-accent2 focus:outline-none focus:ring-2 focus:ring-stream disabled:opacity-60">
           {busy ? "Please wait…" : mode === "login" ? "Continue" : "Create account"}
         </button>
-        <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }} className="mt-4 w-full text-center text-sm text-slate-500 transition hover:text-slate-900">
+        <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }} className="mt-4 w-full text-center text-sm text-slate-400 transition hover:text-white">
           {mode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}
         </button>
       </form>

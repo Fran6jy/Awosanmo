@@ -17,7 +17,7 @@ const FilesPage = lazy(() => import("./pages/FilesPage").then((module) => ({ def
 const SystemPage = lazy(() => import("./pages/SystemPage").then((module) => ({ default: module.SystemPage })));
 
 function Page({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[#f7f8fb] text-slate-500">Loading...</div>}>{children}</Suspense>;
+  return <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[#f7f8fb] text-slate-400">Loading...</div>}>{children}</Suspense>;
 }
 
 const queryClient = new QueryClient();

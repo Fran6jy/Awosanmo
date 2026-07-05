@@ -164,12 +164,12 @@ export function FilesPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label className="relative block sm:w-72">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search all files" className="min-h-12 w-full rounded-xl border border-line bg-white pl-11 pr-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search all files" className="min-h-12 w-full rounded-xl border border-line bg-white/[0.04] pl-11 pr-4 text-white outline-none focus:ring-2 focus:ring-stream" />
             </label>
-            <button type="button" onClick={() => { const n = prompt("New folder name"); if (n?.trim()) createFolder.mutate(n.trim()); }} disabled={searching} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-40">
+            <button type="button" onClick={() => { const n = prompt("New folder name"); if (n?.trim()) createFolder.mutate(n.trim()); }} disabled={searching} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40">
               <FolderPlus className="h-4 w-4" /> New folder
             </button>
-            <button type="button" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} title="Upload any file, or a .torrent to add it to the swarm" className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 font-bold text-white transition hover:bg-slate-800 disabled:opacity-50">
+            <button type="button" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} title="Upload any file, or a .torrent to add it to the swarm" className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent px-5 font-bold text-white transition hover:bg-accent2 disabled:opacity-50">
               <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
             </button>
             <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
@@ -180,11 +180,11 @@ export function FilesPage() {
         {/* Breadcrumb */}
         {!searching && (
           <nav className="mt-4 flex flex-wrap items-center gap-1 text-sm text-slate-400">
-            <button onClick={() => setFolderId("root")} className="flex items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-slate-100 hover:text-slate-950"><Home className="h-4 w-4" /> Library</button>
+            <button onClick={() => setFolderId("root")} className="flex items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white"><Home className="h-4 w-4" /> Library</button>
             {breadcrumb.map((f) => (
               <span key={f.id} className="flex items-center gap-1">
                 <ChevronRight className="h-4 w-4" />
-                <button onClick={() => setFolderId(f.id)} className="rounded-lg px-2 py-1 transition hover:bg-slate-100 hover:text-slate-950">{f.name}</button>
+                <button onClick={() => setFolderId(f.id)} className="rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white">{f.name}</button>
               </span>
             ))}
           </nav>
@@ -200,17 +200,17 @@ export function FilesPage() {
           </label>
           {selected.size > 0 && (
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => downloadZip(Array.from(selected)).catch((e) => pushToast({ type: "error", title: "ZIP failed", body: (e as Error).message.slice(0, 120) }))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-slate-100"><FileArchive className="h-4 w-4" /> Download ZIP</button>
-              <button onClick={() => setMoveIds(Array.from(selected))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-slate-100"><FolderInput className="h-4 w-4" /> Move</button>
+              <button onClick={() => downloadZip(Array.from(selected)).catch((e) => pushToast({ type: "error", title: "ZIP failed", body: (e as Error).message.slice(0, 120) }))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FileArchive className="h-4 w-4" /> Download ZIP</button>
+              <button onClick={() => setMoveIds(Array.from(selected))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FolderInput className="h-4 w-4" /> Move</button>
               <button onClick={() => bulkDelete.mutate(Array.from(selected))} disabled={bulkDelete.isPending} className="flex min-h-10 items-center gap-2 rounded-lg border border-red-400/40 px-3 text-sm text-red-200 transition hover:bg-red-500/10 disabled:opacity-50"><Trash2 className="h-4 w-4" /> Delete</button>
-              <button onClick={() => setSelected(new Set())} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-slate-500 transition hover:bg-slate-100"><X className="h-4 w-4" /> Clear</button>
+              <button onClick={() => setSelected(new Set())} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-slate-400 transition hover:bg-white/10"><X className="h-4 w-4" /> Clear</button>
             </div>
           )}
         </section>
       )}
 
       <section className="mt-4 overflow-hidden rounded-2xl glass">
-        <div className="hidden min-w-0 grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] items-center border-b border-line bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 md:grid">
+        <div className="hidden min-w-0 grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] items-center border-b border-line bg-white/5 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-400 md:grid">
           <span />
           <span>Name</span>
           <span>Type</span>
@@ -220,39 +220,39 @@ export function FilesPage() {
         <div className="divide-y divide-slate-100">
           {/* Subfolders */}
           {!searching && subfolders.map((f) => (
-            <article key={f.id} onContextMenu={(e) => openFolderMenu(e, f)} className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition hover:bg-slate-50 md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px]">
+            <article key={f.id} onContextMenu={(e) => openFolderMenu(e, f)} className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition hover:bg-white/5 md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px]">
               <span />
               <button onClick={() => setFolderId(f.id)} className="flex min-w-0 items-center gap-3 text-left">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700"><Folder className="h-5 w-5" /></span>
-                <span className="truncate font-semibold text-slate-900">{f.name}</span>
+                <span className="truncate font-semibold text-white">{f.name}</span>
               </button>
-              <span className="hidden text-sm text-slate-500 md:block">Folder</span>
+              <span className="hidden text-sm text-slate-400 md:block">Folder</span>
               <span className="hidden text-sm text-slate-400 md:block">--</span>
               <button onClick={() => { if (confirm(`Delete folder "${f.name}"? Its files return to the library root.`)) deleteFolder.mutate(f.id); }} className="ml-auto grid h-10 w-10 place-items-center rounded-lg text-red-500 transition hover:bg-red-50" aria-label="Delete folder"><Trash2 className="h-4 w-4" /></button>
             </article>
           ))}
           {/* Files */}
           {rows.map((file) => (
-            <article key={file.id} onContextMenu={(e) => openFileMenu(e, file)} className={`grid min-w-0 gap-3 px-4 py-3 transition md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-emerald-50" : "hover:bg-slate-50"}`}>
+            <article key={file.id} onContextMenu={(e) => openFileMenu(e, file)} className={`grid min-w-0 gap-3 px-4 py-3 transition md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-emerald-50" : "hover:bg-white/5"}`}>
               <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
               <div className="flex min-w-0 items-center gap-3">
                 <FileGlyph file={file} />
                 <div className="min-w-0">
-                  {canPreview(file) ? <Link to={`/view/${file.id}`} className="block truncate font-semibold text-slate-900 transition hover:text-stream">{file.name}</Link> : <p className="truncate font-semibold text-slate-900">{file.name}</p>}
-                  <p className="mt-1 truncate text-xs text-slate-500">{fileDetail(file)}</p>
+                  {canPreview(file) ? <Link to={`/view/${file.id}`} className="block truncate font-semibold text-white transition hover:text-stream">{file.name}</Link> : <p className="truncate font-semibold text-white">{file.name}</p>}
+                  <p className="mt-1 truncate text-xs text-slate-400">{fileDetail(file)}</p>
                 </div>
               </div>
-              <span className="hidden text-sm capitalize text-slate-500 md:block">{previewKind(file)}</span>
-              <span className="hidden font-mono text-sm text-slate-600 md:block">{formatBytes(file.size)}</span>
+              <span className="hidden text-sm capitalize text-slate-400 md:block">{previewKind(file)}</span>
+              <span className="hidden font-mono text-sm text-slate-300 md:block">{formatBytes(file.size)}</span>
               <div className="flex flex-wrap gap-1 md:justify-end">
-                {canPreview(file) ? <Link to={`/view/${file.id}`} className="grid h-10 w-10 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Open"><Eye className="h-4 w-4" /></Link> : null}
-                <button onClick={() => void downloadOne(file.id)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Download"><Download className="h-4 w-4" /></button>
-                <button onClick={() => setRenaming(file)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Rename"><Pencil className="h-4 w-4" /></button>
+                {canPreview(file) ? <Link to={`/view/${file.id}`} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Open"><Eye className="h-4 w-4" /></Link> : null}
+                <button onClick={() => void downloadOne(file.id)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Download"><Download className="h-4 w-4" /></button>
+                <button onClick={() => setRenaming(file)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Rename"><Pencil className="h-4 w-4" /></button>
                 <button onClick={() => remove.mutate(file.id)} className="grid h-10 w-10 place-items-center rounded-lg text-red-500 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
               </div>
             </article>
           ))}
-          {!rows.length && !subfolders.length ? <div className="p-10 text-center text-slate-500">{searching ? "No files match your search." : "This folder is empty. Upload files or a .torrent, or create a folder."}</div> : null}
+          {!rows.length && !subfolders.length ? <div className="p-10 text-center text-slate-400">{searching ? "No files match your search." : "This folder is empty. Upload files or a .torrent, or create a folder."}</div> : null}
         </div>
       </section>
 
@@ -267,10 +267,10 @@ export function FilesPage() {
         <form onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); rename.mutate({ id: renaming.id, name: String(form.get("name") ?? "") }); }} className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4">
           <div className="w-full max-w-md rounded-2xl p-5 glass">
             <h2 className="text-xl font-bold">Rename file</h2>
-            <input name="name" defaultValue={renaming.name} className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white px-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream" />
+            <input name="name" defaultValue={renaming.name} className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white/[0.04] px-4 text-white outline-none focus:ring-2 focus:ring-stream" />
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setRenaming(null)} className="min-h-11 rounded-xl border border-line px-4 transition hover:bg-slate-100">Cancel</button>
-              <button className="min-h-11 rounded-xl bg-slate-950 px-4 font-bold text-white transition hover:bg-slate-800">Save</button>
+              <button type="button" onClick={() => setRenaming(null)} className="min-h-11 rounded-xl border border-line px-4 transition hover:bg-white/10">Cancel</button>
+              <button className="min-h-11 rounded-xl bg-accent px-4 font-bold text-white transition hover:bg-accent2">Save</button>
             </div>
           </div>
         </form>
@@ -291,11 +291,11 @@ function fileDetail(file: FileRow) {
 function FileGlyph({ file }: { file: FileRow }) {
   const kind = previewKind(file);
   const base = "grid h-10 w-10 shrink-0 place-items-center rounded-xl";
-  if (kind === "video") return <span className={`${base} bg-emerald-100 text-emerald-700`}><Film className="h-5 w-5" /></span>;
+  if (kind === "video") return <span className={`${base} bg-emerald-500/15 text-emerald-300`}><Film className="h-5 w-5" /></span>;
   if (kind === "audio") return <span className={`${base} bg-purple-100 text-purple-700`}><Music className="h-5 w-5" /></span>;
   if (kind === "image") return <span className={`${base} bg-sky-100 text-sky-700`}><ImageIcon className="h-5 w-5" /></span>;
   if (kind === "pdf" || kind === "epub" || kind === "text") return <span className={`${base} bg-rose-100 text-rose-700`}><FileText className="h-5 w-5" /></span>;
-  return <span className={`${base} bg-slate-100 text-slate-600`}><FileArchive className="h-5 w-5" /></span>;
+  return <span className={`${base} bg-white/10 text-slate-300`}><FileArchive className="h-5 w-5" /></span>;
 }
 
 function MovePicker({ onClose, onPick }: { onClose: () => void; onPick: (target: string | null) => void }) {
