@@ -26,6 +26,7 @@ import { adminRoutes } from "./modules/admin/routes.js";
 import { searchRoutes } from "./modules/search/routes.js";
 import { uploadRoutes } from "./modules/uploads/routes.js";
 import { folderRoutes } from "./modules/folders/routes.js";
+import { wishlistRoutes } from "./modules/wishlist/routes.js";
 import { zipDownload } from "./modules/files/zipController.js";
 
 fs.mkdirSync(config.dataDir, { recursive: true });
@@ -70,6 +71,7 @@ app.use("/api/admin", requireAuth, adminRoutes);
 app.use("/api/search", requireAuth, searchRoutes);
 app.use("/api/uploads", requireAuth, uploadRoutes);
 app.use("/api/folders", requireAuth, folderRoutes);
+app.use("/api/wishlist", requireAuth, wishlistRoutes);
 // Token-authenticated so the browser can download by navigation (no header).
 app.get("/api/zip", zipDownload);
 app.post("/api/stream-token/:id", requireAuth, (req: any, res) => {

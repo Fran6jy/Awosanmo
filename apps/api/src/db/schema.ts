@@ -61,6 +61,16 @@ export function migrate() {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);
+    CREATE TABLE IF NOT EXISTS wishlist (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      magnet_uri TEXT NOT NULL,
+      size INTEGER NOT NULL DEFAULT 0,
+      source TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_wishlist_user ON wishlist(user_id);
   `);
   // Virtual folder a file belongs to (NULL = library root).
   addColumn("files", "folder_id", "TEXT");

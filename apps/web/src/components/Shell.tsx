@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CommandPalette } from "./CommandPalette";
+import { Wishlist } from "./Wishlist";
 import { api, token } from "../lib/api";
 import { readClipboardMagnet } from "../lib/clipboard";
 import { formatBytes } from "../lib/format";
@@ -27,6 +28,11 @@ function AddMagnet() {
       nav("/");
     },
     onError: (e: Error) => pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) }),
+  });
+  const saveForLater = useMutation({
+    mutationFn: () => api("/api/wishlist", { method: "POST", body: JSON.stringify({ magnetUri: magnet.trim() }) }),
+    onSuccess: () => { setMagnet(""); setOpen(false); qc.invalidateQueries({ queryKey: ["wishlist"] }); pushToast({ type: "success", title: "Saved to wishlist" }); },
+    onError: (e: Error) => pushToast({ type: "error", title: "Could not save", body: e.message.slice(0, 140) }),
   });
   async function autoPasteMagnet() {
     if (magnet.trim().startsWith("magnet:")) return;
@@ -76,8 +82,11 @@ function AddMagnet() {
                 placeholder="magnet:?xt=urn:btih:…"
                 className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white px-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream"
               />
-              <div className="mt-4 flex justify-end gap-2">
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
                 <button type="button" onClick={() => setOpen(false)} className="min-h-11 rounded-xl border border-line px-4 text-slate-700 transition hover:bg-slate-100">Cancel</button>
+                <button type="button" onClick={() => saveForLater.mutate()} disabled={saveForLater.isPending || !magnet.trim().startsWith("magnet:")} className="min-h-11 rounded-xl border border-line px-4 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50">
+                  Save for later
+                </button>
                 <button disabled={add.isPending || !magnet.trim().startsWith("magnet:")} className="min-h-11 rounded-xl bg-slate-950 px-5 font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50">
                   {add.isPending ? "Adding…" : "Join swarm"}
                 </button>
@@ -144,6 +153,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <StorageQuota />
             <CommandPalette />
+            <Wishlist />
             <AddMagnet />
           </div>
         </header>
