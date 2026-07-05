@@ -12,7 +12,7 @@ import { Server } from "socket.io";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { migrate } from "./db/schema.js";
-import { ensureAdminUser, login, loginSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, signDownloadToken, signStreamToken, signSubtitleToken } from "./modules/auth/auth.js";
+import { ensureAdminUser, login, loginSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, rotateRefresh, revokeRefresh, signDownloadToken, signStreamToken, signSubtitleToken } from "./modules/auth/auth.js";
 import { torrentRoutes } from "./modules/torrents/routes.js";
 import { torrentService } from "./modules/torrents/torrentService.js";
 import { streamFile } from "./modules/streaming/streamController.js";
@@ -60,9 +60,20 @@ app.use(rateLimit({ windowMs: 60_000, limit: 180 }));
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.post("/api/login", async (req, res) => {
   const body = loginSchema.parse(req.body);
-  const token = await login(body.email, body.password);
-  if (!token) return res.status(401).json({ error: "Invalid credentials" });
-  res.json({ token });
+  const session = await login(body.email, body.password);
+  if (!session) return res.status(401).json({ error: "Invalid credentials" });
+  res.json(session);
+});
+app.post("/api/refresh", (req, res) => {
+  const refreshToken = req.body?.refreshToken;
+  if (typeof refreshToken !== "string") return res.status(400).json({ error: "Missing refresh token" });
+  const next = rotateRefresh(refreshToken);
+  if (!next) return res.status(401).json({ error: "Invalid or expired refresh token" });
+  res.json(next);
+});
+app.post("/api/logout", (req, res) => {
+  if (typeof req.body?.refreshToken === "string") revokeRefresh(req.body.refreshToken);
+  res.sendStatus(204);
 });
 app.use("/api/torrents", requireAuth, torrentRoutes);
 app.use("/api/files", requireAuth, fileRoutes);

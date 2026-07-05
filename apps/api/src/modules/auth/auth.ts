@@ -23,8 +23,54 @@ export function ensureAdminUser() {
   }
 }
 
-export function signToken(user: { id: string; email: string; role: string }) {
-  return jwt.sign(user, config.jwtSecret, { expiresIn: config.authTokenTtl } as jwt.SignOptions);
+type SessionUser = { id: string; email: string; role: string };
+
+/** Short-lived access token. `typ: access` lets us reject refresh tokens here. */
+export function signToken(user: SessionUser) {
+  return jwt.sign({ ...user, typ: "access" }, config.jwtSecret, { expiresIn: config.accessTokenTtl } as jwt.SignOptions);
+}
+
+/** Long-lived refresh token, whitelisted in the DB so it can be revoked. */
+export function issueRefreshToken(userId: string): string {
+  const jti = crypto.randomUUID();
+  const now = Date.now();
+  db.prepare("INSERT INTO refresh_tokens (jti, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)").run(
+    jti,
+    userId,
+    now + config.refreshTokenTtlMs,
+    now,
+  );
+  return jwt.sign({ sub: userId, jti, typ: "refresh" }, config.jwtSecret, { expiresIn: config.refreshTokenTtl } as jwt.SignOptions);
+}
+
+/** Verify a refresh token against the whitelist; returns the user or null. */
+export function rotateRefresh(refreshToken: string): { token: string; refreshToken: string } | null {
+  let payload: any;
+  try {
+    payload = jwt.verify(refreshToken, config.jwtSecret);
+  } catch {
+    return null;
+  }
+  if (payload.typ !== "refresh" || !payload.jti) return null;
+  const row = db.prepare("SELECT * FROM refresh_tokens WHERE jti = ?").get(payload.jti) as any;
+  if (!row || row.expires_at < Date.now()) return null;
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(row.user_id) as any;
+  if (!user) return null;
+  // Rotate: invalidate the used token, mint a fresh pair.
+  db.prepare("DELETE FROM refresh_tokens WHERE jti = ?").run(payload.jti);
+  return {
+    token: signToken({ id: user.id, email: user.email, role: user.role }),
+    refreshToken: issueRefreshToken(user.id),
+  };
+}
+
+export function revokeRefresh(refreshToken: string): void {
+  try {
+    const payload = jwt.verify(refreshToken, config.jwtSecret) as any;
+    if (payload.jti) db.prepare("DELETE FROM refresh_tokens WHERE jti = ?").run(payload.jti);
+  } catch {
+    /* already invalid — nothing to revoke */
+  }
 }
 
 export function signStreamToken(userId: string, fileId: string) {
@@ -49,7 +95,10 @@ export function requireAuth(req: any, res: any, next: any) {
   const token = req.headers.authorization?.replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "Missing bearer token" });
   try {
-    req.user = jwt.verify(token, config.jwtSecret);
+    const payload = jwt.verify(token, config.jwtSecret) as any;
+    // A refresh token must never be accepted as an access token.
+    if (payload.typ === "refresh") return res.status(401).json({ error: "Invalid token" });
+    req.user = payload;
     next();
   } catch {
     res.status(401).json({ error: "Invalid token" });
@@ -106,5 +155,6 @@ export function requireSubtitleAuth(req: any, res: any, next: any) {
 export async function login(email: string, password: string) {
   const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
   if (!user || !bcrypt.compareSync(password, user.password_hash)) return null;
-  return signToken({ id: user.id, email: user.email, role: user.role });
+  const session = { id: user.id, email: user.email, role: user.role };
+  return { token: signToken(session), refreshToken: issueRefreshToken(user.id) };
 }

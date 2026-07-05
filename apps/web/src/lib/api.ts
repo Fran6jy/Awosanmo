@@ -9,13 +9,43 @@ export function token() {
   return localStorage.getItem("awosanmo_token");
 }
 
-/** Clear the session and bounce to login. Called when the token is rejected. */
+/** Persist a fresh access (and optional refresh) token pair. */
+export function setTokens(t: { token: string; refreshToken?: string }) {
+  localStorage.setItem("awosanmo_token", t.token);
+  if (t.refreshToken) localStorage.setItem("awosanmo_refresh", t.refreshToken);
+}
+
+/** Clear the session and bounce to login. Called when auth can't be recovered. */
 function forceLogin() {
   localStorage.removeItem("awosanmo_token");
+  localStorage.removeItem("awosanmo_refresh");
   if (!location.pathname.startsWith("/login")) location.assign("/login");
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+// Single-flight refresh: concurrent 401s share one refresh request.
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  const rt = localStorage.getItem("awosanmo_refresh");
+  if (!rt) return false;
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${API_URL}/api/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: rt }),
+    })
+      .then(async (r) => {
+        if (!r.ok) return false;
+        setTokens(await r.json());
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
+}
+
+export async function api<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
@@ -24,8 +54,10 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init.headers
     }
   });
-  // An expired/invalid token must not fail silently — send the user to log in.
-  if ((res.status === 401 || res.status === 403) && !path.startsWith("/api/login")) {
+  const skipAuth = path.startsWith("/api/login") || path.startsWith("/api/refresh");
+  // On 401, try a transparent token refresh once, then retry the request.
+  if (res.status === 401 && !skipAuth) {
+    if (!retried && (await refreshAccessToken())) return api<T>(path, init, true);
     forceLogin();
     throw new Error("Session expired");
   }
@@ -34,6 +66,15 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const contentType = res.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+/** Best-effort server-side logout (revokes the refresh token) + clear session. */
+export async function logout() {
+  const rt = localStorage.getItem("awosanmo_refresh");
+  try {
+    if (rt) await fetch(`${API_URL}/api/logout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken: rt }) });
+  } catch { /* ignore network errors on logout */ }
+  forceLogin();
 }
 
 /**

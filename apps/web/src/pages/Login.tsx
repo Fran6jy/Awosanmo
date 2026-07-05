@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, setTokens } from "../lib/api";
 
 export function Login() {
   const nav = useNavigate();
@@ -11,8 +11,8 @@ export function Login() {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     try {
-      const { token } = await api<{ token: string }>("/api/login", { method: "POST", body: JSON.stringify({ email, password }) });
-      localStorage.setItem("awosanmo_token", token);
+      const session = await api<{ token: string; refreshToken: string }>("/api/login", { method: "POST", body: JSON.stringify({ email, password }) });
+      setTokens(session);
       nav("/");
     } catch {
       setError("Invalid credentials");

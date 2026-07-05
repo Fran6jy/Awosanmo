@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Activity, Cloud, Files, Gauge, HardDrive, Search, Settings, Upload, X } from "lucide-react";
+import { Activity, Cloud, Files, Gauge, HardDrive, LogOut, Search, Settings, Upload, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CommandPalette } from "./CommandPalette";
 import { Wishlist } from "./Wishlist";
-import { api, token } from "../lib/api";
+import { api, logout, token } from "../lib/api";
 import { readClipboardMagnet } from "../lib/clipboard";
 import { formatBytes } from "../lib/format";
 import { pushToast } from "./Toast";
@@ -143,6 +143,9 @@ export function Shell({ children }: { children: ReactNode }) {
             <Icon className="h-5 w-5" />
           </Link>
         ))}
+        <button onClick={() => logout()} className="mt-auto grid h-11 w-11 place-items-center rounded-xl text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-300" aria-label="Log out" title="Log out">
+          <LogOut className="h-5 w-5" />
+        </button>
       </aside>
       <main className="min-w-0 px-4 py-4 lg:ml-28 lg:max-w-[calc(100vw-8rem)] lg:pr-6">
         <header className="mb-5 flex flex-col gap-4 rounded-2xl p-4 glass md:flex-row md:items-center md:justify-between">
