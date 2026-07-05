@@ -265,7 +265,11 @@ export function FilesPage() {
         </section>
       )}
 
-      <section className="mt-4 overflow-hidden rounded-2xl glass">
+      <section
+        className="mt-4 overflow-hidden rounded-2xl glass"
+        onDragOver={(e) => { if (dragging > 0) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
+        onDrop={(e) => { if (dragging > 0) { e.preventDefault(); onFileDragEnd(); } }}
+      >
         <div className="hidden min-w-0 grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] items-center border-b border-line bg-white/5 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-400 md:grid">
           <span />
           <span>Name</span>
