@@ -28,6 +28,7 @@ export function FilesPage() {
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [confirmDel, setConfirmDel] = useState<{ ids: string[]; label: string } | null>(null);
   const [dropFolder, setDropFolder] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(0);
   const dragIds = useRef<string[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
@@ -158,12 +159,36 @@ export function FilesPage() {
   function onFileDragStart(e: React.DragEvent, file: FileRow) {
     const ids = selected.has(file.id) && selected.size > 0 ? Array.from(selected) : [file.id];
     dragIds.current = ids;
+    setDragging(ids.length);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", ids.join(","));
+    // Custom drag ghost so the user clearly sees what they're moving.
+    const ghost = document.createElement("div");
+    ghost.textContent = ids.length === 1 ? "Move 1 file" : `Move ${ids.length} files`;
+    Object.assign(ghost.style, {
+      position: "fixed", top: "-1000px", left: "-1000px", padding: "8px 14px", borderRadius: "10px",
+      background: "#6366F1", color: "#fff", fontSize: "13px", fontWeight: "700", fontFamily: "inherit",
+      boxShadow: "0 10px 30px rgba(0,0,0,.5)", pointerEvents: "none", zIndex: "9999",
+    });
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 14, 14);
+    setTimeout(() => ghost.remove(), 0);
+  }
+  function onFileDragEnd() {
+    setDragging(0);
+    setDropFolder(null);
+    dragIds.current = [];
+  }
+  // Allow the drop and show the "move" cursor (not the red not-allowed icon).
+  function allowFolderDrop(e: React.DragEvent, target: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropFolder(target);
   }
   function onFolderDrop(e: React.DragEvent, target: string | null) {
     e.preventDefault();
     setDropFolder(null);
+    setDragging(0);
     const raw = dragIds.current.length ? dragIds.current : (e.dataTransfer.getData("text/plain").split(",").filter(Boolean));
     dragIds.current = [];
     if (raw.length) move.mutate({ ids: raw, target });
@@ -207,10 +232,10 @@ export function FilesPage() {
           <nav className="mt-4 flex flex-wrap items-center gap-1 text-sm text-slate-400">
             <button
               onClick={() => setFolderId("root")}
-              onDragOver={(e) => { e.preventDefault(); setDropFolder("root"); }}
+              onDragOver={(e) => allowFolderDrop(e, "root")}
               onDragLeave={() => setDropFolder((cur) => (cur === "root" ? null : cur))}
               onDrop={(e) => onFolderDrop(e, null)}
-              className={`flex items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white ${dropFolder === "root" ? "bg-accent/20 text-accent2 ring-1 ring-accent/50" : ""}`}
+              className={`flex items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white ${dropFolder === "root" ? "bg-accent/25 text-accent2 ring-2 ring-accent" : dragging ? "text-accent2 ring-1 ring-accent/40" : ""}`}
             ><Home className="h-4 w-4" /> Library</button>
             {breadcrumb.map((f) => (
               <span key={f.id} className="flex items-center gap-1">
@@ -254,10 +279,10 @@ export function FilesPage() {
             <article
               key={f.id}
               onContextMenu={(e) => openFolderMenu(e, f)}
-              onDragOver={(e) => { e.preventDefault(); setDropFolder(f.id); }}
+              onDragOver={(e) => allowFolderDrop(e, f.id)}
               onDragLeave={() => setDropFolder((cur) => (cur === f.id ? null : cur))}
               onDrop={(e) => onFolderDrop(e, f.id)}
-              className={`grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] ${dropFolder === f.id ? "bg-accent/20 ring-1 ring-inset ring-accent/50" : "hover:bg-white/5"}`}
+              className={`grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] ${dropFolder === f.id ? "bg-accent/25 ring-2 ring-inset ring-accent" : dragging ? "bg-accent/[0.07] ring-1 ring-inset ring-accent/30" : "hover:bg-white/5"}`}
             >
               <span />
               <button onClick={() => setFolderId(f.id)} className="flex min-w-0 items-center gap-3 text-left">
@@ -271,7 +296,7 @@ export function FilesPage() {
           ))}
           {/* Files */}
           {rows.map((file) => (
-            <article key={file.id} draggable onDragStart={(e) => onFileDragStart(e, file)} onContextMenu={(e) => openFileMenu(e, file)} className={`grid min-w-0 cursor-grab gap-3 px-4 py-3 transition active:cursor-grabbing md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-accent/10" : "hover:bg-white/5"}`}>
+            <article key={file.id} draggable onDragStart={(e) => onFileDragStart(e, file)} onDragEnd={onFileDragEnd} onContextMenu={(e) => openFileMenu(e, file)} className={`grid min-w-0 cursor-grab gap-3 px-4 py-3 transition active:cursor-grabbing md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-accent/10" : "hover:bg-white/5"}`}>
               <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
               <div className="flex min-w-0 items-center gap-3">
                 <FileGlyph file={file} />
@@ -293,6 +318,16 @@ export function FilesPage() {
           {!rows.length && !subfolders.length ? <div className="p-10 text-center text-slate-400">{searching ? "No files match your search." : "This folder is empty. Upload files or a .torrent, or create a folder."}</div> : null}
         </div>
       </section>
+
+      {/* Drag hint banner */}
+      {dragging > 0 ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
+          <div className="panel flex items-center gap-2 px-4 py-2.5 text-sm">
+            <FolderInput className="h-4 w-4 text-accent2" />
+            <span className="font-medium text-white">Drop on a folder{subfolders.length ? "" : " (or the Library breadcrumb)"} to move {dragging === 1 ? "this file" : `${dragging} files`}</span>
+          </div>
+        </div>
+      ) : null}
 
       {/* Right-click context menu */}
       {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} /> : null}
