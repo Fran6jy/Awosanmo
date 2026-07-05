@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { deleteFile, getFile, listFiles, renameFile } from "./fileService.js";
+import { deleteFile, getOwnedFile, listFiles, renameFile } from "./fileService.js";
 import { moveFiles } from "../folders/folderService.js";
 import { createZipTicket } from "./zipController.js";
 
@@ -9,46 +9,46 @@ const bulkSchema = z.object({ ids: z.array(z.string()).min(1).max(500) });
 const moveSchema = z.object({ ids: z.array(z.string()).min(1).max(500), folderId: z.string().nullable() });
 export const fileRoutes = Router();
 
-fileRoutes.get("/", (req, res) => {
+fileRoutes.get("/", (req: any, res) => {
   const q = typeof req.query.q === "string" ? req.query.q : undefined;
   const folderParam = req.query.folderId;
   const folderId = folderParam === undefined ? undefined : folderParam === "root" ? null : String(folderParam);
-  res.json(listFiles(q, folderId));
+  res.json(listFiles(req.user.id, q, folderId));
 });
 
-fileRoutes.get("/:id", (req, res) => {
-  const file = getFile(req.params.id);
+fileRoutes.get("/:id", (req: any, res) => {
+  const file = getOwnedFile(req.params.id, req.user.id);
   if (!file) return res.status(404).json({ error: "File not found" });
   res.json(file);
 });
 
-fileRoutes.post("/bulk-delete", (req, res) => {
+fileRoutes.post("/bulk-delete", (req: any, res) => {
   const body = bulkSchema.parse(req.body);
   let deleted = 0;
   for (const id of body.ids) {
-    if (deleteFile(id)) deleted += 1;
+    if (deleteFile(id, req.user.id)) deleted += 1;
   }
   res.json({ deleted });
 });
 
-fileRoutes.post("/move", (req, res) => {
+fileRoutes.post("/move", (req: any, res) => {
   const body = moveSchema.parse(req.body);
   try {
-    res.json({ moved: moveFiles(body.ids, body.folderId) });
+    res.json({ moved: moveFiles(body.ids, body.folderId, req.user.id) });
   } catch (e: any) {
     res.status(400).json({ error: e.message ?? "Move failed" });
   }
 });
 
-fileRoutes.post("/zip-token", (req, res) => {
+fileRoutes.post("/zip-token", (req: any, res) => {
   const body = bulkSchema.parse(req.body);
-  res.json({ zipToken: createZipTicket(body.ids) });
+  res.json({ zipToken: createZipTicket(body.ids, req.user.id) });
 });
 
-fileRoutes.patch("/:id", (req, res) => {
+fileRoutes.patch("/:id", (req: any, res) => {
   const body = renameSchema.parse(req.body);
   try {
-    const file = renameFile(req.params.id, body.name);
+    const file = renameFile(req.params.id, body.name, req.user.id);
     if (!file) return res.status(404).json({ error: "File not found" });
     res.json(file);
   } catch (error: any) {
@@ -56,7 +56,7 @@ fileRoutes.patch("/:id", (req, res) => {
   }
 });
 
-fileRoutes.delete("/:id", (req, res) => {
-  if (!deleteFile(req.params.id)) return res.status(404).json({ error: "File not found" });
+fileRoutes.delete("/:id", (req: any, res) => {
+  if (!deleteFile(req.params.id, req.user.id)) return res.status(404).json({ error: "File not found" });
   res.sendStatus(204);
 });

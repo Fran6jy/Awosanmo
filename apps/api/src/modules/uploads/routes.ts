@@ -3,7 +3,7 @@ import path from "node:path";
 import { Router } from "express";
 import multer from "multer";
 import { config } from "../../config.js";
-import { torrentService, uploadsDir } from "../torrents/torrentService.js";
+import { torrentService, uploadsDirFor } from "../torrents/torrentService.js";
 
 function sanitizeName(value: string): string {
   const clean = value.replace(/[<>:"/\\|?*\x00-\x1F]/g, "").replace(/^\.+/, "").trim();
@@ -25,13 +25,13 @@ function dedupe(dir: string, name: string): string {
 
 // Stream uploads directly to disk; never buffer the whole file in memory.
 const storage = multer.diskStorage({
-  destination: (_req: unknown, _file: unknown, cb: (e: Error | null, dir: string) => void) => {
-    const dir = uploadsDir();
+  destination: (req: any, _file: unknown, cb: (e: Error | null, dir: string) => void) => {
+    const dir = uploadsDirFor(req.user.id);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: (_req: unknown, file: { originalname: string }, cb: (e: Error | null, name: string) => void) => {
-    cb(null, dedupe(uploadsDir(), sanitizeName(file.originalname)));
+  filename: (req: any, file: { originalname: string }, cb: (e: Error | null, name: string) => void) => {
+    cb(null, dedupe(uploadsDirFor(req.user.id), sanitizeName(file.originalname)));
   },
 });
 
@@ -46,6 +46,6 @@ uploadRoutes.post("/", upload.single("file"), (req: any, res) => {
     relativeName: file.filename,
     displayName: file.filename,
     size: file.size,
-  });
+  }, req.user.id);
   res.status(201).json(record);
 });

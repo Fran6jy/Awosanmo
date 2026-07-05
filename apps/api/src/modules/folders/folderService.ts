@@ -9,47 +9,48 @@ function sanitize(name: string): string {
   return clean.slice(0, 120);
 }
 
-export function listFolders(parentId: string | null | undefined): Folder[] {
+export function listFolders(parentId: string | null | undefined, userId: string): Folder[] {
   if (parentId === undefined) {
-    return db.prepare("SELECT * FROM folders ORDER BY name").all() as Folder[];
+    return db.prepare("SELECT * FROM folders WHERE user_id = ? ORDER BY name").all(userId) as Folder[];
   }
   if (parentId === null) {
-    return db.prepare("SELECT * FROM folders WHERE parent_id IS NULL ORDER BY name").all() as Folder[];
+    return db.prepare("SELECT * FROM folders WHERE user_id = ? AND parent_id IS NULL ORDER BY name").all(userId) as Folder[];
   }
-  return db.prepare("SELECT * FROM folders WHERE parent_id = ? ORDER BY name").all(parentId) as Folder[];
+  return db.prepare("SELECT * FROM folders WHERE user_id = ? AND parent_id = ? ORDER BY name").all(userId, parentId) as Folder[];
 }
 
-export function getFolder(id: string): Folder | undefined {
-  return db.prepare("SELECT * FROM folders WHERE id = ?").get(id) as Folder | undefined;
+/** Fetch a folder only if the user owns it. */
+export function getFolder(id: string, userId: string): Folder | undefined {
+  return db.prepare("SELECT * FROM folders WHERE id = ? AND user_id = ?").get(id, userId) as Folder | undefined;
 }
 
 /** Build the breadcrumb trail from root to the given folder. */
-export function folderPath(id: string): Folder[] {
+export function folderPath(id: string, userId: string): Folder[] {
   const trail: Folder[] = [];
-  let current = getFolder(id);
+  let current = getFolder(id, userId);
   while (current) {
     trail.unshift(current);
-    current = current.parent_id ? getFolder(current.parent_id) : undefined;
+    current = current.parent_id ? getFolder(current.parent_id, userId) : undefined;
   }
   return trail;
 }
 
-export function createFolder(name: string, parentId: string | null): Folder {
-  if (parentId && !getFolder(parentId)) throw new Error("Parent folder not found");
+export function createFolder(name: string, parentId: string | null, userId: string): Folder {
+  if (parentId && !getFolder(parentId, userId)) throw new Error("Parent folder not found");
   const id = crypto.randomUUID();
-  db.prepare("INSERT INTO folders (id, name, parent_id) VALUES (?, ?, ?)").run(id, sanitize(name), parentId);
-  return getFolder(id)!;
+  db.prepare("INSERT INTO folders (id, user_id, name, parent_id) VALUES (?, ?, ?, ?)").run(id, userId, sanitize(name), parentId);
+  return getFolder(id, userId)!;
 }
 
-export function renameFolder(id: string, name: string): Folder | null {
-  if (!getFolder(id)) return null;
+export function renameFolder(id: string, name: string, userId: string): Folder | null {
+  if (!getFolder(id, userId)) return null;
   db.prepare("UPDATE folders SET name = ? WHERE id = ?").run(sanitize(name), id);
-  return getFolder(id)!;
+  return getFolder(id, userId)!;
 }
 
 /** Delete a folder; its files return to the library root and subfolders cascade. */
-export function deleteFolder(id: string): boolean {
-  if (!getFolder(id)) return false;
+export function deleteFolder(id: string, userId: string): boolean {
+  if (!getFolder(id, userId)) return false;
   // Collect the whole subtree so contained files can be detached first.
   const ids: string[] = [];
   const stack = [id];
@@ -66,13 +67,14 @@ export function deleteFolder(id: string): boolean {
   return true;
 }
 
-/** Move a set of files into a folder (or to root when folderId is null). */
-export function moveFiles(fileIds: string[], folderId: string | null): number {
-  if (folderId !== null && !getFolder(folderId)) throw new Error("Target folder not found");
-  const update = db.prepare("UPDATE files SET folder_id = ? WHERE id = ?");
+/** Move a user's files into one of their folders (or to root when folderId is null). */
+export function moveFiles(fileIds: string[], folderId: string | null, userId: string): number {
+  if (folderId !== null && !getFolder(folderId, userId)) throw new Error("Target folder not found");
+  // Only move files the user owns.
+  const update = db.prepare("UPDATE files SET folder_id = ? WHERE id = ? AND user_id = ?");
   let moved = 0;
   for (const fileId of fileIds) {
-    if ((update.run(folderId, fileId) as { changes: number }).changes > 0) moved += 1;
+    if ((update.run(folderId, fileId, userId) as { changes: number }).changes > 0) moved += 1;
   }
   return moved;
 }

@@ -10,12 +10,14 @@ import { logger } from "../../logger.js";
 const videoExt = new Set([".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".mpeg", ".mpg"]);
 const audioExt = new Set([".aac", ".flac", ".m4a", ".mp3", ".oga", ".ogg", ".opus", ".wav", ".weba"]);
 
-/** Fixed pseudo-torrent that groups directly-uploaded files. */
-export const UPLOADS_ID = "local-uploads";
+/** Each user gets their own uploads pseudo-torrent so direct uploads stay siloed. */
+export function uploadsIdFor(userId: string): string {
+  return `local-uploads-${userId}`;
+}
 
-/** Absolute directory where uploaded files are stored (mirrors torrent layout). */
-export function uploadsDir(): string {
-  return path.join(config.dataDir, "downloads", UPLOADS_ID);
+/** Absolute directory where a user's uploaded files are stored. */
+export function uploadsDirFor(userId: string): string {
+  return path.join(config.dataDir, "downloads", uploadsIdFor(userId));
 }
 
 /** Classify a filename into a media kind and whether it is stream-playable. */
@@ -33,43 +35,40 @@ export class TorrentService {
 
   attach(io: Server) {
     this.io = io;
-    // WebTorrent emits 'error' (e.g. EADDRINUSE on the torrent port). Without a
-    // listener Node treats it as unhandled and crashes the whole process, so we
-    // log and keep the API alive instead of taking the server down.
     this.client.on("error", (err) => logger.error({ err }, "WebTorrent client error"));
     setInterval(() => this.publishStats(), 1500).unref();
   }
 
-  add(magnetUri: string) {
-    const id = crypto.randomUUID();
-    db.prepare("INSERT INTO torrents (id, name, magnet_uri, status) VALUES (?, ?, ?, ?)").run(
-      id,
-      "Fetching metadata",
-      magnetUri,
-      "connecting"
-    );
+  /** True if the torrent row is owned by the given user. */
+  private owns(id: string, userId: string): boolean {
+    const row = db.prepare("SELECT user_id FROM torrents WHERE id = ?").get(id) as any;
+    return !!row && row.user_id === userId;
+  }
 
+  private ownerOf(id: string): string | null {
+    const row = db.prepare("SELECT user_id FROM torrents WHERE id = ?").get(id) as any;
+    return row?.user_id ?? null;
+  }
+
+  add(magnetUri: string, userId: string) {
+    const id = crypto.randomUUID();
+    db.prepare("INSERT INTO torrents (id, user_id, name, magnet_uri, status) VALUES (?, ?, ?, ?, ?)").run(
+      id, userId, "Fetching metadata", magnetUri, "connecting",
+    );
     this.start(id, magnetUri, "downloading");
     return { id };
   }
 
   /** Add a torrent from an uploaded .torrent file buffer. */
-  addTorrentFile(buffer: Buffer) {
+  addTorrentFile(buffer: Buffer, userId: string) {
     const id = crypto.randomUUID();
-    db.prepare("INSERT INTO torrents (id, name, magnet_uri, status) VALUES (?, ?, ?, ?)").run(
-      id,
-      "Fetching metadata",
-      `torrentfile://${id}`,
-      "connecting"
+    db.prepare("INSERT INTO torrents (id, user_id, name, magnet_uri, status) VALUES (?, ?, ?, ?, ?)").run(
+      id, userId, "Fetching metadata", `torrentfile://${id}`, "downloading",
     );
-    db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("downloading", id);
-    // WebTorrent's add() accepts a .torrent Buffer as well as a magnet URI.
     const torrent = this.client.add(buffer as unknown as string, {
       path: path.join(config.dataDir, "downloads", id),
     });
     this.bindTorrent(id, torrent);
-    // Persist the canonical magnet URI once metadata arrives so pause/resume and
-    // restore-after-restart work exactly like a magnet-added torrent.
     torrent.on("ready", () => {
       const magnet = (torrent as any).magnetURI;
       if (magnet) db.prepare("UPDATE torrents SET magnet_uri = ? WHERE id = ?").run(magnet, id);
@@ -81,17 +80,19 @@ export class TorrentService {
     const rows = db.prepare("SELECT id, magnet_uri, status FROM torrents WHERE status != ? ORDER BY created_at").all("completed") as any[];
     for (const row of rows) {
       if (row.status === "paused") continue;
+      if (String(row.magnet_uri).startsWith("local://")) continue; // uploads bucket, nothing to resume
       this.start(row.id, row.magnet_uri, "resuming");
     }
     logger.info({ count: rows.length }, "Torrent restore scan complete");
   }
 
-  list() {
-    return db.prepare("SELECT * FROM torrents ORDER BY created_at DESC").all();
+  /** All torrents owned by a user. */
+  list(userId: string) {
+    return db.prepare("SELECT * FROM torrents WHERE user_id = ? ORDER BY created_at DESC").all(userId);
   }
 
-  getDetail(id: string) {
-    const row = db.prepare("SELECT * FROM torrents WHERE id = ?").get(id) as any;
+  getDetail(id: string, userId: string) {
+    const row = db.prepare("SELECT * FROM torrents WHERE id = ? AND user_id = ?").get(id, userId) as any;
     if (!row) return null;
     const torrent = this.find(id) as any;
     const files = this.getFiles(id);
@@ -112,8 +113,8 @@ export class TorrentService {
         health: this.getHealth(row, peers.length),
         pieces,
         trackers,
-        peerList: peers
-      }
+        peerList: peers,
+      },
     };
   }
 
@@ -122,73 +123,73 @@ export class TorrentService {
     return db.prepare("SELECT * FROM files ORDER BY created_at DESC").all();
   }
 
-  /** Ensure the pseudo-torrent that groups direct uploads exists. */
-  private ensureUploadsBucket() {
-    const existing = db.prepare("SELECT id FROM torrents WHERE id = ?").get(UPLOADS_ID);
+  /** Ensure a user's uploads pseudo-torrent exists. */
+  private ensureUploadsBucket(userId: string) {
+    const bucketId = uploadsIdFor(userId);
+    const existing = db.prepare("SELECT id FROM torrents WHERE id = ?").get(bucketId);
     if (!existing) {
-      db.prepare(`INSERT INTO torrents (id, name, magnet_uri, status, progress) VALUES (?, ?, ?, ?, ?)`)
-        .run(UPLOADS_ID, "Uploads", "local://uploads", "completed", 1);
+      db.prepare("INSERT INTO torrents (id, user_id, name, magnet_uri, status, progress) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(bucketId, userId, "Uploads", "local://uploads", "completed", 1);
     }
+    return bucketId;
   }
 
-  /**
-   * Register a file that was uploaded directly (not via a torrent). The bytes are
-   * already streamed to disk by the route; here we only record metadata and
-   * notify clients. `relativeName` is the on-disk filename inside uploadsDir().
-   */
-  registerUpload(meta: { relativeName: string; displayName: string; size: number }) {
-    this.ensureUploadsBucket();
+  registerUpload(meta: { relativeName: string; displayName: string; size: number }, userId: string) {
+    const bucketId = this.ensureUploadsBucket(userId);
     const { kind, streamable, mimeType } = classifyFile(meta.displayName);
     const fileId = crypto.randomUUID();
     const probeStatus = streamable ? "pending" : "ready";
-    db.prepare(`INSERT INTO files (id, torrent_id, name, path, size, mime, media_kind, streamable, probe_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(fileId, UPLOADS_ID, meta.displayName, meta.relativeName, meta.size, mimeType, kind, streamable, probeStatus);
+    db.prepare(`INSERT INTO files (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(fileId, bucketId, userId, meta.displayName, meta.relativeName, meta.size, mimeType, kind, streamable, probeStatus);
 
-    const total = db.prepare("SELECT COALESCE(SUM(size),0) AS s FROM files WHERE torrent_id = ?").get(UPLOADS_ID) as any;
-    db.prepare("UPDATE torrents SET size = ?, downloaded = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-      .run(total.s, total.s, UPLOADS_ID);
+    const total = db.prepare("SELECT COALESCE(SUM(size),0) AS s FROM files WHERE torrent_id = ?").get(bucketId) as any;
+    db.prepare("UPDATE torrents SET size = ?, downloaded = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(total.s, total.s, bucketId);
 
-    this.io?.emit("notification", { type: "success", title: "Upload complete", body: meta.displayName });
+    this.notifyUser(userId, "notification", { type: "success", title: "Upload complete", body: meta.displayName });
     this.publishStats();
     return { id: fileId, streamable: Boolean(streamable), media_kind: kind };
   }
 
-  pause(id: string) {
+  pause(id: string, userId: string) {
+    if (!this.owns(id, userId)) return false;
     const torrent = this.find(id);
     if (!torrent) return false;
     torrent.pause();
     db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("paused", id);
-    this.io?.emit("torrent:paused", { id });
+    this.notifyUser(userId, "torrent:paused", { id });
     return true;
   }
 
-  resume(id: string) {
-    const row = db.prepare("SELECT magnet_uri FROM torrents WHERE id = ?").get(id) as any;
+  resume(id: string, userId: string) {
+    const row = db.prepare("SELECT magnet_uri FROM torrents WHERE id = ? AND user_id = ?").get(id, userId) as any;
     if (!row) return false;
     const torrent = this.find(id) ?? this.start(id, row.magnet_uri, "downloading");
     torrent.resume();
     db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("downloading", id);
-    this.io?.emit("torrent:resumed", { id });
+    this.notifyUser(userId, "torrent:resumed", { id });
     return true;
   }
 
-  remove(id: string, destroyStore = false) {
+  remove(id: string, userId: string, destroyStore = false) {
+    if (!this.owns(id, userId)) return false;
     const torrent = this.find(id);
     if (torrent) this.client.remove(torrent.infoHash, { destroyStore });
     this.active.delete(id);
     db.prepare("DELETE FROM torrents WHERE id = ?").run(id);
-    this.io?.emit("torrent:removed", { id });
+    this.notifyUser(userId, "torrent:removed", { id });
     return true;
   }
 
-  reannounce(id: string) {
+  reannounce(id: string, userId: string) {
+    if (!this.owns(id, userId)) return false;
     const torrent = this.find(id) as any;
     torrent?.announce?.();
     return Boolean(torrent);
   }
 
-  forceRecheck(id: string) {
+  forceRecheck(id: string, userId: string) {
+    if (!this.owns(id, userId)) return false;
     const torrent = this.find(id) as any;
     torrent?.verify?.();
     db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("checking", id);
@@ -203,41 +204,38 @@ export class TorrentService {
     return { ok: Boolean(target) };
   }
 
-  markFileForProbe(fileId: string) {
+  markFileForProbe(fileId: string, userId: string) {
     const result = db.prepare(`
-      UPDATE files
-      SET probe_status = 'pending', probe_error = NULL
-      WHERE id = ? AND streamable = 1
-    `).run(fileId) as any;
+      UPDATE files SET probe_status = 'pending', probe_error = NULL
+      WHERE id = ? AND streamable = 1 AND user_id = ?
+    `).run(fileId, userId) as any;
     return result.changes > 0;
   }
 
   private bindTorrent(id: string, torrent: Torrent) {
     this.active.set(id, torrent);
     torrent.on("metadata", () => {
+      const ownerId = this.ownerOf(id);
       db.prepare("UPDATE torrents SET info_hash = ?, name = ?, size = ?, status = ? WHERE id = ?").run(
-        torrent.infoHash,
-        torrent.name,
-        torrent.length,
-        "downloading",
-        id
+        torrent.infoHash, torrent.name, torrent.length, "downloading", id,
       );
       const insert = db.prepare(`INSERT OR IGNORE INTO files
-        (id, torrent_id, name, path, size, mime, media_kind, streamable, probe_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+        (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
       for (const file of torrent.files) {
         const { kind, streamable, mimeType } = classifyFile(file.name);
-        insert.run(crypto.randomUUID(), id, file.name, file.path, file.length, mimeType, kind, streamable, streamable ? "pending" : "ready");
+        insert.run(crypto.randomUUID(), id, ownerId, file.name, file.path, file.length, mimeType, kind, streamable, streamable ? "pending" : "ready");
         if (kind === "video") file.select();
       }
-      this.io?.emit("torrent:metadata", { id, name: torrent.name });
+      if (ownerId) this.notifyUser(ownerId, "torrent:metadata", { id, name: torrent.name });
     });
 
     torrent.on("download", () => this.update(id, torrent));
     torrent.on("upload", () => this.update(id, torrent));
     torrent.on("done", () => {
       this.update(id, torrent, "completed");
-      this.io?.emit("notification", { type: "success", title: "Torrent completed", body: torrent.name });
+      const ownerId = this.ownerOf(id);
+      if (ownerId) this.notifyUser(ownerId, "notification", { type: "success", title: "Torrent completed", body: torrent.name });
     });
     torrent.on("error", (error: Error) => {
       logger.error({ error, id }, "Torrent error");
@@ -247,9 +245,7 @@ export class TorrentService {
 
   private start(id: string, magnetUri: string, status: string) {
     db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(status, id);
-    const torrent = this.client.add(magnetUri, {
-      path: path.join(config.dataDir, "downloads", id)
-    });
+    const torrent = this.client.add(magnetUri, { path: path.join(config.dataDir, "downloads", id) });
     this.bindTorrent(id, torrent);
     return torrent;
   }
@@ -257,19 +253,22 @@ export class TorrentService {
   private update(id: string, torrent: Torrent, status = "downloading") {
     db.prepare(`UPDATE torrents SET progress = ?, download_speed = ?, upload_speed = ?,
       downloaded = ?, uploaded = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
-      torrent.progress,
-      torrent.downloadSpeed,
-      torrent.uploadSpeed,
-      torrent.downloaded,
-      torrent.uploaded,
-      status,
-      id
+      torrent.progress, torrent.downloadSpeed, torrent.uploadSpeed, torrent.downloaded, torrent.uploaded, status, id,
     );
   }
 
+  /** Emit an event only to the sockets belonging to one user. */
+  private notifyUser(userId: string, event: string, payload: unknown) {
+    this.io?.to(`u:${userId}`).emit(event, payload);
+  }
+
+  /** Push each connected socket only its own user's torrent list. */
   private publishStats() {
-    const rows = this.list();
-    this.io?.emit("torrents:update", rows);
+    if (!this.io) return;
+    for (const [, socket] of this.io.sockets.sockets) {
+      const uid = (socket.data as any)?.userId;
+      if (uid) socket.emit("torrents:update", this.list(uid));
+    }
   }
 
   private find(id: string) {
@@ -295,7 +294,7 @@ export class TorrentService {
       downloadSpeed: wire.downloadSpeed?.() ?? 0,
       uploadSpeed: wire.uploadSpeed?.() ?? 0,
       choked: Boolean(wire.peerChoking),
-      interested: Boolean(wire.peerInterested)
+      interested: Boolean(wire.peerInterested),
     }));
   }
 
@@ -313,7 +312,7 @@ export class TorrentService {
     return {
       total,
       complete: pieces.filter((piece: any) => Boolean(piece?.verified || piece?.complete || piece === true)).length,
-      map
+      map,
     };
   }
 }

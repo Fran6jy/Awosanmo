@@ -2,34 +2,34 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import type { Request, Response } from "express";
-import { getDiskPath, getFile } from "./fileService.js";
+import { getDiskPath, getOwnedFile } from "./fileService.js";
 
 // archiver is CommonJS; load it via createRequire so Node's ESM loader doesn't
 // choke on the missing default export.
 const require = createRequire(import.meta.url);
 const archiver = require("archiver") as (format: string, options?: any) => any;
 
-type Ticket = { ids: string[]; expires: number };
+type Ticket = { ids: string[]; userId: string; expires: number };
 
 // Short-lived tickets let the browser download a zip by plain navigation (no
 // Authorization header), the same pattern used for stream/download tokens.
 const tickets = new Map<string, Ticket>();
 const TTL_MS = 5 * 60 * 1000;
 
-export function createZipTicket(ids: string[]): string {
+export function createZipTicket(ids: string[], userId: string): string {
   const token = crypto.randomBytes(24).toString("hex");
-  tickets.set(token, { ids, expires: Date.now() + TTL_MS });
+  tickets.set(token, { ids, userId, expires: Date.now() + TTL_MS });
   return token;
 }
 
-function takeTicket(token: string): string[] | null {
+function takeTicket(token: string): Ticket | null {
   const ticket = tickets.get(token);
   if (!ticket) return null;
   if (Date.now() > ticket.expires) {
     tickets.delete(token);
     return null;
   }
-  return ticket.ids;
+  return ticket;
 }
 
 // Periodically drop expired tickets so the map can't grow unbounded.
@@ -40,8 +40,9 @@ setInterval(() => {
 
 export function zipDownload(req: Request, res: Response) {
   const token = typeof req.query.token === "string" ? req.query.token : "";
-  const ids = takeTicket(token);
-  if (!ids) return res.status(401).json({ error: "Invalid or expired zip token" });
+  const ticket = takeTicket(token);
+  if (!ticket) return res.status(401).json({ error: "Invalid or expired zip token" });
+  const { ids, userId } = ticket;
 
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", `attachment; filename="awosanmo-${Date.now()}.zip"`);
@@ -55,7 +56,7 @@ export function zipDownload(req: Request, res: Response) {
 
   const seen = new Set<string>();
   for (const id of ids) {
-    const file = getFile(id);
+    const file = getOwnedFile(id, userId);
     if (!file) continue;
     const disk = getDiskPath(file);
     if (!fs.existsSync(disk)) continue;

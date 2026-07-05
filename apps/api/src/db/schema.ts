@@ -81,6 +81,10 @@ export function migrate() {
   `);
   // Virtual folder a file belongs to (NULL = library root).
   addColumn("files", "folder_id", "TEXT");
+  // Per-user ownership for isolation (NULL rows predate multi-user).
+  addColumn("torrents", "user_id", "TEXT");
+  addColumn("files", "user_id", "TEXT");
+  addColumn("folders", "user_id", "TEXT");
   addColumn("files", "probe_status", "TEXT NOT NULL DEFAULT 'pending'");
   addColumn("files", "probe_error", "TEXT");
   addColumn("files", "codec_video", "TEXT");

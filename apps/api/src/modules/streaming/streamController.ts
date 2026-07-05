@@ -8,6 +8,7 @@ import { torrentService } from "../torrents/torrentService.js";
 export function streamFile(req: any, res: any) {
   const file = db.prepare("SELECT * FROM files WHERE id = ?").get(req.params.id) as any;
   if (!file) return res.status(404).json({ error: "File not found" });
+  if (req.user?.sub && file.user_id && file.user_id !== req.user.sub) return res.status(404).json({ error: "File not found" });
 
   torrentService.prioritizeFile(file.id);
   const safeRelative = path.normalize(file.path).replace(/^(\.\.[/\\])+/, "");

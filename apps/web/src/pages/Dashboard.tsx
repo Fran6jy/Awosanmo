@@ -100,7 +100,7 @@ export function Dashboard() {
       stored: storage.data?.used ?? rows.reduce((sum, row) => sum + row.size * row.progress, 0)
     };
   }, [storage.data?.used, torrents.data]);
-  const visibleTorrents = useMemo(() => (torrents.data ?? []).filter((torrent) => torrent.id !== "local-uploads"), [torrents.data]);
+  const visibleTorrents = useMemo(() => (torrents.data ?? []).filter((torrent) => !torrent.id.startsWith("local-uploads")), [torrents.data]);
 
   if (!authed) return <Navigate to="/login" replace />;
 

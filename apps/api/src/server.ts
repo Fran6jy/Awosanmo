@@ -9,10 +9,12 @@ import compression from "compression";
 import rateLimit from "express-rate-limit";
 import pinoHttpImport from "pino-http";
 import { Server } from "socket.io";
+import jwt from "jsonwebtoken";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { migrate } from "./db/schema.js";
-import { ensureAdminUser, login, loginSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, rotateRefresh, revokeRefresh, signDownloadToken, signStreamToken, signSubtitleToken } from "./modules/auth/auth.js";
+import { ensureAdminUser, login, loginSchema, register, registerSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, rotateRefresh, revokeRefresh, signDownloadToken, signStreamToken, signSubtitleToken } from "./modules/auth/auth.js";
+import { getOwnedFile } from "./modules/files/fileService.js";
 import { torrentRoutes } from "./modules/torrents/routes.js";
 import { torrentService } from "./modules/torrents/torrentService.js";
 import { streamFile } from "./modules/streaming/streamController.js";
@@ -64,6 +66,12 @@ app.post("/api/login", async (req, res) => {
   if (!session) return res.status(401).json({ error: "Invalid credentials" });
   res.json(session);
 });
+app.post("/api/register", async (req, res) => {
+  const body = registerSchema.parse(req.body);
+  const session = await register(body.email, body.password);
+  if (!session) return res.status(409).json({ error: "An account with that email already exists" });
+  res.status(201).json(session);
+});
 app.post("/api/refresh", (req, res) => {
   const refreshToken = req.body?.refreshToken;
   if (typeof refreshToken !== "string") return res.status(400).json({ error: "Missing refresh token" });
@@ -85,21 +93,26 @@ app.use("/api/folders", requireAuth, folderRoutes);
 app.use("/api/wishlist", requireAuth, wishlistRoutes);
 // Token-authenticated so the browser can download by navigation (no header).
 app.get("/api/zip", zipDownload);
-app.post("/api/stream-token/:id", requireAuth, (req: any, res) => {
+// Only issue a media token if the caller owns the file.
+const ownsFile = (req: any, res: any, next: any) => {
+  if (!getOwnedFile(req.params.id, req.user.id)) return res.status(404).json({ error: "File not found" });
+  next();
+};
+app.post("/api/stream-token/:id", requireAuth, ownsFile, (req: any, res) => {
   res.json({ streamToken: signStreamToken(req.user.id, req.params.id), expiresIn: config.streamTokenTtlSeconds });
 });
-app.post("/api/download-token/:id", requireAuth, (req: any, res) => {
+app.post("/api/download-token/:id", requireAuth, ownsFile, (req: any, res) => {
   res.json({ downloadToken: signDownloadToken(req.user.id, req.params.id), expiresIn: config.streamTokenTtlSeconds });
 });
-app.post("/api/subtitle-token/:id", requireAuth, (req: any, res) => {
+app.post("/api/subtitle-token/:id", requireAuth, ownsFile, (req: any, res) => {
   res.json({ subtitleToken: signSubtitleToken(req.user.id, req.params.id), expiresIn: config.streamTokenTtlSeconds });
 });
 app.get("/api/stream/:id", requireStreamAuth, streamFile);
 app.get("/api/download/:id", requireDownloadAuth, downloadFile);
 app.get("/api/subtitle/:id", requireSubtitleAuth, subtitleFile);
-app.get("/api/stats", requireAuth, (_req, res) => {
+app.get("/api/stats", requireAuth, (req: any, res) => {
   const usage = process.memoryUsage();
-  res.json({ memory: usage, uptime: process.uptime(), torrents: torrentService.list().length });
+  res.json({ memory: usage, uptime: process.uptime(), torrents: torrentService.list(req.user.id).length });
 });
 app.get("/api/storage", requireAuth, (_req, res) => res.json(getStorageStats()));
 
@@ -110,8 +123,23 @@ if (process.env.NODE_ENV === "production" && fs.existsSync(webDist)) {
   app.get(/.*/, (_req, res) => res.sendFile(path.join(webDist, "index.html")));
 }
 
+// Authenticate every socket so torrent updates are delivered per-user only.
+io.use((socket, next) => {
+  try {
+    const raw = socket.handshake.auth?.token as string | undefined;
+    if (!raw) return next(new Error("unauthorized"));
+    const payload = jwt.verify(raw, config.jwtSecret) as any;
+    if (payload.typ === "refresh" || !payload.id) return next(new Error("unauthorized"));
+    (socket.data as any).userId = payload.id;
+    next();
+  } catch {
+    next(new Error("unauthorized"));
+  }
+});
 io.on("connection", (socket) => {
-  socket.emit("torrents:update", torrentService.list());
+  const userId = (socket.data as any).userId as string;
+  socket.join(`u:${userId}`);
+  socket.emit("torrents:update", torrentService.list(userId));
 });
 
 server.listen(config.port, () => logger.info({ port: config.port }, "Awosanmo API listening"));

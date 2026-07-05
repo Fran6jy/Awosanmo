@@ -5,6 +5,7 @@ import { getDiskPath, getFile } from "./fileService.js";
 export function downloadFile(req: any, res: any) {
   const file = getFile(req.params.id);
   if (!file) return res.status(404).json({ error: "File not found" });
+  if (req.user?.sub && file.user_id && file.user_id !== req.user.sub) return res.status(404).json({ error: "File not found" });
   const diskPath = getDiskPath(file);
   if (!fs.existsSync(diskPath)) return res.status(425).json({ error: "File is not available yet" });
   const stat = fs.statSync(diskPath);

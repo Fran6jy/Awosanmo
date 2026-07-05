@@ -7,6 +7,7 @@ const subtitleExt = new Set([".srt", ".vtt"]);
 export function subtitleFile(req: any, res: any) {
   const file = getFile(req.params.id);
   if (!file) return res.status(404).json({ error: "Subtitle not found" });
+  if (req.user?.sub && file.user_id && file.user_id !== req.user.sub) return res.status(404).json({ error: "Subtitle not found" });
   const ext = path.extname(file.name).toLowerCase();
   if (!subtitleExt.has(ext)) return res.status(415).json({ error: "Unsupported subtitle format" });
   const diskPath = getDiskPath(file);

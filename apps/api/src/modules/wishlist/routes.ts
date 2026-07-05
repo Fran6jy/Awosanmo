@@ -50,7 +50,7 @@ wishlistRoutes.delete("/:id", (req: any, res) => {
 wishlistRoutes.post("/:id/download", (req: any, res) => {
   const item = db.prepare("SELECT * FROM wishlist WHERE id = ? AND user_id = ?").get(req.params.id, req.user.id) as any;
   if (!item) return res.status(404).json({ error: "Wishlist item not found" });
-  const added = torrentService.add(item.magnet_uri);
+  const added = torrentService.add(item.magnet_uri, req.user.id);
   db.prepare("DELETE FROM wishlist WHERE id = ?").run(item.id);
   res.status(202).json(added);
 });

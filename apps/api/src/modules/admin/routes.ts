@@ -6,19 +6,21 @@ import { getStorageStats } from "../storage/storageService.js";
 
 export const adminRoutes = Router();
 
-adminRoutes.get("/status", (_req, res) => {
+adminRoutes.get("/status", (req: any, res) => {
+  const userId = req.user.id;
   const memory = process.memoryUsage();
   const storage = getStorageStats();
-  const torrents = db.prepare("SELECT status, COUNT(*) count FROM torrents GROUP BY status").all();
-  const files = db.prepare("SELECT media_kind, COUNT(*) count, COALESCE(SUM(size), 0) size FROM files GROUP BY media_kind").all();
-  const probes = db.prepare("SELECT probe_status, COUNT(*) count FROM files GROUP BY probe_status").all();
+  // Content stats are scoped to the requesting user (siloed accounts).
+  const torrents = db.prepare("SELECT status, COUNT(*) count FROM torrents WHERE user_id = ? GROUP BY status").all(userId);
+  const files = db.prepare("SELECT media_kind, COUNT(*) count, COALESCE(SUM(size), 0) size FROM files WHERE user_id = ? GROUP BY media_kind").all(userId);
+  const probes = db.prepare("SELECT probe_status, COUNT(*) count FROM files WHERE user_id = ? GROUP BY probe_status").all(userId);
   const recent = db.prepare(`
-    SELECT 'torrent' type, name title, status detail, updated_at timestamp FROM torrents
-    UNION ALL
-    SELECT 'file' type, name title, COALESCE(probe_status, media_kind) detail, created_at timestamp FROM files
-    ORDER BY timestamp DESC
-    LIMIT 20
-  `).all();
+    SELECT * FROM (
+      SELECT 'torrent' type, name title, status detail, updated_at timestamp FROM torrents WHERE user_id = ?
+      UNION ALL
+      SELECT 'file' type, name title, COALESCE(probe_status, media_kind) detail, created_at timestamp FROM files WHERE user_id = ?
+    ) ORDER BY timestamp DESC LIMIT 20
+  `).all(userId, userId);
   res.json({
     app: {
       uptime: process.uptime(),

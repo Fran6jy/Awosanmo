@@ -13,15 +13,38 @@ export const loginSchema = z.object({
 export function ensureAdminUser() {
   const email = process.env.ADMIN_EMAIL ?? "admin@awosanmo.local";
   const password = process.env.ADMIN_PASSWORD ?? "change-me-now";
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
-  if (!existing) {
-    db.prepare("INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)").run(
-      crypto.randomUUID(),
+  let admin = db.prepare("SELECT id FROM users WHERE email = ?").get(email) as any;
+  if (!admin) {
+    const id = crypto.randomUUID();
+    db.prepare("INSERT INTO users (id, email, password_hash, role) VALUES (?, ?, ?, 'admin')").run(
+      id,
       email,
       bcrypt.hashSync(password, 12)
     );
+    admin = { id };
+  }
+  // Backfill pre-multi-user rows so existing content stays owned by the admin.
+  for (const table of ["torrents", "files", "folders"]) {
+    db.prepare(`UPDATE ${table} SET user_id = ? WHERE user_id IS NULL`).run(admin.id);
   }
 }
+
+const registerSchema = loginSchema;
+
+/** Open self sign-up. Returns a session, or null if the email is taken. */
+export async function register(email: string, password: string) {
+  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+  if (existing) return null;
+  const id = crypto.randomUUID();
+  db.prepare("INSERT INTO users (id, email, password_hash, role) VALUES (?, ?, ?, 'user')").run(
+    id,
+    email,
+    bcrypt.hashSync(password, 12),
+  );
+  return { token: signToken({ id, email, role: "user" }), refreshToken: issueRefreshToken(id) };
+}
+
+export { registerSchema };
 
 type SessionUser = { id: string; email: string; role: string };
 

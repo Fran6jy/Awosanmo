@@ -3,26 +3,27 @@ import { db } from "../../db/schema.js";
 
 export const searchRoutes = Router();
 
-searchRoutes.get("/", (req, res) => {
+searchRoutes.get("/", (req: any, res) => {
+  const userId = req.user.id;
   const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
   const like = `%${query}%`;
   const files = query
     ? db.prepare(`
       SELECT id, name, path, media_kind, streamable, size
       FROM files
-      WHERE name LIKE ? OR path LIKE ? OR media_kind LIKE ? OR codec_video LIKE ? OR codec_audio LIKE ?
+      WHERE user_id = ? AND (name LIKE ? OR path LIKE ? OR media_kind LIKE ? OR codec_video LIKE ? OR codec_audio LIKE ?)
       ORDER BY created_at DESC
       LIMIT 20
-    `).all(like, like, like, like, like) as any[]
+    `).all(userId, like, like, like, like, like) as any[]
     : [];
   const torrents = query
     ? db.prepare(`
       SELECT id, name, status, progress, size
       FROM torrents
-      WHERE name LIKE ? OR status LIKE ? OR info_hash LIKE ?
+      WHERE user_id = ? AND (name LIKE ? OR status LIKE ? OR info_hash LIKE ?)
       ORDER BY updated_at DESC
       LIMIT 20
-    `).all(like, like, like) as any[]
+    `).all(userId, like, like, like) as any[]
     : [];
 
   res.json([

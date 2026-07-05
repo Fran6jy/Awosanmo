@@ -4,29 +4,34 @@ import mime from "mime-types";
 import { config } from "../../config.js";
 import { db } from "../../db/schema.js";
 
-export function listFiles(query?: string, folderId?: string | null) {
-  // Search is global across every folder.
+export function listFiles(userId: string, query?: string, folderId?: string | null) {
+  // Search is global across every folder — but only within the user's files.
   if (query?.trim()) {
     const like = `%${query}%`;
     return db.prepare(`
       SELECT * FROM files
-      WHERE name LIKE ? OR path LIKE ? OR media_kind LIKE ?
+      WHERE user_id = ? AND (name LIKE ? OR path LIKE ? OR media_kind LIKE ?)
       ORDER BY created_at DESC
       LIMIT 200
-    `).all(like, like, like);
+    `).all(userId, like, like, like);
   }
   // When a folder is specified, scope to it (null = library root).
   if (folderId !== undefined) {
     if (folderId === null) {
-      return db.prepare("SELECT * FROM files WHERE folder_id IS NULL ORDER BY created_at DESC LIMIT 200").all();
+      return db.prepare("SELECT * FROM files WHERE user_id = ? AND folder_id IS NULL ORDER BY created_at DESC LIMIT 200").all(userId);
     }
-    return db.prepare("SELECT * FROM files WHERE folder_id = ? ORDER BY created_at DESC LIMIT 200").all(folderId);
+    return db.prepare("SELECT * FROM files WHERE user_id = ? AND folder_id = ? ORDER BY created_at DESC LIMIT 200").all(userId, folderId);
   }
-  return db.prepare("SELECT * FROM files ORDER BY created_at DESC LIMIT 200").all();
+  return db.prepare("SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC LIMIT 200").all(userId);
 }
 
 export function getFile(id: string) {
   return db.prepare("SELECT * FROM files WHERE id = ?").get(id) as any;
+}
+
+/** Fetch a file only if it belongs to the given user (null otherwise). */
+export function getOwnedFile(id: string, userId: string) {
+  return db.prepare("SELECT * FROM files WHERE id = ? AND user_id = ?").get(id, userId) as any;
 }
 
 export function getDiskPath(file: any) {
@@ -34,9 +39,9 @@ export function getDiskPath(file: any) {
   return path.join(config.dataDir, "downloads", file.torrent_id, safeRelative);
 }
 
-export function renameFile(id: string, name: string) {
+export function renameFile(id: string, name: string, userId: string) {
   const clean = sanitizeName(name);
-  const file = getFile(id);
+  const file = getOwnedFile(id, userId);
   if (!file) return null;
   const oldDiskPath = getDiskPath(file);
   const nextRelative = path.join(path.dirname(file.path), clean);
@@ -46,8 +51,8 @@ export function renameFile(id: string, name: string) {
   return getFile(id);
 }
 
-export function deleteFile(id: string) {
-  const file = getFile(id);
+export function deleteFile(id: string, userId: string) {
+  const file = getOwnedFile(id, userId);
   if (!file) return false;
   const diskPath = getDiskPath(file);
   if (fs.existsSync(diskPath)) fs.unlinkSync(diskPath);
