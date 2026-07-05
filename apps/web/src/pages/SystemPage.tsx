@@ -33,6 +33,14 @@ export function SystemPage() {
       ) : (
         <div className="space-y-4">
           <TwoFactorSettings />
+          <a href="/api/docs" target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-2xl p-5 glass transition hover:bg-slate-50">
+            <div>
+              <p className="font-mono text-xs font-bold uppercase text-stream">Developers</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900">API documentation</h2>
+              <p className="mt-1 text-sm text-slate-500">Interactive Swagger UI for every endpoint (opens in a new tab).</p>
+            </div>
+            <Server className="h-6 w-6 text-slate-400" />
+          </a>
           <section className="rounded-2xl p-5 glass">
             <p className="font-mono text-xs font-bold uppercase text-stream">System</p>
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-950">Server Control Panel</h1>

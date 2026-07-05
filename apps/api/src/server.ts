@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import express from "express";
 import http from "node:http";
 import cors from "cors";
@@ -30,6 +31,13 @@ import { uploadRoutes } from "./modules/uploads/routes.js";
 import { folderRoutes } from "./modules/folders/routes.js";
 import { wishlistRoutes } from "./modules/wishlist/routes.js";
 import { zipDownload } from "./modules/files/zipController.js";
+import { openapiSpec } from "./openapi.js";
+
+// swagger-ui-express is CommonJS; load via createRequire for reliable interop.
+const swaggerUi = createRequire(import.meta.url)("swagger-ui-express") as {
+  serve: express.RequestHandler[];
+  setup: (spec: unknown, opts?: unknown) => express.RequestHandler;
+};
 
 fs.mkdirSync(config.dataDir, { recursive: true });
 migrate();
@@ -60,6 +68,18 @@ app.use(express.json({ limit: "256kb" }));
 app.use(rateLimit({ windowMs: 60_000, limit: 180 }));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+// API documentation (public): raw spec + Swagger UI.
+app.get("/api/openapi.json", (_req, res) => res.json(openapiSpec));
+app.use(
+  "/api/docs",
+  (_req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Swagger UI relies on inline script/style; relax CSP for this path only.
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:");
+    next();
+  },
+  swaggerUi.serve,
+  swaggerUi.setup(openapiSpec, { customSiteTitle: "Awosanmo API" }),
+);
 app.post("/api/login", async (req, res) => {
   const body = loginSchema.parse(req.body);
   const session = await login(body.email, body.password);
