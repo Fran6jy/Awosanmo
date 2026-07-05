@@ -8,6 +8,9 @@ import { LiveSync } from "./components/LiveSync";
 import { Toaster } from "./components/Toast";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
+const savedTheme = localStorage.getItem("theme");
+document.documentElement.dataset.theme = savedTheme === "light" ? "light" : "dark";
+
 const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })));
 const Login = lazy(() => import("./pages/Login").then((module) => ({ default: module.Login })));
 const Player = lazy(() => import("./pages/Player").then((module) => ({ default: module.Player })));
@@ -17,7 +20,7 @@ const FilesPage = lazy(() => import("./pages/FilesPage").then((module) => ({ def
 const SystemPage = lazy(() => import("./pages/SystemPage").then((module) => ({ default: module.SystemPage })));
 
 function Page({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[#f7f8fb] text-slate-400">Loading...</div>}>{children}</Suspense>;
+  return <Suspense fallback={<div className="grid min-h-screen place-items-center text-slate-400">Loading...</div>}>{children}</Suspense>;
 }
 
 const queryClient = new QueryClient();

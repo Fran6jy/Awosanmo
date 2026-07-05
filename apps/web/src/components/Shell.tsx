@@ -11,6 +11,7 @@ import { api, logout, token } from "../lib/api";
 import { readClipboardMagnet } from "../lib/clipboard";
 import { formatBytes } from "../lib/format";
 import { pushToast } from "./Toast";
+import { ThemeToggle } from "./ThemeToggle";
 
 type StorageStats = { used: number; available: number; total: number };
 
@@ -179,6 +180,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <StorageQuota />
             <CommandPalette />
             <Wishlist />
+            <ThemeToggle />
             <AddMagnet />
           </div>
         </header>

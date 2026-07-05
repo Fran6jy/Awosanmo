@@ -98,7 +98,7 @@ apps/
                            ContextMenu, Wishlist, TwoFactorSettings
       lib/                 api.ts (fetch + upload + zip + refresh), socket.ts,
                            clipboard.ts, format.ts, fileTypes.ts
-      styles.css           Premium dark design system utilities and global UI
+      styles.css           Premium dark/light design system utilities and global UI
 deploy/                    nginx.conf, systemd units, Oracle setup + backup scripts
 docs/                      DEPLOYMENT.md, HANDOFF.md (this file)
 Dockerfile, docker-compose.yml, docker-compose.prod.yml, vercel.json
@@ -200,6 +200,9 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
 ### Frontend visual system
 - Premium dark Plex/Linear-style aesthetic: near-black `#07070C` base, indigo
   `#6366F1` accent, light text, subtle indigo aurora glow, and a faint green tint.
+- Light mode is also supported with a persistent header toggle. The selected
+  theme is stored in `localStorage.theme` and applied through
+  `document.documentElement.dataset.theme` before React renders.
 - Typography uses Plus Jakarta Sans across the app.
 - Shared utility classes keep controls consistent: `.btn-primary`, `.btn-ghost`,
   `.icon-btn`, `.field`, `.chip`, and `.card`.
@@ -211,6 +214,8 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
   command bar for magnet entry, premium torrent rows, status-colored labels, and
   a proper empty state.
 - System page has no Recent Activity panel and uses a wider Runtime grid.
+- `/view/:id` uses the same theme system, including image previews on a neutral
+  viewer canvas instead of the old bright/purple frame.
 
 ---
 
@@ -356,6 +361,9 @@ Two layers must both allow a port:
   design system using Plus Jakarta Sans, near-black surfaces, indigo accent,
   glass cards, refined scrollbars, reusable component classes, simplified
   sidebar navigation, dashboard stat cards, and cleaned System runtime layout.
+- **Light theme + themed viewer:** added a persistent dark/light toggle and
+  updated the file viewer so image/PDF/text/audio/EPUB pages use the shared
+  design system instead of the old light-only preview shell.
 - **Seedr-style UX pass:** dense file table, fixed dashboard overflow, header
   storage quota, and click-to-auto-paste magnet behavior over HTTPS.
 - **Unified file viewer:** added `/view/:id` for video, audio, image, PDF, text,
@@ -401,7 +409,7 @@ Nice-to-have:
 
 Done since the first handoff: wishlist, refresh tokens, multi-user isolation,
 2FA, OpenAPI docs, automated tests, file previews, EPUB reader, clipboard
-auto-paste, header storage quota, premium dark redesign.
+auto-paste, header storage quota, premium dark redesign, light theme toggle.
 
 ---
 

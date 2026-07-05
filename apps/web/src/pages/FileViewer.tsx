@@ -5,6 +5,7 @@ import { ArrowLeft, Download, FileText, Image as ImageIcon, Music, Video } from 
 import { API_URL, api, token } from "../lib/api";
 import { formatBytes } from "../lib/format";
 import { previewKind } from "../lib/fileTypes";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 type FileRow = {
   id: string; name: string; path: string; size: number; mime?: string | null; media_kind: string; streamable: number;
@@ -97,23 +98,26 @@ export function FileViewer() {
   const meta = file.data;
 
   return (
-    <main className="min-h-screen bg-[#f7f8fb] text-white">
-      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+    <main className="min-h-screen text-slate-100">
+      <header className="sticky top-0 z-20 border-b border-line bg-[color:var(--app-bg)]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
-          <Link to="/files" className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white">
+          <Link to="/files" className="btn-ghost px-3">
             <ArrowLeft className="h-4 w-4" /> Files
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{meta?.name ?? "Opening file"}</p>
+            <p className="truncate text-sm font-semibold text-white">{meta?.name ?? "Opening file"}</p>
             <p className="text-xs text-slate-400">{meta ? `${kind.toUpperCase()} · ${formatBytes(meta.size)}` : "Preparing secure preview"}</p>
           </div>
-          <button onClick={() => void download()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-4 text-sm font-bold text-white transition hover:bg-accent2">
-            <Download className="h-4 w-4" /> Download
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <ThemeToggle />
+            <button onClick={() => void download()} className="btn-primary">
+              <Download className="h-4 w-4" /> Download
+            </button>
+          </div>
         </div>
       </header>
       <section className="mx-auto max-w-7xl px-4 py-6">
-        <div className="min-h-[72vh] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] shadow-sm">
+        <div className="glass min-h-[72vh] overflow-hidden rounded-2xl">
           {!src || !meta ? <Empty icon={FileText} title="Preparing preview" detail="Creating a short-lived private media link." /> : null}
           {src && meta && kind === "video" ? (
             <div className="bg-black p-3">
@@ -123,8 +127,12 @@ export function FileViewer() {
             </div>
           ) : null}
           {src && meta && kind === "audio" ? <Empty icon={Music} title={meta.name} detail="Audio preview"><audio className="mt-6 w-full max-w-2xl" controls src={src} /></Empty> : null}
-          {src && meta && kind === "image" ? <div className="grid min-h-[72vh] place-items-center bg-accent p-4"><img src={src} alt={meta.name} className="max-h-[78vh] max-w-full rounded-xl object-contain" /></div> : null}
-          {src && meta && kind === "pdf" ? <iframe title={meta.name} src={src} className="h-[78vh] w-full border-0" /> : null}
+          {src && meta && kind === "image" ? (
+            <div className="grid min-h-[72vh] place-items-center bg-black/20 p-4 md:p-8">
+              <img src={src} alt={meta.name} className="max-h-[78vh] max-w-full rounded-xl object-contain shadow-2xl shadow-black/30 ring-1 ring-white/10" />
+            </div>
+          ) : null}
+          {src && meta && kind === "pdf" ? <iframe title={meta.name} src={src} className="h-[78vh] w-full border-0 bg-white" /> : null}
           {src && meta && kind === "text" ? <pre className="max-h-[78vh] overflow-auto whitespace-pre-wrap p-6 font-mono text-sm leading-6 text-slate-100">{text ?? "Loading text preview..."}</pre> : null}
           {src && meta && kind === "epub" ? (
             <EpubReader src={src} title={meta.name} />
@@ -187,18 +195,18 @@ function EpubReader({ src, title }: { src: string; title: string }) {
   }
 
   return (
-    <div className="flex h-[78vh] flex-col bg-[#fbfaf7]">
-      <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.04] px-4 py-3">
+    <div className="flex h-[78vh] flex-col bg-[color:var(--app-panel)]">
+      <div className="flex items-center justify-between border-b border-line bg-white/[0.04] px-4 py-3">
         <p className="truncate text-sm font-semibold text-slate-200">{title}</p>
         <div className="flex gap-2">
-          <button onClick={prev} className="min-h-10 rounded-xl border border-line px-4 text-sm font-semibold text-slate-200 transition hover:bg-white/10">Previous</button>
-          <button onClick={next} className="min-h-10 rounded-xl bg-accent px-4 text-sm font-bold text-white transition hover:bg-accent2">Next</button>
+          <button onClick={prev} className="btn-ghost min-h-10">Previous</button>
+          <button onClick={next} className="btn-primary min-h-10">Next</button>
         </div>
       </div>
       <div className="relative min-h-0 flex-1">
         {!ready && !error ? <div className="absolute inset-0 grid place-items-center text-sm text-slate-400">Opening EPUB...</div> : null}
         {error ? <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-slate-400">{error}</div> : null}
-        <div ref={hostRef} className="h-full w-full px-4 py-5 md:px-10" />
+        <div ref={hostRef} className="h-full w-full bg-white px-4 py-5 text-slate-950 md:px-10" />
       </div>
     </div>
   );

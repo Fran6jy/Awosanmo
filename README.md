@@ -36,9 +36,9 @@ RAM box (the Oracle Cloud Free Tier in particular).
   notifications on completion.
 - **Media metadata** — `ffprobe` extracts resolution, codec, duration, bitrate,
   frame rate, and track counts.
-- **Premium dark SPA** — React + Tailwind + Framer Motion, Plex/Linear-style
-  near-black UI, Plus Jakarta Sans, glass surfaces, command palette (Ctrl-K),
-  loading states, error boundary, responsive.
+- **Premium two-theme SPA** — React + Tailwind + Framer Motion, Plex/Linear-style
+  dark mode, polished light mode, Plus Jakarta Sans, glass surfaces, command
+  palette (Ctrl-K), loading states, error boundary, responsive.
 - **Documented & tested** — interactive Swagger UI at `/api/docs` (OpenAPI 3.0)
   and a Vitest suite (auth, refresh, 2FA, isolation) run in CI.
 - **Low-memory by design** — Node streams end-to-end, `--max-old-space-size=384`,
@@ -181,9 +181,9 @@ static frontend can be deployed there, pointed at your VPS API via
 Implemented: multi-user isolation + open sign-up, refresh tokens, TOTP 2FA,
 wishlist, torrent engine (magnet + `.torrent`), Seedr-style clipboard auto-paste,
 streaming, uploads, file manager (search/rename/delete/bulk/ZIP/folders/
-context-menus), video/audio/image/PDF/text/EPUB viewing, header storage quota,
-premium dark redesign, live per-user updates, media probing, OpenAPI docs,
-automated tests, deploy tooling.
+context-menus), video/audio/image/PDF/text/EPUB viewing, themed file previews,
+header storage quota, premium dark/light redesign, live per-user updates, media
+probing, OpenAPI docs, automated tests, deploy tooling.
 
 Not yet built: **OAuth** (blocked on a domain for a stable redirect URL),
 thumbnails/posters, on-the-fly transcoding (heavy on 1 GB RAM), remote URL/FTP
