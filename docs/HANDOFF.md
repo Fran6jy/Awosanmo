@@ -12,11 +12,11 @@ you if you don't know them.
 
 ## 1. What Awosanmo is
 
-A self-hosted private cloud-torrenting, file-preview, and streaming platform (a
-lightweight Seedr alternative). Paste a magnet link (or upload a `.torrent`, or
-upload any file); the server downloads onto your VPS; you stream, preview, or
-download it from anywhere. Built to run on the Oracle Cloud Free Tier (1 vCPU /
-1 GB RAM).
+A self-hosted, **multi-user** private cloud-torrenting, file-preview, and
+streaming platform (a lightweight Seedr alternative). Paste a magnet link (or
+upload a `.torrent`, or upload any file); the server downloads onto your VPS; you
+stream, preview, or download it from anywhere. Accounts are fully siloed, with
+optional 2FA. Built to run on the Oracle Cloud Free Tier (1 vCPU / 1 GB RAM).
 
 ---
 
@@ -80,19 +80,24 @@ apps/
       config.ts            Env-driven config
       db/schema.ts         SQLite schema + idempotent migrations
       modules/
-        auth/              JWT login, token guards (stream/download/subtitle)
-        torrents/          WebTorrent engine + routes
+        auth/              login/register, refresh tokens, 2FA (auth.ts, totp.ts)
+        torrents/          WebTorrent engine + routes (user-scoped)
         streaming/         HTTP range streaming controller
         files/             list/rename/delete/bulk/move/zip + download/subtitle
-        folders/           folders CRUD + move
+        folders/           folders CRUD + move (user-scoped)
         uploads/           arbitrary file upload (streamed to disk)
+        wishlist/          saved magnets to add later
         media/             ffprobe metadata worker
         storage/, search/, admin/, playback/
+      openapi.ts           OpenAPI 3.0 spec (served at /api/docs)
+      __tests__/           Vitest suites (auth, isolation)
   web/                     React + TS + Vite + Tailwind + Framer Motion SPA
     src/
       pages/               Dashboard, FilesPage, FileViewer, Player, TorrentDetail, System, Login
-      components/          Shell, CommandPalette, LiveSync, Toast, ErrorBoundary, ContextMenu
-      lib/                 api.ts (fetch + upload + zip), socket.ts, format.ts, fileTypes.ts
+      components/          Shell, CommandPalette, LiveSync, Toast, ErrorBoundary,
+                           ContextMenu, Wishlist, TwoFactorSettings
+      lib/                 api.ts (fetch + upload + zip + refresh), socket.ts,
+                           clipboard.ts, format.ts, fileTypes.ts
 deploy/                    nginx.conf, systemd units, Oracle setup + backup scripts
 docs/                      DEPLOYMENT.md, HANDOFF.md (this file)
 Dockerfile, docker-compose.yml, docker-compose.prod.yml, vercel.json
@@ -103,10 +108,26 @@ Dockerfile, docker-compose.yml, docker-compose.prod.yml, vercel.json
 ## 5. API surface
 
 All `/api/*` routes require `Authorization: Bearer <token>` **except** `/api/login`,
-`/health`, and the token-in-query media routes.
+`/api/register`, `/api/refresh`, `/api/login/2fa`, `/health`, the API docs, and the
+token-in-query media routes. **Accounts are fully siloed** — every torrent, file,
+folder, wishlist item, and search result is scoped to the authenticated user.
 
-### Auth
-- `POST /api/login` `{ email, password }` → `{ token }` (JWT, 30-day default)
+### Auth & accounts
+- `POST /api/register` `{ email, password }` → `{ token, refreshToken }` (open sign-up)
+- `POST /api/login` `{ email, password }` → `{ token, refreshToken }` **or**
+  `{ twoFactorRequired: true, ticket }` when 2FA is enabled
+- `POST /api/login/2fa` `{ ticket, code }` → `{ token, refreshToken }`
+- `POST /api/refresh` `{ refreshToken }` → new `{ token, refreshToken }` (rotates)
+- `POST /api/logout` `{ refreshToken }` → 204 (revokes the refresh token)
+
+Access tokens are short-lived (1h); the SPA refreshes them transparently on 401
+using the refresh token (30d), which is whitelisted in the DB for revocation.
+
+### Two-factor (TOTP)
+- `GET  /api/2fa/status` → `{ enabled }`
+- `POST /api/2fa/setup` → `{ secret, otpauthUrl, qrDataUrl }` (begins enrollment)
+- `POST /api/2fa/enable` `{ code }` → confirms with the first code
+- `POST /api/2fa/disable` `{ code }` → turns 2FA off (requires a current code)
 
 ### Torrents
 - `GET /api/torrents` — list
@@ -137,6 +158,16 @@ All `/api/*` routes require `Authorization: Bearer <token>` **except** `/api/log
 ### Uploads
 - `POST /api/uploads` (multipart `file`) — any file, streamed to disk
 
+### Wishlist
+- `GET  /api/wishlist` — saved magnets
+- `POST /api/wishlist` `{ magnetUri, name?, size? }` — save for later
+- `DELETE /api/wishlist/:id`
+- `POST /api/wishlist/:id/download` — add to downloads and remove from wishlist
+
+### API documentation
+- `GET /api/docs` — interactive Swagger UI
+- `GET /api/openapi.json` — raw OpenAPI 3.0 spec
+
 ### Media tokens + delivery
 - `POST /api/stream-token/:id` · `download-token/:id` · `subtitle-token/:id`
 - `GET /api/stream/:id?st=<token>` — HTTP range / 206 streaming/preview for
@@ -150,9 +181,11 @@ All `/api/*` routes require `Authorization: Bearer <token>` **except** `/api/log
 - `GET /api/admin/status`
 
 ### WebSocket (Socket.IO, same origin, path `/socket.io`)
-Server emits: `torrents:update` (full list ~1.5s), `torrent:metadata`,
-`torrent:paused`, `torrent:resumed`, `torrent:removed`, `notification`.
-The SPA feeds these into the React Query cache (`components/LiveSync.tsx`).
+The handshake is **authenticated** with the access token (`auth.token`); each
+socket joins a per-user room, so `torrents:update` and notifications are delivered
+**only to their owner**. Server emits: `torrents:update` (that user's list ~1.5s),
+`torrent:metadata`, `torrent:paused`, `torrent:resumed`, `torrent:removed`,
+`notification`. The SPA feeds these into the React Query cache (`components/LiveSync.tsx`).
 
 ### Frontend routes and viewers
 - `/files` — dense Seedr-style file manager with folders, search, bulk actions,
@@ -173,8 +206,9 @@ The SPA feeds these into the React Query cache (`components/LiveSync.tsx`).
 | `PORT` | API port inside container | `4000` |
 | `DATA_DIR` / `DB_PATH` | data + sqlite location | `/data` (container) → `/var/lib/awosanmo` (host) |
 | `CORS_ORIGIN` | allowed browser origin | set to your URL |
-| `JWT_SECRET` | token signing secret | **must be strong** |
-| `AUTH_TOKEN_TTL` | login token lifetime | `30d` |
+| `JWT_SECRET` | signing secret for all tokens | **must be strong** |
+| `ACCESS_TOKEN_TTL` | access token lifetime | `1h` |
+| `REFRESH_TOKEN_TTL` / `REFRESH_TOKEN_TTL_MS` | refresh token lifetime | `30d` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | seeded admin (first boot only) | — |
 | `MAX_DOWNLOAD_RATE` / `MAX_UPLOAD_RATE` | bytes/s (0 = unlimited down) | `0` / `65536` |
 | `MAX_UPLOAD_BYTES` | max direct file upload | 8 GB |
@@ -214,16 +248,19 @@ sudo docker compose -f docker-compose.prod.yml down
 ```
 
 ### Change the admin password
-The admin is seeded **once**. To change an existing password, update the DB hash.
-Easiest path: stop the app, delete the users row, set a new `ADMIN_PASSWORD` in
-`.env`, restart (it re-seeds). This wipes only the login user, not files.
+The admin is seeded **once**. To reset it, delete **only the admin row** (never
+`DELETE FROM users` — that wipes every account now that it's multi-user), set a
+new `ADMIN_PASSWORD`, and restart so it re-seeds. This removes the admin login
+but not their files (which are re-owned on the next boot's backfill).
 ```bash
 cd /opt/awosanmo
 sudo docker compose -f docker-compose.prod.yml down
-sudo sqlite3 /var/lib/awosanmo/awosanmo.sqlite "DELETE FROM users;"
+sudo sqlite3 /var/lib/awosanmo/awosanmo.sqlite "DELETE FROM users WHERE email='admin@awosanmo.local';"
 sudo nano .env   # set a new ADMIN_PASSWORD
 sudo docker compose -f docker-compose.prod.yml up -d
 ```
+(2FA users who lose their device can be reset with
+`UPDATE users SET totp_enabled=0, totp_secret=NULL WHERE email='…';`.)
 
 ### Rotate/replace the HTTPS tunnel
 The quick-tunnel URL changes whenever the service restarts:
@@ -265,8 +302,11 @@ Two layers must both allow a port:
 - **`archiver` must stay on v7.** v8 dropped the callable factory export; the zip
   controller loads it via `createRequire`.
 - **Line endings.** Git warns about LF→CRLF on Windows checkouts; harmless.
-- **Socket has no per-connection auth.** `torrents:update` is broadcast to any
-  connected socket. Fine for single-user; tighten before multi-user.
+- **CJS deps loaded via `createRequire`.** `archiver`, `otplib`, `qrcode`, and
+  `swagger-ui-express` don't provide clean ESM default exports, so they're loaded
+  with `createRequire(import.meta.url)`. Follow that pattern for new CJS deps.
+- **Never `DELETE FROM users` on the live DB** — it now removes every account.
+  See the admin-password runbook for the scoped reset.
 - **EPUB reader dependency.** EPUB preview uses `epubjs`. It works in-browser,
   but its dependency tree currently reports npm audit warnings, including
   high-severity findings. Treat this as acceptable only for a private single-user
@@ -278,7 +318,23 @@ Two layers must both allow a port:
 
 ---
 
-## 9. Changelog — fixes made during initial build/deploy
+## 9. Changelog
+
+### Multi-tenant & security feature batch
+- **Multi-user isolation:** `user_id` ownership on torrents/files/folders;
+  every read and mutation scoped per user; per-user uploads bucket; media tokens
+  and zip tickets honored only for the owner; socket handshake authenticated and
+  torrent updates delivered per-user (fixed a prior broadcast-to-everyone leak).
+- **Open self sign-up:** `POST /api/register` + a Login page toggle.
+- **Refresh tokens:** 1h access + 30d refresh (DB-whitelisted, rotating); the
+  SPA refreshes transparently on 401; a sidebar **logout** revokes server-side.
+- **2FA (TOTP):** enroll from the System page (QR via `otplib`/`qrcode`), a
+  two-step coded login, and disable — all code-verified.
+- **Wishlist:** save magnets to add later (header star + panel).
+- **OpenAPI/Swagger:** spec at `/api/openapi.json`, UI at `/api/docs`.
+- **Automated tests:** Vitest suite (auth, refresh, 2FA, isolation) run in CI.
+
+### Fixes made during initial build/deploy
 
 - **Seedr-style UX pass:** premium light file-manager UI, dense file table,
   fixed dashboard overflow, header storage quota, and click-to-auto-paste magnet
@@ -309,24 +365,40 @@ Two layers must both allow a port:
 
 ## 10. Roadmap — not yet built
 
-Requested / high-value:
-- **Wishlist** (save magnets to add later; needs a small table).
-- **Thumbnails / posters / filmstrip** and **on-the-fly transcoding** (ffmpeg is
-  in the image; the pipeline isn't built).
+Blocked on a domain:
+- **OAuth (Google/GitHub login)** — needs a fixed pre-registered redirect URL
+  (the ephemeral tunnel changes on restart) and your OAuth app credentials.
 
-Larger / future:
-- Refresh tokens, multi-user storage isolation, 2FA / OAuth.
+Resource-dependent (free software, but heavy on a 1 vCPU / 1 GB VM):
+- **Thumbnails / posters / filmstrip** — fine if generation is throttled/queued.
+- **On-the-fly transcoding** — ffmpeg is in the image, but real-time HD transcode
+  will likely struggle on this hardware; plan a bigger VM if truly needed.
+
+Nice-to-have:
 - Nested-folder move picker as a tree (currently a flat list).
 - Drag-and-drop into folders.
-- OpenAPI/Swagger docs and automated tests (vitest is set up; no suites yet).
 - Remote URL / FTP / SFTP fetch, cloud-storage integrations, share links, RSS,
   plugin architecture (see the original spec).
 
+Done since the first handoff: wishlist, refresh tokens, multi-user isolation,
+2FA, OpenAPI docs, automated tests, file previews, EPUB reader, clipboard
+auto-paste, header storage quota.
+
 ---
 
-## 11. Security TODO before treating this as production
+## 11. Security posture & TODO
 
+**In place:** per-user isolation, authenticated per-user WebSocket, refresh-token
+rotation + revocation, optional TOTP 2FA, ownership checks on every media token,
+helmet, rate limiting, input validation (Zod), path-traversal guards.
+
+**Still to do before treating this as public production:**
 1. Change the seeded admin password (§7) and set a strong `JWT_SECRET`.
-2. Move to HTTPS with a real domain (named Cloudflare tunnel or certbot).
-3. Add per-connection Socket.IO auth if you add users.
-4. Consider closing the direct HTTP `:80` path once HTTPS is stable.
+2. Move to HTTPS with a real domain (named Cloudflare tunnel or certbot); then
+   close the direct HTTP `:80` path.
+3. Open self sign-up is **on** — anyone who can reach the site can create an
+   account. Restrict it (invite-only / disable `/api/register`) if the URL is
+   public and you don't want that.
+4. Storage is a single shared disk with no per-user quota — add quotas before
+   opening sign-up widely.
+5. Review the `epubjs` dependency audit findings (§8) before broad exposure.

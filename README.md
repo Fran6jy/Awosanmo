@@ -15,9 +15,14 @@ RAM box (the Oracle Cloud Free Tier in particular).
 
 ## Highlights
 
+- **Multi-user & secure** — fully siloed accounts with open self sign-up,
+  refresh-token sessions (1h access / 30d refresh, rotating + revocable), a
+  server-side logout, and optional **TOTP two-factor** (Google Authenticator /
+  Authy) enrolled via QR.
 - **Torrent engine** — magnet links & `.torrent` uploads, live peers/seeds/ETA/
   speeds, pause/resume/reannounce, sequential download for streaming, session
   persistence + restore after restart, crash-safe error handling.
+- **Wishlist** — save magnets to add to downloads later (header star + panel).
 - **Streaming + previews** — HTTP range requests / 206 partial content, fast seek,
   no full buffering, token-authenticated per file, video resume position, audio
   playback, image/PDF/text previews, and an in-browser EPUB reader.
@@ -33,6 +38,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
   frame rate, and track counts.
 - **Polished SPA** — React + Tailwind + Framer Motion, premium light file-manager
   UI, command palette (Ctrl-K), loading states, error boundary, responsive.
+- **Documented & tested** — interactive Swagger UI at `/api/docs` (OpenAPI 3.0)
+  and a Vitest suite (auth, refresh, 2FA, isolation) run in CI.
 - **Low-memory by design** — Node streams end-to-end, `--max-old-space-size=384`,
   WAL SQLite with a small page cache, capped torrent connections.
 
@@ -41,7 +48,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
 ## Tech stack
 
 **Backend:** Node.js 22 · Express 5 · TypeScript · WebTorrent · Socket.IO ·
-better-sqlite3 · Multer · archiver · ffprobe/ffmpeg · pino · Zod · JWT · bcrypt
+better-sqlite3 · Multer · archiver · ffprobe/ffmpeg · pino · Zod · JWT · bcrypt ·
+otplib + qrcode (2FA) · swagger-ui-express · Vitest
 
 **Frontend:** React 19 · TypeScript · Vite · Tailwind CSS · Framer Motion ·
 TanStack Query · React Router · Video.js · epub.js · Lucide icons ·
@@ -93,6 +101,8 @@ npm run dev
 - Web dev server proxies to the API via `VITE_API_URL` (defaults to
   `http://localhost:4000` in dev).
 - Build everything: `npm run build`. Type-check the API: `npm run lint`.
+- Run tests: `npm test` (Vitest, uses an isolated throwaway SQLite DB).
+- Explore the API: browse Swagger UI at `<server>/api/docs`.
 
 ---
 
@@ -167,15 +177,16 @@ static frontend can be deployed there, pointed at your VPS API via
 
 ## Roadmap
 
-Implemented: torrent engine (magnet + `.torrent`), Seedr-style clipboard
-auto-paste, streaming, uploads, file manager (search/rename/delete/bulk/ZIP/
-folders/context-menus), video/audio/image/PDF/text/EPUB viewing, header storage
-quota, live updates, media probing, auth, deploy tooling.
+Implemented: multi-user isolation + open sign-up, refresh tokens, TOTP 2FA,
+wishlist, torrent engine (magnet + `.torrent`), Seedr-style clipboard auto-paste,
+streaming, uploads, file manager (search/rename/delete/bulk/ZIP/folders/
+context-menus), video/audio/image/PDF/text/EPUB viewing, header storage quota,
+live per-user updates, media probing, OpenAPI docs, automated tests, deploy tooling.
 
-Not yet built: wishlist, thumbnails/posters, on-the-fly transcoding, refresh
-tokens, multi-user isolation, 2FA/OAuth, OpenAPI docs, automated tests, remote
-URL/FTP fetch, cloud integrations, share links, RSS automation, plugin
-architecture. See **[docs/HANDOFF.md §10](docs/HANDOFF.md)** for detail.
+Not yet built: **OAuth** (blocked on a domain for a stable redirect URL),
+thumbnails/posters, on-the-fly transcoding (heavy on 1 GB RAM), remote URL/FTP
+fetch, cloud integrations, share links, RSS automation, plugin architecture. See
+**[docs/HANDOFF.md §10](docs/HANDOFF.md)** for detail.
 
 ---
 
