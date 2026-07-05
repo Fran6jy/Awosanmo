@@ -151,10 +151,11 @@ Completed torrent behavior: when WebTorrent reports `done`, or progress reaches
 the active torrent with `destroyStore: false`, and leaves files on disk for the
 library/viewer. Completed rows are not restored for seeding on app restart.
 
-Pause/resume behavior: pause is authoritative and sticky. The backend writes the
-row to `paused`, zeroes transfer speeds, calls WebTorrent pause when an active
-session exists, and progress/metadata/download events are not allowed to flip it
-back to `downloading`. Resume is the only action that restarts the row.
+Pause/resume behavior: pause is authoritative and sticky. The dashboard updates
+optimistically on the first click. The backend writes the row to `paused`, zeroes
+transfer speeds, calls WebTorrent pause when an active session exists, and
+progress/metadata/download events are not allowed to flip it back to
+`downloading`. Resume is the only action that restarts the row.
 
 ### Files
 - `GET /api/files?q=<search>&folderId=root|<id>`
@@ -410,9 +411,9 @@ Two layers must both allow a port:
 - **Seedr-style completion cleanup:** torrents now auto-finalize at completion,
   stop seeding while preserving downloaded files, and disappear from active
   dashboard transfers.
-- **Sticky pause/resume:** pause now updates immediately in the dashboard, zeroes
-  speeds, and cannot be overwritten back to downloading by later WebTorrent
-  progress/metadata events; resume is explicit.
+- **Sticky pause/resume:** pause now updates on the first click in the dashboard,
+  zeroes speeds, and cannot be overwritten back to downloading by later
+  WebTorrent progress/metadata events; resume is explicit.
 - **Seedr-style UX pass:** dense file table, fixed dashboard overflow, header
   storage quota, and click-to-auto-paste magnet behavior over HTTPS.
 - **Unified file viewer:** added `/view/:id` for video, audio, image, PDF, text,

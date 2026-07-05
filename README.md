@@ -38,6 +38,9 @@ RAM box (the Oracle Cloud Free Tier in particular).
   continues resolving in the background without storing a giant shared cache.
 - **Completion cleanup** — when a torrent reaches 100%, Awosanmo marks it
   completed, stops the seeding session, and leaves the files available in Files.
+- **Sticky transfer controls** — pause reflects on the first click, zeroes speeds,
+  and stays paused until an explicit resume; background torrent events cannot
+  auto-resume it.
 - **Real-time UI** — Socket.IO pushes torrent progress live; toast + desktop
   notifications on completion.
 - **Media metadata** — `ffprobe` extracts resolution, codec, duration, bitrate,
