@@ -36,7 +36,41 @@ export function getOwnedFile(id: string, userId: string) {
 
 export function getDiskPath(file: any) {
   const safeRelative = path.normalize(file.path).replace(/^(\.\.[/\\])+/, "");
-  return path.join(config.dataDir, "downloads", file.torrent_id, safeRelative);
+  const torrentDir = path.join(config.dataDir, "downloads", file.torrent_id);
+  const diskPath = path.resolve(torrentDir, safeRelative);
+  if (!isInside(torrentDir, diskPath)) return path.join(torrentDir, path.basename(file.path));
+  return diskPath;
+}
+
+export function resolveDiskPath(file: any) {
+  const direct = getDiskPath(file);
+  if (fs.existsSync(direct)) return direct;
+
+  const torrentDir = path.join(config.dataDir, "downloads", file.torrent_id);
+  if (!fs.existsSync(torrentDir)) return direct;
+
+  const expectedName = path.basename(file.path);
+  const expectedSize = Number(file.size ?? 0);
+  const matches: string[] = [];
+  for (const candidate of walkFiles(torrentDir)) {
+    if (path.basename(candidate) !== expectedName) continue;
+    if (expectedSize > 0) {
+      try {
+        if (fs.statSync(candidate).size !== expectedSize) continue;
+      } catch {
+        continue;
+      }
+    }
+    matches.push(candidate);
+  }
+
+  if (matches.length === 1) {
+    const relative = path.relative(torrentDir, matches[0]);
+    db.prepare("UPDATE files SET path = ? WHERE id = ?").run(relative, file.id);
+    return matches[0];
+  }
+
+  return direct;
 }
 
 export function renameFile(id: string, name: string, userId: string) {
@@ -64,4 +98,27 @@ function sanitizeName(value: string) {
   const clean = value.replace(/[<>:"/\\|?*\x00-\x1F]/g, "").trim();
   if (!clean || clean === "." || clean === "..") throw new Error("Invalid filename");
   return clean.slice(0, 180);
+}
+
+function isInside(base: string, target: string) {
+  const relative = path.relative(path.resolve(base), path.resolve(target));
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function* walkFiles(root: string): Generator<string> {
+  const stack = [root];
+  while (stack.length) {
+    const current = stack.pop()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) stack.push(fullPath);
+      else if (entry.isFile()) yield fullPath;
+    }
+  }
 }

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import type { Request, Response } from "express";
-import { getDiskPath, getOwnedFile } from "./fileService.js";
+import { getOwnedFile, resolveDiskPath } from "./fileService.js";
 
 // archiver is CommonJS; load it via createRequire so Node's ESM loader doesn't
 // choke on the missing default export.
@@ -58,7 +58,7 @@ export function zipDownload(req: Request, res: Response) {
   for (const id of ids) {
     const file = getOwnedFile(id, userId);
     if (!file) continue;
-    const disk = getDiskPath(file);
+    const disk = resolveDiskPath(file);
     if (!fs.existsSync(disk)) continue;
     // De-duplicate names inside the archive.
     let entryName = file.name as string;

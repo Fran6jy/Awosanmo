@@ -1,9 +1,8 @@
 import fs from "node:fs";
-import path from "node:path";
 import mime from "mime-types";
 import { db } from "../../db/schema.js";
-import { config } from "../../config.js";
 import { torrentService } from "../torrents/torrentService.js";
+import { resolveDiskPath } from "../files/fileService.js";
 
 export function streamFile(req: any, res: any) {
   const file = db.prepare("SELECT * FROM files WHERE id = ?").get(req.params.id) as any;
@@ -11,8 +10,7 @@ export function streamFile(req: any, res: any) {
   if (req.user?.sub && file.user_id && file.user_id !== req.user.sub) return res.status(404).json({ error: "File not found" });
 
   torrentService.prioritizeFile(file.id);
-  const safeRelative = path.normalize(file.path).replace(/^(\.\.[/\\])+/, "");
-  const diskPath = path.join(config.dataDir, "downloads", file.torrent_id, safeRelative);
+  const diskPath = resolveDiskPath(file);
   if (!fs.existsSync(diskPath)) return res.status(425).json({ error: "File pieces are not available yet" });
 
   const stat = fs.statSync(diskPath);

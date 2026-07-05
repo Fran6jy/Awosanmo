@@ -1,8 +1,8 @@
 import fs from "node:fs";
-import path from "node:path";
 import { config } from "../../config.js";
 import { db } from "../../db/schema.js";
 import { logger } from "../../logger.js";
+import { resolveDiskPath } from "../files/fileService.js";
 import { probeMedia } from "./mediaProbe.js";
 
 type FileRow = {
@@ -45,8 +45,7 @@ export class MediaWorker {
   }
 
   private async probe(file: FileRow) {
-    const safeRelative = path.normalize(file.path).replace(/^(\.\.[/\\])+/, "");
-    const diskPath = path.join(config.dataDir, "downloads", file.torrent_id, safeRelative);
+    const diskPath = resolveDiskPath(file);
     if (!fs.existsSync(diskPath)) return;
     db.prepare("UPDATE files SET probe_status = ?, probe_error = NULL WHERE id = ?").run("probing", file.id);
     try {

@@ -30,7 +30,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
 - **Files** — upload any file (streamed to disk), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/
   rename/delete/move with breadcrumbs), **right-click context menus**,
-  **drag-and-drop into folders**, and a **delete confirmation** on every path.
+  **drag-and-drop into folders**, resilient completed-torrent downloads, and a
+  **delete confirmation** on every path.
 - **Seedr-style workflow** — click the magnet box to auto-fill a clipboard magnet
   link over HTTPS, header storage quota bar, dense file-manager list view, drag a
   file onto a folder to move it (with clear drop-zone highlighting and a move

@@ -151,6 +151,13 @@ Completed torrent behavior: when WebTorrent reports `done`, or progress reaches
 the active torrent with `destroyStore: false`, and leaves files on disk for the
 library/viewer. Completed rows are not restored for seeding on app restart.
 
+Completed file access: download, streaming, subtitles, ZIP export, and media
+probing all resolve files through the shared `resolveDiskPath()` helper. It first
+tries the DB path, then searches only that torrent's download directory for a
+single matching filename/size and repairs the stored path. This prevents a
+completed torrent from returning "File is not available yet" when WebTorrent's
+on-disk path differs from the stored row.
+
 Pause/resume behavior: pause is authoritative and sticky. The dashboard updates
 optimistically on the first click. The backend writes the row to `paused`, zeroes
 transfer speeds, calls WebTorrent pause when an active session exists, and
@@ -428,6 +435,9 @@ Two layers must both allow a port:
 - **Seedr-style completion cleanup:** torrents now auto-finalize at completion,
   stop seeding while preserving downloaded files, and disappear from active
   dashboard transfers.
+- **Completed-file path healing:** download/stream/ZIP/probe now repair stale
+  torrent file paths by matching the actual completed file inside the torrent
+  folder, avoiding false "File is not available yet" responses.
 - **Sticky pause/resume:** pause now updates on the first click in the dashboard,
   zeroes speeds, and cannot be overwritten back to downloading by later
   WebTorrent progress/metadata events; resume is explicit.
