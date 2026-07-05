@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { db } from "../../db/schema.js";
 import { config } from "../../config.js";
+import { generateSecret, otpauthUri, qrDataUrl, verifyTotp } from "./totp.js";
 
 export const loginSchema = z.object({
   email: z.string().email(),
@@ -175,9 +176,65 @@ export function requireSubtitleAuth(req: any, res: any, next: any) {
   }
 }
 
+function sessionFor(user: any) {
+  const session = { id: user.id, email: user.email, role: user.role };
+  return { token: signToken(session), refreshToken: issueRefreshToken(user.id) };
+}
+
 export async function login(email: string, password: string) {
   const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
   if (!user || !bcrypt.compareSync(password, user.password_hash)) return null;
-  const session = { id: user.id, email: user.email, role: user.role };
-  return { token: signToken(session), refreshToken: issueRefreshToken(user.id) };
+  // If 2FA is on, don't hand out tokens yet — require a code with a short ticket.
+  if (user.totp_enabled) {
+    return { twoFactorRequired: true as const, ticket: jwt.sign({ sub: user.id, typ: "2fa" }, config.jwtSecret, { expiresIn: "5m" }) };
+  }
+  return sessionFor(user);
+}
+
+/** Second step of a 2FA login: exchange a ticket + TOTP code for a session. */
+export async function completeTwoFactorLogin(ticket: string, code: string) {
+  let payload: any;
+  try {
+    payload = jwt.verify(ticket, config.jwtSecret);
+  } catch {
+    return null;
+  }
+  if (payload.typ !== "2fa") return null;
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(payload.sub) as any;
+  if (!user || !user.totp_enabled || !user.totp_secret) return null;
+  if (!(await verifyTotp(code, user.totp_secret))) return null;
+  return sessionFor(user);
+}
+
+/** Begin 2FA enrollment: store a pending secret and return the QR to scan. */
+export async function setupTotp(userId: string) {
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as any;
+  if (!user) return null;
+  const secret = generateSecret();
+  db.prepare("UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?").run(secret, userId);
+  const uri = await otpauthUri(secret, user.email);
+  return { secret, otpauthUrl: uri, qrDataUrl: await qrDataUrl(uri) };
+}
+
+/** Confirm enrollment by verifying the first code. */
+export async function enableTotp(userId: string, code: string) {
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as any;
+  if (!user?.totp_secret) return false;
+  if (!(await verifyTotp(code, user.totp_secret))) return false;
+  db.prepare("UPDATE users SET totp_enabled = 1 WHERE id = ?").run(userId);
+  return true;
+}
+
+/** Turn 2FA off (requires a valid current code). */
+export async function disableTotp(userId: string, code: string) {
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as any;
+  if (!user?.totp_enabled || !user.totp_secret) return false;
+  if (!(await verifyTotp(code, user.totp_secret))) return false;
+  db.prepare("UPDATE users SET totp_secret = NULL, totp_enabled = 0 WHERE id = ?").run(userId);
+  return true;
+}
+
+export function twoFactorStatus(userId: string) {
+  const user = db.prepare("SELECT totp_enabled FROM users WHERE id = ?").get(userId) as any;
+  return { enabled: Boolean(user?.totp_enabled) };
 }

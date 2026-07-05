@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, setTokens } from "../lib/api";
 
+type Session = { token: string; refreshToken: string };
+type LoginResult = Session | { twoFactorRequired: true; ticket: string };
+
 export function Login() {
   const nav = useNavigate();
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -9,6 +12,9 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // 2FA step
+  const [ticket, setTicket] = useState<string | null>(null);
+  const [code, setCode] = useState("");
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -16,9 +22,13 @@ export function Login() {
     setBusy(true);
     try {
       const path = mode === "login" ? "/api/login" : "/api/register";
-      const session = await api<{ token: string; refreshToken: string }>(path, { method: "POST", body: JSON.stringify({ email, password }) });
-      setTokens(session);
-      nav("/");
+      const result = await api<LoginResult>(path, { method: "POST", body: JSON.stringify({ email, password }) });
+      if ("twoFactorRequired" in result) {
+        setTicket(result.ticket);
+      } else {
+        setTokens(result);
+        nav("/");
+      }
     } catch (e) {
       const msg = (e as Error).message;
       setError(
@@ -29,6 +39,44 @@ export function Login() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function submitCode(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const session = await api<Session>("/api/login/2fa", { method: "POST", body: JSON.stringify({ ticket, code }) });
+      setTokens(session);
+      nav("/");
+    } catch {
+      setError("Invalid or expired code.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (ticket) {
+    return (
+      <main className="grid min-h-screen place-items-center px-4">
+        <form onSubmit={submitCode} className="w-full max-w-md rounded-2xl p-6 glass">
+          <p className="font-mono text-xs font-bold uppercase text-stream">Awosanmo</p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">Two-factor code</h1>
+          <p className="mt-1 text-sm text-slate-500">Enter the 6-digit code from your authenticator app.</p>
+          <input
+            autoFocus inputMode="numeric" maxLength={6} value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            className="mt-4 h-14 w-full rounded-xl border border-line bg-white text-center text-2xl tracking-[0.5em] text-slate-950 outline-none focus:ring-2 focus:ring-stream"
+            placeholder="000000"
+          />
+          {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+          <button disabled={busy || code.length !== 6} className="mt-6 h-12 w-full rounded-xl bg-slate-950 font-bold text-white transition hover:bg-slate-800 disabled:opacity-60">
+            {busy ? "Verifying…" : "Verify"}
+          </button>
+          <button type="button" onClick={() => { setTicket(null); setCode(""); setError(""); }} className="mt-4 w-full text-center text-sm text-slate-500 transition hover:text-slate-900">Back</button>
+        </form>
+      </main>
+    );
   }
 
   return (
@@ -45,11 +93,7 @@ export function Login() {
         <button disabled={busy} className="mt-6 h-12 w-full rounded-xl bg-slate-950 font-bold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-stream disabled:opacity-60">
           {busy ? "Please wait…" : mode === "login" ? "Continue" : "Create account"}
         </button>
-        <button
-          type="button"
-          onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}
-          className="mt-4 w-full text-center text-sm text-slate-500 transition hover:text-slate-900"
-        >
+        <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }} className="mt-4 w-full text-center text-sm text-slate-500 transition hover:text-slate-900">
           {mode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}
         </button>
       </form>

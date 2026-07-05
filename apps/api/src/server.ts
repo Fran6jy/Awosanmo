@@ -13,7 +13,7 @@ import jwt from "jsonwebtoken";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { migrate } from "./db/schema.js";
-import { ensureAdminUser, login, loginSchema, register, registerSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, rotateRefresh, revokeRefresh, signDownloadToken, signStreamToken, signSubtitleToken } from "./modules/auth/auth.js";
+import { completeTwoFactorLogin, disableTotp, enableTotp, ensureAdminUser, login, loginSchema, register, registerSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, rotateRefresh, revokeRefresh, setupTotp, signDownloadToken, signStreamToken, signSubtitleToken, twoFactorStatus } from "./modules/auth/auth.js";
 import { getOwnedFile } from "./modules/files/fileService.js";
 import { torrentRoutes } from "./modules/torrents/routes.js";
 import { torrentService } from "./modules/torrents/torrentService.js";
@@ -71,6 +71,33 @@ app.post("/api/register", async (req, res) => {
   const session = await register(body.email, body.password);
   if (!session) return res.status(409).json({ error: "An account with that email already exists" });
   res.status(201).json(session);
+});
+// Second step of a 2FA login.
+app.post("/api/login/2fa", async (req, res) => {
+  const { ticket, code } = req.body ?? {};
+  if (typeof ticket !== "string" || typeof code !== "string") return res.status(400).json({ error: "Missing ticket or code" });
+  const session = await completeTwoFactorLogin(ticket, code);
+  if (!session) return res.status(401).json({ error: "Invalid or expired code" });
+  res.json(session);
+});
+// 2FA management (all require an active session).
+app.get("/api/2fa/status", requireAuth, (req: any, res) => res.json(twoFactorStatus(req.user.id)));
+app.post("/api/2fa/setup", requireAuth, async (req: any, res) => {
+  const result = await setupTotp(req.user.id);
+  if (!result) return res.status(404).json({ error: "User not found" });
+  res.json(result);
+});
+app.post("/api/2fa/enable", requireAuth, async (req: any, res) => {
+  const code = req.body?.code;
+  if (typeof code !== "string") return res.status(400).json({ error: "Missing code" });
+  if (!(await enableTotp(req.user.id, code))) return res.status(400).json({ error: "Invalid code" });
+  res.json({ enabled: true });
+});
+app.post("/api/2fa/disable", requireAuth, async (req: any, res) => {
+  const code = req.body?.code;
+  if (typeof code !== "string") return res.status(400).json({ error: "Missing code" });
+  if (!(await disableTotp(req.user.id, code))) return res.status(400).json({ error: "Invalid code" });
+  res.json({ enabled: false });
 });
 app.post("/api/refresh", (req, res) => {
   const refreshToken = req.body?.refreshToken;

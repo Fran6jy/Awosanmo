@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Cpu, Database, HardDrive, MemoryStick, Radio, Server } from "lucide-react";
 import { Shell } from "../components/Shell";
+import { TwoFactorSettings } from "../components/TwoFactorSettings";
 import { api, token } from "../lib/api";
 import { formatBytes, formatEta } from "../lib/format";
 
@@ -31,6 +32,7 @@ export function SystemPage() {
         <div className="rounded-2xl p-8 text-slate-600 glass">Loading system status...</div>
       ) : (
         <div className="space-y-4">
+          <TwoFactorSettings />
           <section className="rounded-2xl p-5 glass">
             <p className="font-mono text-xs font-bold uppercase text-stream">System</p>
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-950">Server Control Panel</h1>

@@ -23,8 +23,10 @@
     "jsonwebtoken": "^9.0.2",
     "mime-types": "^2.1.35",
     "multer": "^2.0.0",
+    "otplib": "^13.4.1",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
+    "qrcode": "^1.5.4",
     "socket.io": "^4.8.1",
     "webtorrent": "^2.6.8",
     "zod": "^3.24.3"

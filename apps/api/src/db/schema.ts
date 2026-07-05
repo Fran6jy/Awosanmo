@@ -85,6 +85,9 @@ export function migrate() {
   addColumn("torrents", "user_id", "TEXT");
   addColumn("files", "user_id", "TEXT");
   addColumn("folders", "user_id", "TEXT");
+  // TOTP two-factor auth.
+  addColumn("users", "totp_secret", "TEXT");
+  addColumn("users", "totp_enabled", "INTEGER NOT NULL DEFAULT 0");
   addColumn("files", "probe_status", "TEXT NOT NULL DEFAULT 'pending'");
   addColumn("files", "probe_error", "TEXT");
   addColumn("files", "codec_video", "TEXT");
