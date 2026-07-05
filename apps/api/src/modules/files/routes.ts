@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { deleteFile, listFiles, renameFile } from "./fileService.js";
+import { deleteFile, getFile, listFiles, renameFile } from "./fileService.js";
 import { moveFiles } from "../folders/folderService.js";
 import { createZipTicket } from "./zipController.js";
 
@@ -14,6 +14,12 @@ fileRoutes.get("/", (req, res) => {
   const folderParam = req.query.folderId;
   const folderId = folderParam === undefined ? undefined : folderParam === "root" ? null : String(folderParam);
   res.json(listFiles(q, folderId));
+});
+
+fileRoutes.get("/:id", (req, res) => {
+  const file = getFile(req.params.id);
+  if (!file) return res.status(404).json({ error: "File not found" });
+  res.json(file);
 });
 
 fileRoutes.post("/bulk-delete", (req, res) => {

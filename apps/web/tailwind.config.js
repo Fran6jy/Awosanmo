@@ -3,15 +3,15 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui"],
+        sans: ["Plus Jakarta Sans", "Inter", "ui-sans-serif", "system-ui"],
         mono: ["Fira Code", "ui-monospace", "monospace"]
       },
       colors: {
-        ink: "#080914",
-        panel: "rgba(18, 20, 38, .72)",
-        line: "rgba(255,255,255,.12)",
-        stream: "#22C55E",
-        violet: "#4338CA"
+        ink: "#0F172A",
+        panel: "#FFFFFF",
+        line: "#E2E8F0",
+        stream: "#16A34A",
+        violet: "#4F46E5"
       },
       boxShadow: {
         glass: "0 24px 80px rgba(0,0,0,.35)"

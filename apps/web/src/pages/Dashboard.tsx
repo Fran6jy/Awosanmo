@@ -9,6 +9,7 @@ import { readClipboardMagnet } from "../lib/clipboard";
 import { pushToast } from "../components/Toast";
 import { Shell } from "../components/Shell";
 import { formatDuration } from "../lib/format";
+import { canPreview } from "../lib/fileTypes";
 
 type Torrent = { id: string; name: string; progress: number; status: string; download_speed: number; upload_speed: number; size: number };
 type FileRow = {
@@ -21,6 +22,7 @@ type FileRow = {
   width?: number | null;
   height?: number | null;
   codec_video?: string | null;
+  mime?: string | null;
   probe_status?: string;
 };
 type StorageStats = { used: number; available: number; total: number };
@@ -110,8 +112,8 @@ export function Dashboard() {
           ["Stored locally", fmt(stats.stored), Server]
         ] satisfies StatCard[]).map(([label, value, Icon]) => (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={String(label)} className="rounded-2xl p-5 glass">
-            <div className="flex items-center justify-between text-slate-300"><span>{label as string}</span><Icon className="h-5 w-5 text-stream" /></div>
-            <p className="mt-4 text-3xl font-bold">{value as string}</p>
+            <div className="flex items-center justify-between text-sm font-semibold text-slate-500"><span>{label as string}</span><Icon className="h-5 w-5 text-stream" /></div>
+            <p className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950">{value as string}</p>
           </motion.div>
         ))}
       </section>
@@ -119,47 +121,47 @@ export function Dashboard() {
         <div className="rounded-2xl p-5 glass">
           <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} className="flex flex-col gap-3 md:flex-row">
             <label className="sr-only" htmlFor="magnet">Magnet link</label>
-            <input id="magnet" value={magnetUri} onFocus={autoPasteMagnet} onClick={autoPasteMagnet} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste magnet link" className="min-h-12 flex-1 rounded-xl border border-line bg-white/5 px-4 outline-none focus:ring-2 focus:ring-stream" />
-            <button disabled={add.isPending || !magnetUri.trim().startsWith("magnet:")} className="min-h-12 rounded-xl bg-stream px-5 font-bold text-ink disabled:cursor-not-allowed disabled:opacity-50">Join swarm</button>
-            <button type="button" title="Upload any file, or a .torrent to add it to the swarm" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/5 px-5 font-semibold transition hover:bg-white/10 disabled:opacity-50">
+            <input id="magnet" value={magnetUri} onFocus={autoPasteMagnet} onClick={autoPasteMagnet} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste magnet link" className="min-h-12 flex-1 rounded-xl border border-line bg-white px-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream" />
+            <button disabled={add.isPending || !magnetUri.trim().startsWith("magnet:")} className="min-h-12 rounded-xl bg-slate-950 px-5 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Join swarm</button>
+            <button type="button" title="Upload any file, or a .torrent to add it to the swarm" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50">
               <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
             </button>
             <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
           </form>
           {uploadPct !== null && (
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
               <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} />
             </div>
           )}
-          <div className="mt-5 space-y-3">
+          <div className="mt-5 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-line">
             {(torrents.data ?? []).map((torrent) => (
-              <article key={torrent.id} className="rounded-xl border border-line bg-white/[.04] p-4">
+              <article key={torrent.id} className="bg-white p-4 transition hover:bg-slate-50">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><Link to={`/torrents/${torrent.id}`} className="block truncate font-semibold transition hover:text-stream">{torrent.name}</Link><p className="text-sm text-slate-400">{torrent.status} · {fmt(torrent.download_speed)}/s · {Math.round(torrent.progress * 100)}%</p></div>
+                  <div className="min-w-0"><Link to={`/torrents/${torrent.id}`} className="block truncate font-semibold text-slate-950 transition hover:text-stream">{torrent.name}</Link><p className="text-sm text-slate-500">{torrent.status} · {fmt(torrent.download_speed)}/s · {Math.round(torrent.progress * 100)}%</p></div>
                   <div className="flex gap-2">
-                    <button aria-label={torrent.status === "paused" ? "Resume" : "Pause"} onClick={() => action.mutate({ id: torrent.id, kind: torrent.status === "paused" ? "resume" : "pause" })} className="h-10 w-10 rounded-lg transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-stream">
+                    <button aria-label={torrent.status === "paused" ? "Resume" : "Pause"} onClick={() => action.mutate({ id: torrent.id, kind: torrent.status === "paused" ? "resume" : "pause" })} className="h-10 w-10 rounded-lg text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-stream">
                       {torrent.status === "paused" ? <Play className="mx-auto h-4 w-4" /> : <Pause className="mx-auto h-4 w-4" />}
                     </button>
-                    <button aria-label="Reannounce" onClick={() => action.mutate({ id: torrent.id, kind: "reannounce" })} className="h-10 w-10 rounded-lg transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-stream"><RefreshCw className="mx-auto h-4 w-4" /></button>
-                    <button aria-label="Delete" onClick={() => action.mutate({ id: torrent.id, kind: "delete" })} className="h-10 w-10 rounded-lg transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-stream"><Trash2 className="mx-auto h-4 w-4" /></button>
+                    <button aria-label="Reannounce" onClick={() => action.mutate({ id: torrent.id, kind: "reannounce" })} className="h-10 w-10 rounded-lg text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-stream"><RefreshCw className="mx-auto h-4 w-4" /></button>
+                    <button aria-label="Delete" onClick={() => action.mutate({ id: torrent.id, kind: "delete" })} className="h-10 w-10 rounded-lg text-red-500 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-stream"><Trash2 className="mx-auto h-4 w-4" /></button>
                   </div>
                 </div>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream" style={{ width: `${Math.round(torrent.progress * 100)}%` }} /></div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-stream" style={{ width: `${Math.round(torrent.progress * 100)}%` }} /></div>
               </article>
             ))}
           </div>
         </div>
         <div className="rounded-2xl p-5 glass">
-          <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Recent files</h2><MoreHorizontal className="h-5 w-5 text-slate-400" /></div>
+          <div className="flex items-center justify-between"><h2 className="text-xl font-extrabold tracking-tight text-slate-950">Recent files</h2><MoreHorizontal className="h-5 w-5 text-slate-400" /></div>
           <div className="mt-4 space-y-2">
             {(files.data ?? []).map((file) => (
-              <Link to={file.streamable ? `/watch/${file.id}` : "#"} key={file.id} className="flex min-h-14 items-center gap-3 rounded-xl border border-transparent px-3 transition hover:border-line hover:bg-white/[.05]">
+              <Link to={canPreview(file) ? `/view/${file.id}` : "#"} key={file.id} className="flex min-h-14 items-center gap-3 rounded-xl border border-transparent px-3 transition hover:border-line hover:bg-slate-50">
                 {file.media_kind === "video" ? <Film className="h-5 w-5 text-stream" /> : <Folder className="h-5 w-5 text-violet-300" />}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate">{file.name}</span>
+                  <span className="block truncate font-semibold text-slate-900">{file.name}</span>
                   {file.streamable ? <span className="block truncate text-xs text-slate-500">{[file.width && file.height ? `${file.width}x${file.height}` : null, file.codec_video?.toUpperCase(), formatDuration(file.duration), file.probe_status].filter(Boolean).join(" · ")}</span> : null}
                 </span>
-                {file.streamable ? <Play className="h-4 w-4 text-slate-300" /> : <span className="text-sm text-slate-500">{fmt(file.size)}</span>}
+                {canPreview(file) ? <Play className="h-4 w-4 text-slate-400" /> : <span className="text-sm text-slate-500">{fmt(file.size)}</span>}
               </Link>
             ))}
           </div>

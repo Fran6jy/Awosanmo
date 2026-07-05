@@ -39,7 +39,7 @@ function AddMagnet() {
       <motion.button
         whileTap={{ scale: 0.98 }}
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stream px-5 font-semibold text-ink transition hover:bg-emerald-300 focus:outline-none focus:ring-2 focus:ring-white"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-stream"
       >
         <Upload className="h-5 w-5" /> Add magnet
       </motion.button>
@@ -62,11 +62,11 @@ function AddMagnet() {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">Add a magnet link</h2>
-                <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-1 text-slate-400 transition hover:bg-white/10 hover:text-white" aria-label="Close">
+                <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-950" aria-label="Close">
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <p className="mt-1 text-sm text-slate-400">Paste a magnet URI and Awosanmo joins the swarm on your server.</p>
+              <p className="mt-1 text-sm text-slate-500">Paste a magnet URI and Awosanmo joins the swarm on your server.</p>
               <input
                 autoFocus
                 value={magnet}
@@ -74,11 +74,11 @@ function AddMagnet() {
                 onFocus={autoPasteMagnet}
                 onClick={autoPasteMagnet}
                 placeholder="magnet:?xt=urn:btih:…"
-                className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white/5 px-4 outline-none focus:ring-2 focus:ring-stream"
+                className="mt-4 min-h-12 w-full rounded-xl border border-line bg-white px-4 text-slate-950 outline-none focus:ring-2 focus:ring-stream"
               />
               <div className="mt-4 flex justify-end gap-2">
-                <button type="button" onClick={() => setOpen(false)} className="min-h-11 rounded-xl border border-line px-4 transition hover:bg-white/10">Cancel</button>
-                <button disabled={add.isPending || !magnet.trim().startsWith("magnet:")} className="min-h-11 rounded-xl bg-stream px-5 font-bold text-ink transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="button" onClick={() => setOpen(false)} className="min-h-11 rounded-xl border border-line px-4 text-slate-700 transition hover:bg-slate-100">Cancel</button>
+                <button disabled={add.isPending || !magnet.trim().startsWith("magnet:")} className="min-h-11 rounded-xl bg-slate-950 px-5 font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50">
                   {add.isPending ? "Adding…" : "Join swarm"}
                 </button>
               </div>
@@ -104,12 +104,12 @@ function StorageQuota() {
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
 
   return (
-    <div className="min-w-0 rounded-xl border border-line bg-white/[.04] px-3 py-2 md:w-64">
-      <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
+    <div className="min-w-0 rounded-xl border border-line bg-slate-50 px-3 py-2 md:w-64">
+      <div className="flex items-center justify-between gap-3 text-xs text-slate-600">
         <span className="inline-flex items-center gap-2 font-medium"><HardDrive className="h-4 w-4 text-stream" /> Storage</span>
-        <span className="shrink-0 font-mono text-slate-400">{formatBytes(used)} / {formatBytes(total)}</span>
+        <span className="shrink-0 font-mono text-slate-500">{formatBytes(used)} / {formatBytes(total)}</span>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
         <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${pct}%` }} />
       </div>
       <p className="mt-1 truncate text-xs text-slate-500">{storage.isLoading ? "Checking disk..." : `${formatBytes(available)} free`}</p>
@@ -120,8 +120,8 @@ function StorageQuota() {
 export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen">
-      <aside className="fixed inset-y-4 left-4 z-20 hidden w-20 rounded-2xl glass lg:flex lg:flex-col lg:items-center lg:gap-5 lg:py-5">
-        <Link to="/" aria-label="Awosanmo dashboard"><Cloud className="h-9 w-9 text-stream" /></Link>
+      <aside className="fixed inset-y-4 left-4 z-20 hidden w-20 rounded-2xl border border-slate-200 bg-white shadow-sm lg:flex lg:flex-col lg:items-center lg:gap-5 lg:py-5">
+        <Link to="/" aria-label="Awosanmo dashboard" className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-950"><Cloud className="h-7 w-7 text-white" /></Link>
         {[
           [Gauge, "/"],
           [Files, "/files"],
@@ -130,16 +130,16 @@ export function Shell({ children }: { children: ReactNode }) {
           [HardDrive, "/system"],
           [Settings, "/system"]
         ].map(([Icon, href], index) => (
-          <Link to={href as string} key={index} className="grid h-11 w-11 place-items-center rounded-xl text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label={(Icon as any).name}>
+          <Link to={href as string} key={index} className="grid h-11 w-11 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-stream" aria-label={(Icon as any).name}>
             <Icon className="h-5 w-5" />
           </Link>
         ))}
       </aside>
       <main className="mx-auto max-w-7xl px-4 py-4 lg:pl-32">
-        <header className="mb-6 flex flex-col gap-4 rounded-2xl p-4 glass md:flex-row md:items-center md:justify-between">
+        <header className="mb-5 flex flex-col gap-4 rounded-2xl p-4 glass md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-mono text-sm text-stream">AWOSANMO PRIVATE CLOUD</p>
-            <h1 className="text-2xl font-bold tracking-normal md:text-3xl">Streams, downloads, and storage in one calm control room.</h1>
+            <p className="font-mono text-xs font-bold uppercase text-stream">Awosanmo Private Cloud</p>
+            <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">Files, torrents, and streaming in one workspace.</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StorageQuota />

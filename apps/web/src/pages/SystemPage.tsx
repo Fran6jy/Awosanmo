@@ -28,13 +28,13 @@ export function SystemPage() {
   return (
     <Shell>
       {!data ? (
-        <div className="rounded-2xl p-8 glass">Loading system status...</div>
+        <div className="rounded-2xl p-8 text-slate-600 glass">Loading system status...</div>
       ) : (
         <div className="space-y-4">
           <section className="rounded-2xl p-5 glass">
-            <p className="font-mono text-sm text-stream">SYSTEM</p>
-            <h1 className="mt-1 text-3xl font-bold">Server Control Panel</h1>
-            <p className="mt-2 break-all text-sm text-slate-400">{data.app.env} · {data.app.node} · {data.app.dataDir}</p>
+            <p className="font-mono text-xs font-bold uppercase text-stream">System</p>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-950">Server Control Panel</h1>
+            <p className="mt-2 break-all text-sm text-slate-500">{data.app.env} · {data.app.node} · {data.app.dataDir}</p>
           </section>
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -86,8 +86,8 @@ export function SystemPage() {
 function Metric({ icon: Icon, label, value, detail }: { icon: typeof Radio; label: string; value: string; detail?: string }) {
   return (
     <div className="rounded-2xl p-5 glass">
-      <div className="flex items-center justify-between text-slate-300"><span>{label}</span><Icon className="h-5 w-5 text-stream" /></div>
-      <p className="mt-4 text-2xl font-bold">{value}</p>
+      <div className="flex items-center justify-between text-sm font-semibold text-slate-500"><span>{label}</span><Icon className="h-5 w-5 text-stream" /></div>
+      <p className="mt-4 text-2xl font-extrabold tracking-tight text-slate-950">{value}</p>
       {detail ? <p className="mt-1 text-sm text-slate-500">{detail}</p> : null}
     </div>
   );
@@ -99,9 +99,9 @@ function Panel({ title, rows }: { title: string; rows: [string, string][] }) {
       <h2 className="text-xl font-bold">{title}</h2>
       <div className="mt-4 space-y-2">
         {rows.length ? rows.map(([label, value]) => (
-          <div key={label} className="flex min-h-11 items-center justify-between rounded-xl border border-line bg-white/[.03] px-3 text-sm">
-            <span className="capitalize text-slate-300">{label}</span>
-            <span className="font-semibold">{value}</span>
+          <div key={label} className="flex min-h-11 items-center justify-between rounded-xl border border-line bg-slate-50 px-3 text-sm">
+            <span className="capitalize text-slate-600">{label}</span>
+            <span className="font-semibold text-slate-950">{value}</span>
           </div>
         )) : <p className="text-sm text-slate-500">No data yet.</p>}
       </div>
@@ -110,5 +110,5 @@ function Panel({ title, rows }: { title: string; rows: [string, string][] }) {
 }
 
 function Runtime({ label, value }: { label: string; value: string }) {
-  return <div className="flex justify-between rounded-xl border border-line bg-white/[.03] px-3 py-2"><span className="text-slate-500">{label}</span><span className="font-medium">{value}</span></div>;
+  return <div className="flex justify-between rounded-xl border border-line bg-slate-50 px-3 py-2"><span className="text-slate-500">{label}</span><span className="font-medium text-slate-950">{value}</span></div>;
 }
