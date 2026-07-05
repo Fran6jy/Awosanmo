@@ -12,10 +12,11 @@ you if you don't know them.
 
 ## 1. What Awosanmo is
 
-A self-hosted private cloud-torrenting and streaming platform (a lightweight
-Seedr alternative). Paste a magnet link (or upload a `.torrent`, or upload any
-file); the server downloads onto your VPS; you stream or download it from
-anywhere. Built to run on the Oracle Cloud Free Tier (1 vCPU / 1 GB RAM).
+A self-hosted private cloud-torrenting, file-preview, and streaming platform (a
+lightweight Seedr alternative). Paste a magnet link (or upload a `.torrent`, or
+upload any file); the server downloads onto your VPS; you stream, preview, or
+download it from anywhere. Built to run on the Oracle Cloud Free Tier (1 vCPU /
+1 GB RAM).
 
 ---
 
@@ -89,9 +90,9 @@ apps/
         storage/, search/, admin/, playback/
   web/                     React + TS + Vite + Tailwind + Framer Motion SPA
     src/
-      pages/               Dashboard, FilesPage, Player, TorrentDetail, System, Login
+      pages/               Dashboard, FilesPage, FileViewer, Player, TorrentDetail, System, Login
       components/          Shell, CommandPalette, LiveSync, Toast, ErrorBoundary, ContextMenu
-      lib/                 api.ts (fetch + upload + zip), socket.ts, format.ts
+      lib/                 api.ts (fetch + upload + zip), socket.ts, format.ts, fileTypes.ts
 deploy/                    nginx.conf, systemd units, Oracle setup + backup scripts
 docs/                      DEPLOYMENT.md, HANDOFF.md (this file)
 Dockerfile, docker-compose.yml, docker-compose.prod.yml, vercel.json
@@ -119,6 +120,7 @@ All `/api/*` routes require `Authorization: Bearer <token>` **except** `/api/log
 
 ### Files
 - `GET /api/files?q=<search>&folderId=root|<id>`
+- `GET /api/files/:id` — file metadata for the preview route
 - `PATCH /api/files/:id` `{ name }` — rename
 - `DELETE /api/files/:id`
 - `POST /api/files/bulk-delete` `{ ids: [] }`
@@ -137,7 +139,8 @@ All `/api/*` routes require `Authorization: Bearer <token>` **except** `/api/log
 
 ### Media tokens + delivery
 - `POST /api/stream-token/:id` · `download-token/:id` · `subtitle-token/:id`
-- `GET /api/stream/:id?st=<token>` — HTTP range / 206 streaming
+- `GET /api/stream/:id?st=<token>` — HTTP range / 206 streaming/preview for
+  playable or inline-viewed files
 - `GET /api/download/:id?dt=<token>`
 - `GET /api/subtitle/:id?tt=<token>`
 - `GET /api/zip?token=<zipToken>` — streamed zip of selected files
@@ -150,6 +153,15 @@ All `/api/*` routes require `Authorization: Bearer <token>` **except** `/api/log
 Server emits: `torrents:update` (full list ~1.5s), `torrent:metadata`,
 `torrent:paused`, `torrent:resumed`, `torrent:removed`, `notification`.
 The SPA feeds these into the React Query cache (`components/LiveSync.tsx`).
+
+### Frontend routes and viewers
+- `/files` — dense Seedr-style file manager with folders, search, bulk actions,
+  right-click context menus, and download/rename/delete actions.
+- `/view/:id` — unified viewer. Supports video, audio, images, PDFs, text-like
+  files, and EPUBs. EPUB rendering uses `epubjs`.
+- `/watch/:id` — compatibility route that now delegates to `/view/:id`.
+- Dashboard hides the `local-uploads` pseudo-torrent, so direct uploads do not
+  appear with pause/reannounce controls after they complete.
 
 ---
 
@@ -243,7 +255,8 @@ Two layers must both allow a port:
   permanent address — get a domain for a stable named tunnel.
 - **Clipboard / Notifications need HTTPS.** Copy-download-link and desktop
   notifications only work over the tunnel (secure context), not over `http://IP`.
-  The code guards this (falls back to a prompt; skips notifications on HTTP).
+  Magnet auto-paste also needs HTTPS. The code guards this (falls back to a
+  prompt for copy links; skips notifications/clipboard read when unsupported).
 - **Large uploads via the tunnel** are capped ~100 MB by Cloudflare's free plan.
   Use the direct IP (nginx has no size cap) or a paid Cloudflare plan for big files.
 - **Docker workspace deps.** Some npm deps (e.g. `archiver`) are not hoisted to
@@ -254,11 +267,29 @@ Two layers must both allow a port:
 - **Line endings.** Git warns about LF→CRLF on Windows checkouts; harmless.
 - **Socket has no per-connection auth.** `torrents:update` is broadcast to any
   connected socket. Fine for single-user; tighten before multi-user.
+- **EPUB reader dependency.** EPUB preview uses `epubjs`. It works in-browser,
+  but its dependency tree currently reports npm audit warnings, including
+  high-severity findings. Treat this as acceptable only for a private single-user
+  deployment, or replace/sandbox the EPUB renderer before hardening for broader
+  production.
+- **`probe_status` meaning.** Only video/audio files are ffprobe-scanned. Older
+  non-media rows that had the default `pending` value are migrated to `ready` so
+  PDFs, EPUBs, images, and text files do not look stuck.
 
 ---
 
 ## 9. Changelog — fixes made during initial build/deploy
 
+- **Seedr-style UX pass:** premium light file-manager UI, dense file table,
+  fixed dashboard overflow, header storage quota, and click-to-auto-paste magnet
+  behavior over HTTPS.
+- **Unified file viewer:** added `/view/:id` for video, audio, image, PDF, text,
+  and EPUB files. Audio uploads are now streamable/playable; EPUBs render
+  in-browser via `epubjs`.
+- **Upload/torrent state cleanup:** direct uploads are grouped in
+  `local-uploads` but hidden from dashboard torrent controls; completed torrents
+  no longer show pause/reannounce buttons; non-media file probe status is marked
+  ready instead of pending.
 - Harden torrent engine: handle WebTorrent `error` events (no more process crash
   on `EADDRINUSE`); cap peer connections via `TORRENT_MAX_CONNS`.
 - Frontend API base defaults to **same-origin** in production (was hardcoded to
@@ -279,8 +310,6 @@ Two layers must both allow a port:
 ## 10. Roadmap — not yet built
 
 Requested / high-value:
-- **Auto-paste on focus** + clipboard magnet detection (HTTPS only).
-- **Header storage quota bar** (Seedr-style `used / total`).
 - **Wishlist** (save magnets to add later; needs a small table).
 - **Thumbnails / posters / filmstrip** and **on-the-fly transcoding** (ffmpeg is
   in the image; the pipeline isn't built).

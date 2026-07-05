@@ -18,17 +18,21 @@ RAM box (the Oracle Cloud Free Tier in particular).
 - **Torrent engine** — magnet links & `.torrent` uploads, live peers/seeds/ETA/
   speeds, pause/resume/reannounce, sequential download for streaming, session
   persistence + restore after restart, crash-safe error handling.
-- **Streaming** — HTTP range requests / 206 partial content, fast seek, no full
-  buffering, token-authenticated per file, Video.js player with resume position.
+- **Streaming + previews** — HTTP range requests / 206 partial content, fast seek,
+  no full buffering, token-authenticated per file, video resume position, audio
+  playback, image/PDF/text previews, and an in-browser EPUB reader.
 - **Files** — upload any file (streamed to disk), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/
   rename/delete/move with breadcrumbs), and **right-click context menus**.
+- **Seedr-style workflow** — click the magnet box to auto-fill a clipboard magnet
+  link over HTTPS, header storage quota bar, dense file-manager list view, and
+  completed uploads kept out of active torrent controls.
 - **Real-time UI** — Socket.IO pushes torrent progress live; toast + desktop
   notifications on completion.
 - **Media metadata** — `ffprobe` extracts resolution, codec, duration, bitrate,
   frame rate, and track counts.
-- **Polished SPA** — React + Tailwind + Framer Motion, dark glassmorphism,
-  command palette (Ctrl-K), loading states, error boundary, responsive.
+- **Polished SPA** — React + Tailwind + Framer Motion, premium light file-manager
+  UI, command palette (Ctrl-K), loading states, error boundary, responsive.
 - **Low-memory by design** — Node streams end-to-end, `--max-old-space-size=384`,
   WAL SQLite with a small page cache, capped torrent connections.
 
@@ -40,7 +44,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
 better-sqlite3 · Multer · archiver · ffprobe/ffmpeg · pino · Zod · JWT · bcrypt
 
 **Frontend:** React 19 · TypeScript · Vite · Tailwind CSS · Framer Motion ·
-TanStack Query · React Router · Video.js · Lucide icons · socket.io-client
+TanStack Query · React Router · Video.js · epub.js · Lucide icons ·
+socket.io-client
 
 **Infra:** Docker · Docker Compose · nginx · systemd · Cloudflare Tunnel · Oracle
 Cloud (Ubuntu)
@@ -162,15 +167,15 @@ static frontend can be deployed there, pointed at your VPS API via
 
 ## Roadmap
 
-Implemented: torrent engine (magnet + `.torrent`), streaming, uploads, file
-manager (search/rename/delete/bulk/ZIP/folders/context-menus), live updates,
-media probing, auth, deploy tooling.
+Implemented: torrent engine (magnet + `.torrent`), Seedr-style clipboard
+auto-paste, streaming, uploads, file manager (search/rename/delete/bulk/ZIP/
+folders/context-menus), video/audio/image/PDF/text/EPUB viewing, header storage
+quota, live updates, media probing, auth, deploy tooling.
 
-Not yet built: auto-paste + clipboard detection, header storage quota bar,
-wishlist, thumbnails/posters, on-the-fly transcoding, refresh tokens, multi-user
-isolation, 2FA/OAuth, OpenAPI docs, automated tests, remote URL/FTP fetch, cloud
-integrations, share links, RSS automation, plugin architecture. See
-**[docs/HANDOFF.md §10](docs/HANDOFF.md)** for detail.
+Not yet built: wishlist, thumbnails/posters, on-the-fly transcoding, refresh
+tokens, multi-user isolation, 2FA/OAuth, OpenAPI docs, automated tests, remote
+URL/FTP fetch, cloud integrations, share links, RSS automation, plugin
+architecture. See **[docs/HANDOFF.md §10](docs/HANDOFF.md)** for detail.
 
 ---
 
