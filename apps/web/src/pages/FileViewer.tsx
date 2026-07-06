@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download, FileText, Image as ImageIcon, Music, Video } from "lucide-react";
+import { ArrowLeft, Download, FileText, Image as ImageIcon, Loader2, Music, Video } from "lucide-react";
 import { API_URL, api, token } from "../lib/api";
 import { formatBytes } from "../lib/format";
 import { previewKind } from "../lib/fileTypes";
@@ -20,6 +20,7 @@ export function FileViewer() {
   const mediaRef = useRef<HTMLVideoElement | null>(null);
   const [text, setText] = useState<string | null>(null);
   const [forceTranscode, setForceTranscode] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
   const file = useQuery({ queryKey: ["file", id], queryFn: () => api<FileRow>(`/api/files/${id}`), enabled: Boolean(id) && authed });
   const stream = useQuery({
     queryKey: ["stream-token", id],
@@ -96,6 +97,7 @@ export function FileViewer() {
 
   useEffect(() => {
     setForceTranscode(false);
+    setVideoReady(false);
   }, [id]);
 
   async function download() {
@@ -128,12 +130,7 @@ export function FileViewer() {
         <div className="glass min-h-[72vh] overflow-hidden rounded-2xl">
           {!src || !meta ? <Empty icon={FileText} title="Preparing preview" detail="Creating a short-lived private media link." /> : null}
           {src && meta && kind === "video" ? (
-            <div className="bg-black p-3">
-              {shouldTranscode ? (
-                <div className="mb-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                  Playing through browser-compatible transcode. Start-up can take a moment on the 1 GB server.
-                </div>
-              ) : null}
+            <div className="relative bg-black p-3">
               <video
                 key={shouldTranscode ? "transcode" : "native"}
                 ref={mediaRef}
@@ -142,12 +139,25 @@ export function FileViewer() {
                 preload="metadata"
                 playsInline
                 src={videoSrc}
+                onLoadStart={() => setVideoReady(false)}
+                onPlaying={() => setVideoReady(true)}
+                onCanPlay={() => setVideoReady(true)}
                 onError={() => {
                   if (!shouldTranscode) setForceTranscode(true);
                 }}
               >
                 {tracks.map((track, index) => <track key={track.id} kind="subtitles" label={track.name} src={track.src} default={index === 0} />)}
               </video>
+              {/* Loading overlay while the (possibly transcoded) stream warms up. */}
+              {!videoReady ? (
+                <div className="pointer-events-none absolute inset-3 grid place-items-center rounded-xl bg-black/60 backdrop-blur-sm">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-accent2" />
+                    <p className="text-sm font-medium text-white">Preparing video…</p>
+                    <p className="max-w-xs text-xs text-slate-400">Optimizing this file for smooth playback in your browser.</p>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
           {src && meta && kind === "audio" ? <Empty icon={Music} title={meta.name} detail="Audio preview"><audio className="mt-6 w-full max-w-2xl" controls src={src} /></Empty> : null}

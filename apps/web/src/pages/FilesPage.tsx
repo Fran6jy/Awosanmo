@@ -376,16 +376,10 @@ export function FilesPage() {
 }
 
 function fileDetail(file: FileRow) {
-  const transcode = previewKind(file) === "video" && needsBrowserTranscode(file.name, file.codec_video) ? "browser transcode" : null;
-  return [file.width && file.height ? `${file.width}x${file.height}` : null, file.codec_video?.toUpperCase(), formatDuration(file.duration), transcode]
+  // Keep this user-facing: resolution and duration only. No codec/transcode jargon.
+  return [file.width && file.height ? `${file.width}x${file.height}` : null, formatDuration(file.duration)]
     .filter(Boolean)
     .join(" · ") || file.path;
-}
-
-function needsBrowserTranscode(name: string, codec?: string | null) {
-  const ext = name.split(".").pop()?.toLowerCase();
-  const normalizedCodec = codec?.toLowerCase();
-  return ["mkv", "avi", "flv", "wmv", "mpeg", "mpg"].includes(ext ?? "") || normalizedCodec === "hevc" || normalizedCodec === "h265";
 }
 
 function FileGlyph({ file }: { file: FileRow }) {
