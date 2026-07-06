@@ -29,6 +29,10 @@ function ensureSession(fileId: string, diskPath: string): Session {
   fs.mkdirSync(dir, { recursive: true });
   const proc = spawn("ffmpeg", [
     "-hide_banner", "-loglevel", "error",
+    // Read the input at real-time (1x) so the encoder doesn't race to the end of
+    // the file and peg both CPU cores; it stays a few segments ahead of playback,
+    // which keeps the 2-vCPU VM responsive (and lets the idle reaper stop it).
+    "-re",
     "-i", diskPath,
     "-map", "0:v:0", "-map", "0:a:0?", "-sn",
     "-vf", `scale=-2:${config.transcodeHeight}`,
