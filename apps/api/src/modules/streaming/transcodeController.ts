@@ -34,7 +34,9 @@ export function transcodeFile(req: any, res: any) {
     "-map", "0:v:0",
     "-map", "0:a:0?",
     "-sn",
-    "-vf", `scale=-2:min(${height}\\,ih)`,
+    // Downscale to the target height, keeping aspect ratio with an even width.
+    // Small sources get a cheap upscale; that's fine (they encode fast anyway).
+    "-vf", `scale=-2:${height}`,
     "-c:v", "libx264",
     "-preset", config.transcodePreset,
     "-tune", "zerolatency",
