@@ -58,7 +58,12 @@ app.use(helmet({
     directives: {
       "frame-src": ["'self'", "blob:"],
       "child-src": ["'self'", "blob:"],
-      "img-src": ["'self'", "data:", "blob:"]
+      "img-src": ["'self'", "data:", "blob:"],
+      // hls.js plays via MSE (blob: media source) and a blob: web worker — the
+      // helmet defaults ('self') block both, which silently freezes playback.
+      "media-src": ["'self'", "blob:", "data:"],
+      "worker-src": ["'self'", "blob:"],
+      "connect-src": ["'self'", "blob:"]
     }
   }
 }));
