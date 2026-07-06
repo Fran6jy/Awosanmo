@@ -18,5 +18,9 @@ export const config = {
   streamTokenTtlSeconds: Number(process.env.STREAM_TOKEN_TTL_SECONDS ?? 60 * 60),
   mediaScanIntervalSeconds: Number(process.env.MEDIA_SCAN_INTERVAL_SECONDS ?? 45),
   mediaProbeTimeoutSeconds: Number(process.env.MEDIA_PROBE_TIMEOUT_SECONDS ?? 20),
-  maxTranscodes: Number(process.env.MAX_TRANSCODES ?? 1)
+  maxTranscodes: Number(process.env.MAX_TRANSCODES ?? 1),
+  // On-the-fly transcode tuned for a 2-vCPU VM (real-time headroom over 1x).
+  transcodeHeight: Number(process.env.TRANSCODE_HEIGHT ?? 720),
+  transcodePreset: process.env.TRANSCODE_PRESET ?? "ultrafast",
+  transcodeCrf: Number(process.env.TRANSCODE_CRF ?? 26)
 };

@@ -21,6 +21,12 @@ export function transcodeFile(req: any, res: any) {
   res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
   res.setHeader("X-Content-Type-Options", "nosniff");
 
+  // Tuned for a 2-vCPU / 1 GB VM: 1080p HEVC at higher presets encodes at ~0.5x
+  // real-time (buffers forever). Downscaling to 720p with ultrafast + zerolatency
+  // runs ~1.6x real-time, so playback stays ahead of the encoder. Height is
+  // capped at the source's own height by libx264's scale (never upscales beyond
+  // 720). Config overridable via TRANSCODE_HEIGHT / TRANSCODE_PRESET / TRANSCODE_CRF.
+  const height = config.transcodeHeight;
   const ffmpeg = spawn("ffmpeg", [
     "-hide_banner",
     "-loglevel", "error",
@@ -28,13 +34,15 @@ export function transcodeFile(req: any, res: any) {
     "-map", "0:v:0",
     "-map", "0:a:0?",
     "-sn",
+    "-vf", `scale=-2:min(${height}\\,ih)`,
     "-c:v", "libx264",
-    "-preset", "veryfast",
-    "-crf", "23",
+    "-preset", config.transcodePreset,
+    "-tune", "zerolatency",
+    "-crf", String(config.transcodeCrf),
     "-pix_fmt", "yuv420p",
     "-c:a", "aac",
     "-ac", "2",
-    "-b:a", "160k",
+    "-b:a", "128k",
     "-movflags", "frag_keyframe+empty_moov+default_base_moof",
     "-f", "mp4",
     "pipe:1"
