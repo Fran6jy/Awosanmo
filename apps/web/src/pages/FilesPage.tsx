@@ -208,7 +208,7 @@ export function FilesPage() {
       <section className="rounded-2xl p-5 glass">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-mono text-xs font-bold uppercase text-stream">Library</p>
+            <p className="font-mono text-xs font-bold uppercase text-accent2">Library</p>
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight">All files</h1>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -290,7 +290,7 @@ export function FilesPage() {
             >
               <span />
               <button onClick={() => setFolderId(f.id)} className="flex min-w-0 items-center gap-3 text-left">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400/15 text-amber-300"><Folder className="h-5 w-5" /></span>
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet/15 text-violet-300"><Folder className="h-5 w-5" /></span>
                 <span className="truncate font-semibold text-white">{f.name}{dropFolder === f.id ? <span className="ml-2 text-xs font-medium text-accent2">Drop to move here</span> : null}</span>
               </button>
               <span className="hidden text-sm text-slate-400 md:block">Folder</span>
@@ -401,7 +401,7 @@ function MovePicker({ onClose, onPick }: { onClose: () => void; onPick: (target:
         <div className="mt-4 max-h-72 space-y-1 overflow-auto">
           <button onClick={() => onPick(null)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-200 transition hover:bg-white/10"><Home className="h-4 w-4" /> Library root</button>
           {(all.data?.folders ?? []).map((f) => (
-            <button key={f.id} onClick={() => onPick(f.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-200 transition hover:bg-white/10"><Folder className="h-4 w-4 text-amber-300" /> {f.name}</button>
+            <button key={f.id} onClick={() => onPick(f.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-200 transition hover:bg-white/10"><Folder className="h-4 w-4 text-violet-300" /> {f.name}</button>
           ))}
           {!all.data?.folders.length ? <p className="px-3 py-2 text-sm text-slate-400">No folders yet. Create one first.</p> : null}
         </div>

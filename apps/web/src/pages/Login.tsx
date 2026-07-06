@@ -60,7 +60,7 @@ export function Login() {
     return (
       <main className="grid min-h-screen place-items-center px-4">
         <form onSubmit={submitCode} className="w-full max-w-md rounded-2xl p-6 glass">
-          <p className="font-mono text-xs font-bold uppercase text-stream">Awosanmo</p>
+          <p className="font-mono text-xs font-bold uppercase text-accent2">Awosanmo</p>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white">Two-factor code</h1>
           <p className="mt-1 text-sm text-slate-400">Enter the 6-digit code from your authenticator app.</p>
           <input
@@ -82,7 +82,7 @@ export function Login() {
   return (
     <main className="grid min-h-screen place-items-center px-4">
       <form onSubmit={submit} className="w-full max-w-md rounded-2xl p-6 glass">
-        <p className="font-mono text-xs font-bold uppercase text-stream">Awosanmo</p>
+        <p className="font-mono text-xs font-bold uppercase text-accent2">Awosanmo</p>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white">{mode === "login" ? "Sign in" : "Create account"}</h1>
         <p className="mt-1 text-sm text-slate-400">{mode === "login" ? "Access your private cloud." : "Your files stay private to your account."}</p>
         <label className="mt-6 block text-sm font-semibold" htmlFor="email">Email</label>

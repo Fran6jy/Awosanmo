@@ -35,14 +35,14 @@ export function SystemPage() {
           <TwoFactorSettings />
           <a href="/api/docs" target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-2xl p-5 glass transition hover:bg-white/5">
             <div>
-              <p className="font-mono text-xs font-bold uppercase text-stream">Developers</p>
+              <p className="font-mono text-xs font-bold uppercase text-accent2">Developers</p>
               <h2 className="mt-1 text-xl font-bold text-white">API documentation</h2>
               <p className="mt-1 text-sm text-slate-400">Interactive Swagger UI for every endpoint (opens in a new tab).</p>
             </div>
             <Server className="h-6 w-6 text-slate-400" />
           </a>
           <section className="rounded-2xl p-5 glass">
-            <p className="font-mono text-xs font-bold uppercase text-stream">System</p>
+            <p className="font-mono text-xs font-bold uppercase text-accent2">System</p>
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-white">Server Control Panel</h1>
             <p className="mt-2 break-all text-sm text-slate-400">{data.app.env} · {data.app.node} · {data.app.dataDir}</p>
           </section>

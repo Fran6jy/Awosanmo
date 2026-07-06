@@ -82,7 +82,7 @@ export function TorrentDetail() {
           <section className="rounded-2xl p-5 glass">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <p className="font-mono text-sm uppercase text-stream">{torrent.runtime.health} health · {torrent.status}</p>
+                <p className="font-mono text-sm uppercase text-accent2">{torrent.runtime.health} health · {torrent.status}</p>
                 <h1 className="mt-2 truncate text-3xl font-bold">{torrent.name}</h1>
                 <p className="mt-2 break-all text-sm text-slate-400">{torrent.info_hash ?? "Waiting for metadata"}</p>
               </div>

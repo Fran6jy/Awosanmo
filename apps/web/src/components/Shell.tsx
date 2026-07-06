@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Cloud, Files, HardDrive, LayoutGrid, LogOut, Server, Upload, X } from "lucide-react";
+import { Files, HardDrive, LayoutGrid, LogOut, Server, Upload, X } from "lucide-react";
+import { Logo } from "./Logo";
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -125,11 +126,11 @@ function StorageQuota() {
   return (
     <div className="order-last w-full min-w-0 rounded-xl border border-line bg-white/5 px-3 py-2 sm:order-none sm:w-52 md:w-64">
       <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
-        <span className="inline-flex items-center gap-2 font-medium"><HardDrive className="h-4 w-4 text-stream" /> Storage</span>
+        <span className="inline-flex items-center gap-2 font-medium"><HardDrive className="h-4 w-4 text-accent2" /> Storage</span>
         <span className="shrink-0 font-mono text-slate-400">{formatBytes(used)} / {formatBytes(total)}</span>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
-        <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${pct}%` }} />
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-400/25">
+        <div className="h-full rounded-full bg-gradient-to-r from-accent to-violet transition-all" style={{ width: `${pct}%` }} />
       </div>
       <p className="mt-1 truncate text-xs text-slate-400">{storage.isLoading ? "Checking disk..." : `${formatBytes(available)} free`}</p>
     </div>
@@ -147,9 +148,7 @@ function Sidebar() {
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   return (
     <aside className="fixed inset-y-4 left-4 z-20 hidden w-[68px] flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] py-4 backdrop-blur-xl lg:flex">
-      <Link to="/" aria-label="Awosanmo dashboard" className="mb-2 grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-accent to-violet shadow-glow">
-        <Cloud className="h-6 w-6 text-white" />
-      </Link>
+      <Link to="/" aria-label="Awosanmo dashboard" className="mb-2"><Logo className="h-11 w-11" /></Link>
       <nav className="flex flex-1 flex-col items-center gap-1.5">
         {NAV.map(({ icon: Icon, href, label }) => {
           const active = isActive(href);
@@ -203,9 +202,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <header className="glass mb-4 flex flex-col gap-3 rounded-2xl p-4 sm:mb-5 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             {/* Compact logo shows on mobile where the sidebar is hidden. */}
-            <Link to="/" aria-label="Awosanmo" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-accent to-violet shadow-glow lg:hidden">
-              <Cloud className="h-5 w-5 text-white" />
-            </Link>
+            <Link to="/" aria-label="Awosanmo" className="lg:hidden"><Logo className="h-10 w-10" /></Link>
             <div className="min-w-0">
               <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-accent2 sm:text-[11px]">Awosanmo Private Cloud</p>
               <h1 className="mt-0.5 truncate text-xl font-extrabold tracking-tight text-white sm:text-2xl md:text-[28px]">Your private cloud</h1>
