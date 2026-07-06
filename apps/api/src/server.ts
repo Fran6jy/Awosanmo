@@ -20,6 +20,7 @@ import { torrentRoutes } from "./modules/torrents/routes.js";
 import { torrentService } from "./modules/torrents/torrentService.js";
 import { streamFile } from "./modules/streaming/streamController.js";
 import { transcodeFile } from "./modules/streaming/transcodeController.js";
+import { hlsPlaylist, hlsSegment } from "./modules/streaming/hlsController.js";
 import { getStorageStats } from "./modules/storage/storageService.js";
 import { mediaWorker } from "./modules/media/mediaWorker.js";
 import { fileRoutes } from "./modules/files/routes.js";
@@ -157,6 +158,9 @@ app.post("/api/subtitle-token/:id", requireAuth, ownsFile, (req: any, res) => {
 });
 app.get("/api/stream/:id", requireStreamAuth, streamFile);
 app.get("/api/transcode/:id", requireStreamAuth, transcodeFile);
+// HLS on-the-fly transcode (reliable browser playback of unsupported codecs).
+app.get("/api/hls/:id/index.m3u8", requireStreamAuth, hlsPlaylist);
+app.get("/api/hls/:id/:seg", requireStreamAuth, hlsSegment);
 app.get("/api/download/:id", requireDownloadAuth, downloadFile);
 app.get("/api/subtitle/:id", requireSubtitleAuth, subtitleFile);
 app.get("/api/stats", requireAuth, (req: any, res) => {

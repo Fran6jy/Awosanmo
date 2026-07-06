@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import Hls from "hls.js";
 import { ArrowLeft, Download, FileText, Image as ImageIcon, Loader2, Music, Video } from "lucide-react";
 import { API_URL, api, token } from "../lib/api";
 import { formatBytes } from "../lib/format";
@@ -47,7 +48,7 @@ export function FileViewer() {
   const kind = previewKind(file.data ?? { name: "" });
   const meta = file.data;
   const shouldTranscode = Boolean(meta && kind === "video" && (forceTranscode || needsTranscode(meta)));
-  const videoSrc = stream.data && shouldTranscode ? `${API_URL}/api/transcode/${id}?st=${encodeURIComponent(stream.data.streamToken)}` : src;
+  const hlsUrl = stream.data && shouldTranscode ? `${API_URL}/api/hls/${id}/index.m3u8?st=${encodeURIComponent(stream.data.streamToken)}` : undefined;
   const tracks = useMemo(() => {
     return (playback.data?.subtitles ?? []).map((subtitle, index) => {
       const subtitleToken = subtitleTokens[index]?.data?.subtitleToken;
@@ -75,7 +76,7 @@ export function FileViewer() {
     };
     video.addEventListener("loadedmetadata", apply, { once: true });
     return () => video.removeEventListener("loadedmetadata", apply);
-  }, [kind, playback.data?.positionSeconds, videoSrc]);
+  }, [kind, playback.data?.positionSeconds, src, hlsUrl]);
 
   useEffect(() => {
     const video = mediaRef.current;
@@ -99,6 +100,28 @@ export function FileViewer() {
     setForceTranscode(false);
     setVideoReady(false);
   }, [id]);
+
+  // Play transcoded (unsupported-codec) video via HLS — reliable in the browser,
+  // unlike a live fragmented-MP4 stream. Safari plays HLS natively; others use hls.js.
+  useEffect(() => {
+    const video = mediaRef.current;
+    if (!video || !shouldTranscode || !hlsUrl) return;
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = hlsUrl;
+      return;
+    }
+    if (!Hls.isSupported()) return;
+    const hls = new Hls({ enableWorker: true, maxBufferLength: 30 });
+    hls.loadSource(hlsUrl);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.ERROR, (_evt, data) => {
+      if (data.fatal) {
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+        else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+      }
+    });
+    return () => hls.destroy();
+  }, [shouldTranscode, hlsUrl]);
 
   async function download() {
     const { downloadToken } = await api<{ downloadToken: string }>(`/api/download-token/${id}`, { method: "POST" });
@@ -138,7 +161,7 @@ export function FileViewer() {
                 controls
                 preload="metadata"
                 playsInline
-                src={videoSrc}
+                src={shouldTranscode ? undefined : src}
                 onLoadStart={() => setVideoReady(false)}
                 onPlaying={() => setVideoReady(true)}
                 onCanPlay={() => setVideoReady(true)}
