@@ -5,6 +5,7 @@ import {
   completeTwoFactorLogin,
   disableTotp,
   enableTotp,
+  ensureAdminUser,
   issueRefreshToken,
   login,
   register,
@@ -43,6 +44,14 @@ describe("registration & login", () => {
     const ok = await login("bob@x.com", "password123");
     expect(ok).not.toBeNull();
     expect("token" in ok!).toBe(true);
+  });
+
+  it("repairs an existing configured admin account to unlimited quota", async () => {
+    await register("admin@test.local", "password123");
+    ensureAdminUser();
+    const admin = db.prepare("SELECT role, quota_bytes FROM users WHERE email = ?").get("admin@test.local") as any;
+    expect(admin.role).toBe("admin");
+    expect(admin.quota_bytes).toBe(0);
   });
 });
 

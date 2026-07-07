@@ -23,6 +23,8 @@ export function ensureAdminUser() {
       bcrypt.hashSync(password, 12)
     );
     admin = { id };
+  } else {
+    db.prepare("UPDATE users SET role = 'admin', quota_bytes = 0 WHERE id = ?").run(admin.id);
   }
   // Backfill pre-multi-user rows so existing content stays owned by the admin.
   for (const table of ["torrents", "files", "folders"]) {
