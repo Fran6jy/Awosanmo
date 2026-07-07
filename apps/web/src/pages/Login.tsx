@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { api, setTokens } from "../lib/api";
 
 type Session = { token: string; refreshToken: string };
@@ -12,6 +13,7 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const appConfig = useQuery({ queryKey: ["app-config"], queryFn: () => api<{ allowRegistration: boolean }>("/api/app-config"), staleTime: 60_000 });
   // 2FA step
   const [ticket, setTicket] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -33,7 +35,7 @@ export function Login() {
       const msg = (e as Error).message;
       setError(
         mode === "register"
-          ? (/exists/i.test(msg) ? "An account with that email already exists." : "Could not create account. Use a valid email and 8+ char password.")
+          ? (/disabled/i.test(msg) ? "Account creation is currently disabled." : /exists/i.test(msg) ? "An account with that email already exists." : "Could not create account. Use a valid email and 8+ char password.")
           : "Invalid email or password.",
       );
     } finally {
@@ -93,9 +95,11 @@ export function Login() {
         <button disabled={busy} className="mt-6 h-12 w-full rounded-xl bg-accent font-bold text-white transition hover:bg-accent2 focus:outline-none focus:ring-2 focus:ring-stream disabled:opacity-60">
           {busy ? "Please wait…" : mode === "login" ? "Continue" : "Create account"}
         </button>
-        <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }} className="mt-4 w-full text-center text-sm text-slate-400 transition hover:text-white">
-          {mode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}
-        </button>
+        {appConfig.data?.allowRegistration ? (
+          <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }} className="mt-4 w-full text-center text-sm text-slate-400 transition hover:text-white">
+            {mode === "login" ? "New here? Create an account" : "Already have an account? Sign in"}
+          </button>
+        ) : null}
       </form>
     </main>
   );

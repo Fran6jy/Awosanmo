@@ -4,6 +4,7 @@ import { db } from "../../db/schema.js";
 import { logger } from "../../logger.js";
 import { resolveDiskPath } from "../files/fileService.js";
 import { probeMedia } from "./mediaProbe.js";
+import { generateThumbnail } from "./thumbnails.js";
 
 type FileRow = {
   id: string;
@@ -77,6 +78,7 @@ export class MediaWorker {
         result.subtitleTracks,
         file.id
       );
+      await generateThumbnail(file.id, diskPath);
     } catch (error: any) {
       const message = String(error?.message ?? error).slice(0, 500);
       db.prepare("UPDATE files SET probe_status = ?, probe_error = ? WHERE id = ?").run("failed", message, file.id);

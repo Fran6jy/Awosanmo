@@ -3,6 +3,7 @@ import path from "node:path";
 import mime from "mime-types";
 import { config } from "../../config.js";
 import { db } from "../../db/schema.js";
+import { thumbnailPath } from "../media/thumbnails.js";
 
 export function listFiles(userId: string, query?: string, folderId?: string | null) {
   // Search is global across every folder — but only within the user's files.
@@ -90,6 +91,8 @@ export function deleteFile(id: string, userId: string) {
   if (!file) return false;
   const diskPath = getDiskPath(file);
   if (fs.existsSync(diskPath)) fs.unlinkSync(diskPath);
+  const thumb = thumbnailPath(file.thumbnail_path);
+  if (thumb && fs.existsSync(thumb)) fs.unlinkSync(thumb);
   db.prepare("DELETE FROM files WHERE id = ?").run(id);
   return true;
 }

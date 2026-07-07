@@ -40,6 +40,10 @@ optional 2FA. Built to run on the Oracle Cloud Free Tier (1 vCPU / 1 GB RAM).
 - Admin email/password: in `/opt/awosanmo/.env` (`ADMIN_EMAIL`, `ADMIN_PASSWORD`).
 - The admin user is **seeded once** on first boot from those values. Changing
   `.env` afterwards does **not** change an existing user's password — see §7.
+- Public sign-up is off by default (`ALLOW_REGISTRATION=false` unless explicitly
+  set to `true`). Users can change password from System → Change password.
+- New regular users get `DEFAULT_QUOTA_BYTES` (20 GB by default); the seeded
+  admin is unlimited (`quota_bytes = 0`).
 
 ### Get the current HTTPS tunnel URL
 ```bash
@@ -118,9 +122,12 @@ token-in-query media routes. **Accounts are fully siloed** — every torrent, fi
 folder, wishlist item, and search result is scoped to the authenticated user.
 
 ### Auth & accounts
-- `POST /api/register` `{ email, password }` → `{ token, refreshToken }` (open sign-up)
+- `POST /api/register` `{ email, password }` → `{ token, refreshToken }` only
+  when `ALLOW_REGISTRATION=true`; otherwise 403
 - `POST /api/login` `{ email, password }` → `{ token, refreshToken }` **or**
   `{ twoFactorRequired: true, ticket }` when 2FA is enabled
+- `POST /api/account/password` `{ currentPassword, nextPassword }` → changes the
+  current user's password and revokes refresh sessions
 - `POST /api/login/2fa` `{ ticket, code }` → `{ token, refreshToken }`
 - `POST /api/refresh` `{ refreshToken }` → new `{ token, refreshToken }` (rotates)
 - `POST /api/logout` `{ refreshToken }` → 204 (revokes the refresh token)
@@ -189,6 +196,9 @@ progress/metadata/download events are not allowed to flip it back to
 
 ### Uploads
 - `POST /api/uploads` (multipart `file`) — any file, streamed to disk
+- `POST /api/uploads/url` `{ url }` — server-side fetch of a direct HTTP/HTTPS
+  file URL. It blocks localhost/private IP targets, honors `MAX_REMOTE_BYTES`,
+  enforces user quota, and stores the result in the user's uploads bucket.
 
 ### Wishlist
 - `GET  /api/wishlist` — saved magnets
@@ -206,6 +216,7 @@ progress/metadata/download events are not allowed to flip it back to
   playable or inline-viewed files
 - `GET /api/download/:id?dt=<token>`
 - `GET /api/subtitle/:id?tt=<token>`
+- `GET /api/thumbnail/:id?st=<token>` — token-protected thumbnail/poster
 - `GET /api/zip?token=<zipToken>` — streamed zip of selected files
 
 ### Misc
@@ -277,6 +288,9 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
 | `ACCESS_TOKEN_TTL` | access token lifetime | `1h` |
 | `REFRESH_TOKEN_TTL` / `REFRESH_TOKEN_TTL_MS` | refresh token lifetime | `30d` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | seeded admin (first boot only) | — |
+| `ALLOW_REGISTRATION` | public self sign-up gate | `false` |
+| `DEFAULT_QUOTA_BYTES` | per-user quota for new users (`0` = unlimited) | 20 GB |
+| `MAX_REMOTE_BYTES` | max add-by-URL fetch size | 8 GB |
 | `MAX_DOWNLOAD_RATE` / `MAX_UPLOAD_RATE` | bytes/s (0 = unlimited down) | `0` / `65536` |
 | `MAX_UPLOAD_BYTES` | max direct file upload | 8 GB |
 | `TORRENT_PORT` | swarm peer port | `51413` |
@@ -412,7 +426,12 @@ Two layers must both allow a port:
   every read and mutation scoped per user; per-user uploads bucket; media tokens
   and zip tickets honored only for the owner; socket handshake authenticated and
   torrent updates delivered per-user (fixed a prior broadcast-to-everyone leak).
-- **Open self sign-up:** `POST /api/register` + a Login page toggle.
+- **Security lockdown:** self sign-up is gated by `ALLOW_REGISTRATION`; users can
+  change passwords from System; regular users get quota defaults while the seeded
+  admin is unlimited.
+- **Add-by-URL + thumbnails:** direct HTTP/HTTPS file fetches are available from
+  Dashboard/Files with SSRF/private-IP protection, byte caps, and quota checks;
+  media probing now generates thumbnails served via token-authenticated URLs.
 - **Refresh tokens:** 1h access + 30d refresh (DB-whitelisted, rotating); the
   SPA refreshes transparently on 401; a sidebar **logout** revokes server-side.
 - **2FA (TOTP):** enroll from the System page (QR via `otplib`/`qrcode`), a

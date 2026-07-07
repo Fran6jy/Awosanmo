@@ -14,19 +14,20 @@ import jwt from "jsonwebtoken";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { migrate } from "./db/schema.js";
-import { completeTwoFactorLogin, disableTotp, enableTotp, ensureAdminUser, login, loginSchema, register, registerSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, rotateRefresh, revokeRefresh, setupTotp, signDownloadToken, signStreamToken, signSubtitleToken, twoFactorStatus } from "./modules/auth/auth.js";
+import { changePassword, completeTwoFactorLogin, disableTotp, enableTotp, ensureAdminUser, login, loginSchema, register, registerSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, rotateRefresh, revokeRefresh, setupTotp, signDownloadToken, signStreamToken, signSubtitleToken, twoFactorStatus } from "./modules/auth/auth.js";
 import { getOwnedFile } from "./modules/files/fileService.js";
 import { torrentRoutes } from "./modules/torrents/routes.js";
 import { torrentService } from "./modules/torrents/torrentService.js";
 import { streamFile } from "./modules/streaming/streamController.js";
 import { transcodeFile } from "./modules/streaming/transcodeController.js";
 import { hlsPlaylist, hlsSegment } from "./modules/streaming/hlsController.js";
-import { getStorageStats } from "./modules/storage/storageService.js";
+import { getStorageStats, getUserStorageStats } from "./modules/storage/storageService.js";
 import { mediaWorker } from "./modules/media/mediaWorker.js";
 import { fileRoutes } from "./modules/files/routes.js";
 import { downloadFile } from "./modules/files/downloadController.js";
 import { playbackRoutes } from "./modules/playback/routes.js";
 import { subtitleFile } from "./modules/files/subtitleController.js";
+import { thumbnailFile } from "./modules/files/thumbnailController.js";
 import { adminRoutes } from "./modules/admin/routes.js";
 import { searchRoutes } from "./modules/search/routes.js";
 import { uploadRoutes } from "./modules/uploads/routes.js";
@@ -75,6 +76,7 @@ app.use(express.json({ limit: "256kb" }));
 app.use(rateLimit({ windowMs: 60_000, limit: 180 }));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/api/app-config", (_req, res) => res.json({ allowRegistration: config.allowRegistration }));
 // API documentation (public): raw spec + Swagger UI.
 app.get("/api/openapi.json", (_req, res) => res.json(openapiSpec));
 app.use(
@@ -94,10 +96,17 @@ app.post("/api/login", async (req, res) => {
   res.json(session);
 });
 app.post("/api/register", async (req, res) => {
+  if (!config.allowRegistration) return res.status(403).json({ error: "Sign-up is disabled" });
   const body = registerSchema.parse(req.body);
   const session = await register(body.email, body.password);
   if (!session) return res.status(409).json({ error: "An account with that email already exists" });
   res.status(201).json(session);
+});
+app.post("/api/account/password", requireAuth, async (req: any, res) => {
+  const currentPassword = typeof req.body?.currentPassword === "string" ? req.body.currentPassword : "";
+  const nextPassword = typeof req.body?.nextPassword === "string" ? req.body.nextPassword : "";
+  if (!(await changePassword(req.user.id, currentPassword, nextPassword))) return res.status(400).json({ error: "Could not change password" });
+  res.json({ ok: true });
 });
 // Second step of a 2FA login.
 app.post("/api/login/2fa", async (req, res) => {
@@ -168,11 +177,12 @@ app.get("/api/hls/:id/index.m3u8", requireStreamAuth, hlsPlaylist);
 app.get("/api/hls/:id/:seg", requireStreamAuth, hlsSegment);
 app.get("/api/download/:id", requireDownloadAuth, downloadFile);
 app.get("/api/subtitle/:id", requireSubtitleAuth, subtitleFile);
+app.get("/api/thumbnail/:id", requireStreamAuth, thumbnailFile);
 app.get("/api/stats", requireAuth, (req: any, res) => {
   const usage = process.memoryUsage();
   res.json({ memory: usage, uptime: process.uptime(), torrents: torrentService.list(req.user.id).length });
 });
-app.get("/api/storage", requireAuth, (_req, res) => res.json(getStorageStats()));
+app.get("/api/storage", requireAuth, (req: any, res) => res.json({ ...getStorageStats(), user: getUserStorageStats(req.user.id) }));
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webDist = path.resolve(here, "../../web/dist");

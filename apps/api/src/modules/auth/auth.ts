@@ -17,7 +17,7 @@ export function ensureAdminUser() {
   let admin = db.prepare("SELECT id FROM users WHERE email = ?").get(email) as any;
   if (!admin) {
     const id = crypto.randomUUID();
-    db.prepare("INSERT INTO users (id, email, password_hash, role) VALUES (?, ?, ?, 'admin')").run(
+    db.prepare("INSERT INTO users (id, email, password_hash, role, quota_bytes) VALUES (?, ?, ?, 'admin', 0)").run(
       id,
       email,
       bcrypt.hashSync(password, 12)
@@ -32,15 +32,16 @@ export function ensureAdminUser() {
 
 const registerSchema = loginSchema;
 
-/** Open self sign-up. Returns a session, or null if the email is taken. */
+/** Optional self sign-up. Returns a session, or null if the email is taken. */
 export async function register(email: string, password: string) {
   const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
   if (existing) return null;
   const id = crypto.randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, role) VALUES (?, ?, ?, 'user')").run(
+  db.prepare("INSERT INTO users (id, email, password_hash, role, quota_bytes) VALUES (?, ?, ?, 'user', ?)").run(
     id,
     email,
     bcrypt.hashSync(password, 12),
+    config.defaultQuotaBytes,
   );
   return { token: signToken({ id, email, role: "user" }), refreshToken: issueRefreshToken(id) };
 }
@@ -95,6 +96,16 @@ export function revokeRefresh(refreshToken: string): void {
   } catch {
     /* already invalid — nothing to revoke */
   }
+}
+
+export async function changePassword(userId: string, currentPassword: string, nextPassword: string) {
+  if (nextPassword.length < 8) return false;
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as any;
+  if (!user) return false;
+  if (!(await bcrypt.compare(currentPassword, user.password_hash))) return false;
+  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(bcrypt.hashSync(nextPassword, 12), userId);
+  db.prepare("DELETE FROM refresh_tokens WHERE user_id = ?").run(userId);
+  return true;
 }
 
 export function signStreamToken(userId: string, fileId: string) {

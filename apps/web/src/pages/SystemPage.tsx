@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Cpu, HardDrive, MemoryStick, Radio, Server } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Cpu, HardDrive, KeyRound, MemoryStick, Radio, Server } from "lucide-react";
 import { Shell } from "../components/Shell";
 import { TwoFactorSettings } from "../components/TwoFactorSettings";
 import { api, token } from "../lib/api";
@@ -13,6 +14,8 @@ type Status = {
   host: { platform: string; arch: string; cpus: number; loadavg: number[]; totalMemory: number; freeMemory: number };
   process: { rss: number; heapUsed: number; heapTotal: number; external: number };
   storage: { used: number; available: number; total: number; dataDir: string };
+  quota: { used: number; quota: number; available: number; unlimited: boolean };
+  security: { allowRegistration: boolean };
   torrents: CountRow[];
   files: CountRow[];
   probes: CountRow[];
@@ -21,7 +24,19 @@ type Status = {
 
 export function SystemPage() {
   const authed = !!token();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [nextPassword, setNextPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
   const status = useQuery({ queryKey: ["admin-status"], queryFn: () => api<Status>("/api/admin/status"), refetchInterval: 5000, enabled: authed });
+  const changePassword = useMutation({
+    mutationFn: () => api("/api/account/password", { method: "POST", body: JSON.stringify({ currentPassword, nextPassword }) }),
+    onSuccess: () => {
+      setCurrentPassword("");
+      setNextPassword("");
+      setPasswordMessage("Password changed. Other sessions were signed out.");
+    },
+    onError: (error: Error) => setPasswordMessage(error.message.slice(0, 160))
+  });
   const data = status.data;
 
   if (!authed) return <Navigate to="/login" replace />;
@@ -33,6 +48,21 @@ export function SystemPage() {
       ) : (
         <div className="space-y-4">
           <TwoFactorSettings />
+          <section className="rounded-2xl p-5 glass">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-xs font-bold uppercase text-accent2">Security</p>
+                <h2 className="mt-1 text-xl font-bold text-white">Change password</h2>
+              </div>
+              <KeyRound className="h-5 w-5 text-slate-400" />
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); changePassword.mutate(); }} className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Current password" className="field" autoComplete="current-password" />
+              <input type="password" value={nextPassword} onChange={(e) => setNextPassword(e.target.value)} placeholder="New password" className="field" autoComplete="new-password" />
+              <button disabled={changePassword.isPending || currentPassword.length < 1 || nextPassword.length < 8} className="btn-primary min-h-12 px-5">{changePassword.isPending ? "Saving..." : "Save"}</button>
+            </form>
+            {passwordMessage ? <p className="mt-3 text-sm text-slate-400">{passwordMessage}</p> : null}
+          </section>
           <a href="/api/docs" target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-2xl p-5 glass transition hover:bg-white/5">
             <div>
               <p className="font-mono text-xs font-bold uppercase text-accent2">Developers</p>
@@ -69,6 +99,8 @@ export function SystemPage() {
               <Runtime label="Free RAM" value={formatBytes(data.host.freeMemory)} />
               <Runtime label="Disk Total" value={formatBytes(data.storage.total)} />
               <Runtime label="Environment" value={data.app.env} />
+              <Runtime label="Sign-up" value={data.security.allowRegistration ? "Enabled" : "Disabled"} />
+              <Runtime label="Quota" value={data.quota.unlimited ? "Unlimited" : `${formatBytes(data.quota.used)} / ${formatBytes(data.quota.quota)}`} />
             </div>
           </section>
         </div>

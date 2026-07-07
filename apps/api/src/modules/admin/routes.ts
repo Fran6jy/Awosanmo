@@ -2,7 +2,7 @@ import os from "node:os";
 import { Router } from "express";
 import { db } from "../../db/schema.js";
 import { config } from "../../config.js";
-import { getStorageStats } from "../storage/storageService.js";
+import { getStorageStats, getUserStorageStats } from "../storage/storageService.js";
 
 export const adminRoutes = Router();
 
@@ -10,6 +10,7 @@ adminRoutes.get("/status", (req: any, res) => {
   const userId = req.user.id;
   const memory = process.memoryUsage();
   const storage = getStorageStats();
+  const quota = getUserStorageStats(userId);
   // Content stats are scoped to the requesting user (siloed accounts).
   const torrents = db.prepare("SELECT status, COUNT(*) count FROM torrents WHERE user_id = ? GROUP BY status").all(userId);
   const files = db.prepare("SELECT media_kind, COUNT(*) count, COALESCE(SUM(size), 0) size FROM files WHERE user_id = ? GROUP BY media_kind").all(userId);
@@ -44,6 +45,8 @@ adminRoutes.get("/status", (req: any, res) => {
       external: memory.external
     },
     storage,
+    quota,
+    security: { allowRegistration: config.allowRegistration },
     torrents,
     files,
     probes,

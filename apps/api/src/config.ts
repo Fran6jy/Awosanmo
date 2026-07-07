@@ -22,5 +22,11 @@ export const config = {
   // On-the-fly transcode tuned for a 2-vCPU VM (real-time headroom over 1x).
   transcodeHeight: Number(process.env.TRANSCODE_HEIGHT ?? 720),
   transcodePreset: process.env.TRANSCODE_PRESET ?? "ultrafast",
-  transcodeCrf: Number(process.env.TRANSCODE_CRF ?? 26)
+  transcodeCrf: Number(process.env.TRANSCODE_CRF ?? 26),
+  // Security: open sign-up is OFF by default; the admin creates users otherwise.
+  allowRegistration: process.env.ALLOW_REGISTRATION === "true",
+  // Per-user storage quota (bytes). 0 = unlimited. New users get the default.
+  defaultQuotaBytes: Number(process.env.DEFAULT_QUOTA_BYTES ?? 20 * 1024 * 1024 * 1024),
+  // Max size for a single add-by-URL fetch.
+  maxRemoteBytes: Number(process.env.MAX_REMOTE_BYTES ?? 8 * 1024 * 1024 * 1024)
 };

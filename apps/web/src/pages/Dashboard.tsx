@@ -1,17 +1,17 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Download, Gauge, Pause, Play, Plus, RefreshCw, Trash2, Upload, Waves } from "lucide-react";
+import { ArrowUpRight, Download, Gauge, Link2, Pause, Play, Plus, RefreshCw, Trash2, Upload, Waves } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
-import { api, token, uploadFile, uploadTorrentFile } from "../lib/api";
+import { addByUrl, api, token, uploadFile, uploadTorrentFile } from "../lib/api";
 import { readClipboardMagnet } from "../lib/clipboard";
 import { pushToast } from "../components/Toast";
 import { Shell } from "../components/Shell";
 
 type Torrent = { id: string; name: string; progress: number; status: string; download_speed: number; upload_speed: number; size: number };
 type AddTorrentResponse = { id: string; reused?: boolean };
-type StorageStats = { used: number; available: number; total: number };
+type StorageStats = { used: number; available: number; total: number; user?: { used: number } };
 
 const fmt = (bytes = 0) =>
   bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : bytes < 1073741824 ? `${(bytes / 1048576).toFixed(1)} MB` : `${(bytes / 1073741824).toFixed(2)} GB`;
@@ -29,6 +29,7 @@ export function Dashboard() {
   const authed = !!token();
   const qc = useQueryClient();
   const [magnetUri, setMagnetUri] = useState("");
+  const [remoteUrl, setRemoteUrl] = useState("");
   const torrents = useQuery({ queryKey: ["torrents"], queryFn: () => api<Torrent[]>("/api/torrents"), refetchInterval: 15000, enabled: authed });
   const storage = useQuery({ queryKey: ["storage"], queryFn: () => api<StorageStats>("/api/storage"), refetchInterval: 8000, enabled: authed });
 
@@ -90,6 +91,16 @@ export function Dashboard() {
     }
     if (fileInput.current) fileInput.current.value = "";
   }
+  const addUrl = useMutation({
+    mutationFn: (url: string) => addByUrl(url),
+    onSuccess: () => {
+      setRemoteUrl("");
+      pushToast({ type: "success", title: "URL added", body: "The file was saved to your library." });
+      qc.invalidateQueries({ queryKey: ["files"] });
+      qc.invalidateQueries({ queryKey: ["storage"] });
+    },
+    onError: (e: Error) => pushToast({ type: "error", title: "Could not add URL", body: e.message.slice(0, 140) })
+  });
   const action = useMutation({
     mutationFn: ({ id, kind }: { id: string; kind: "pause" | "resume" | "reannounce" | "delete" }) =>
       kind === "delete" ? api(`/api/torrents/${id}?destroy=false`, { method: "DELETE" }) : api(`/api/torrents/${id}/${kind}`, { method: "POST" }),
@@ -118,9 +129,9 @@ export function Dashboard() {
       active: rows.filter((r) => r.status === "downloading").length,
       down: rows.reduce((s, r) => s + r.download_speed, 0),
       up: rows.reduce((s, r) => s + r.upload_speed, 0),
-      stored: storage.data?.used ?? rows.reduce((s, r) => s + r.size * r.progress, 0),
+      stored: storage.data?.user?.used ?? storage.data?.used ?? rows.reduce((s, r) => s + r.size * r.progress, 0),
     };
-  }, [storage.data?.used, torrents.data]);
+  }, [storage.data?.used, storage.data?.user?.used, torrents.data]);
   const visibleTorrents = useMemo(
     () => (torrents.data ?? []).filter((t) => !t.id.startsWith("local-uploads") && t.status !== "completed"),
     [torrents.data]
@@ -172,6 +183,13 @@ export function Dashboard() {
             <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} />
           </div>
         )}
+        <form onSubmit={(e) => { e.preventDefault(); const url = remoteUrl.trim(); if (url) addUrl.mutate(url); }} className="mt-3 flex flex-col gap-3 md:flex-row">
+          <div className="relative flex-1">
+            <Link2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input value={remoteUrl} onChange={(e) => setRemoteUrl(e.target.value)} placeholder="Add a direct HTTPS file URL…" className="field pl-11" />
+          </div>
+          <button disabled={addUrl.isPending || !remoteUrl.trim()} className="btn-ghost min-h-12 px-5">{addUrl.isPending ? "Adding…" : "Add URL"}</button>
+        </form>
       </section>
 
       {/* Torrents */}

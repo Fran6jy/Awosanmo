@@ -136,3 +136,10 @@ export async function uploadTorrentFile(file: File): Promise<{ id: string }> {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+export async function addByUrl(url: string): Promise<{ id: string; streamable: boolean; media_kind: string }> {
+  return api("/api/uploads/url", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  });
+}

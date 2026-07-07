@@ -3,14 +3,14 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Download, Eye, FileArchive, FileText, Film, Folder, FolderOpen, FolderPlus, FolderInput, Home, Image as ImageIcon, Link2, Music, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 import { Shell } from "../components/Shell";
-import { API_URL, api, token, uploadFile, uploadTorrentFile, downloadZip } from "../lib/api";
+import { API_URL, addByUrl, api, token, uploadFile, uploadTorrentFile, downloadZip } from "../lib/api";
 import { pushToast } from "../components/Toast";
 import { ContextMenu, type MenuItem } from "../components/ContextMenu";
 import { formatBytes, formatDuration } from "../lib/format";
 import { canPreview, previewKind } from "../lib/fileTypes";
 
 type FileRow = {
-  id: string; name: string; path: string; size: number; media_kind: string; streamable: number;
+  id: string; name: string; path: string; size: number; media_kind: string; streamable: number; thumbnail_path?: string | null;
   duration?: number | null; width?: number | null; height?: number | null; codec_video?: string | null; probe_status?: string;
 };
 type FolderRow = { id: string; name: string; parent_id: string | null };
@@ -20,6 +20,7 @@ export function FilesPage() {
   const authed = !!token();
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
+  const [remoteUrl, setRemoteUrl] = useState("");
   const [folderId, setFolderId] = useState("root");
   const [renaming, setRenaming] = useState<FileRow | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -145,6 +146,16 @@ export function FilesPage() {
     }
     if (fileInput.current) fileInput.current.value = "";
   }
+  const addUrl = useMutation({
+    mutationFn: (url: string) => addByUrl(url),
+    onSuccess: () => {
+      setRemoteUrl("");
+      pushToast({ type: "success", title: "URL added", body: "The file was saved to your library." });
+      qc.invalidateQueries({ queryKey: ["files"] });
+      qc.invalidateQueries({ queryKey: ["storage"] });
+    },
+    onError: (e: Error) => pushToast({ type: "error", title: "Could not add URL", body: e.message.slice(0, 140) })
+  });
 
   const rows = useMemo(() => files.data ?? [], [files.data]);
   const subfolders = folders.data?.folders ?? [];
@@ -212,6 +223,13 @@ export function FilesPage() {
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight">All files</h1>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <form onSubmit={(e) => { e.preventDefault(); const url = remoteUrl.trim(); if (url) addUrl.mutate(url); }} className="flex gap-2 sm:w-80">
+              <label className="relative min-w-0 flex-1">
+                <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input value={remoteUrl} onChange={(e) => setRemoteUrl(e.target.value)} placeholder="Add URL" className="min-h-12 w-full rounded-xl border border-line bg-white/[0.04] pl-10 pr-3 text-white outline-none focus:ring-2 focus:ring-stream" />
+              </label>
+              <button disabled={addUrl.isPending || !remoteUrl.trim()} className="grid h-12 w-12 place-items-center rounded-xl border border-line bg-white/[0.04] text-slate-200 transition hover:bg-white/10 disabled:opacity-50" aria-label="Add URL"><Link2 className="h-4 w-4" /></button>
+            </form>
             <label className="relative block sm:w-72">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search all files" className="min-h-12 w-full rounded-xl border border-line bg-white/[0.04] pl-11 pr-4 text-white outline-none focus:ring-2 focus:ring-stream" />
@@ -303,7 +321,7 @@ export function FilesPage() {
             <article key={file.id} draggable onDragStart={(e) => onFileDragStart(e, file)} onDragEnd={onFileDragEnd} onContextMenu={(e) => openFileMenu(e, file)} className={`flex min-w-0 cursor-grab items-center gap-3 px-3 py-3 transition active:cursor-grabbing sm:px-4 md:grid md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-accent/10" : "hover:bg-white/5"}`}>
               <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 shrink-0 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <FileGlyph file={file} />
+                <FileThumb file={file} />
                 <div className="min-w-0">
                   {canPreview(file) ? <Link to={`/view/${file.id}`} className="block truncate font-semibold text-white transition hover:text-stream">{file.name}</Link> : <p className="truncate font-semibold text-white">{file.name}</p>}
                   <p className="mt-1 truncate text-xs text-slate-400">{formatBytes(file.size)} · {fileDetail(file)}</p>
@@ -390,6 +408,26 @@ function FileGlyph({ file }: { file: FileRow }) {
   if (kind === "image") return <span className={`${base} bg-sky-400/15 text-sky-300`}><ImageIcon className="h-5 w-5" /></span>;
   if (kind === "pdf" || kind === "epub" || kind === "text") return <span className={`${base} bg-rose-400/15 text-rose-300`}><FileText className="h-5 w-5" /></span>;
   return <span className={`${base} bg-white/10 text-slate-300`}><FileArchive className="h-5 w-5" /></span>;
+}
+
+function FileThumb({ file }: { file: FileRow }) {
+  const [failed, setFailed] = useState(false);
+  const canThumb = !failed && (file.thumbnail_path || previewKind(file) === "image");
+  const thumb = useQuery({
+    queryKey: ["thumb-token", file.id],
+    queryFn: () => api<{ streamToken: string }>(`/api/stream-token/${file.id}`, { method: "POST" }),
+    enabled: Boolean(canThumb),
+    staleTime: 45 * 60 * 1000
+  });
+  const src = thumb.data?.streamToken ? `${API_URL}/api/thumbnail/${file.id}?st=${encodeURIComponent(thumb.data.streamToken)}` : null;
+  if (src) {
+    return (
+      <span className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-white/10">
+        <img src={src} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} />
+      </span>
+    );
+  }
+  return <FileGlyph file={file} />;
 }
 
 function MovePicker({ onClose, onPick }: { onClose: () => void; onPick: (target: string | null) => void }) {

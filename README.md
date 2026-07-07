@@ -15,10 +15,10 @@ RAM box (the Oracle Cloud Free Tier in particular).
 
 ## Highlights
 
-- **Multi-user & secure** — fully siloed accounts with open self sign-up,
-  refresh-token sessions (1h access / 30d refresh, rotating + revocable), a
-  server-side logout, and optional **TOTP two-factor** (Google Authenticator /
-  Authy) enrolled via QR.
+- **Multi-user & secure** — fully siloed accounts with sign-up locked by default,
+  refresh-token sessions (1h access / 30d refresh, rotating + revocable),
+  password change, server-side logout, and optional **TOTP two-factor** (Google
+  Authenticator / Authy) enrolled via QR.
 - **Torrent engine** — magnet links & `.torrent` uploads, live peers/seeds/ETA/
   speeds, sticky pause/resume/reannounce, sequential download for streaming,
   session persistence + restore after restart, crash-safe error handling, and
@@ -31,8 +31,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
 - **Files** — upload any file (streamed to disk), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/
   rename/delete/move with breadcrumbs), **right-click context menus**,
-  **drag-and-drop into folders**, resilient completed-torrent downloads, and a
-  **delete confirmation** on every path.
+  **drag-and-drop into folders**, add-by-URL, thumbnails, resilient
+  completed-torrent downloads, and a **delete confirmation** on every path.
 - **Seedr-style workflow** — click the magnet box to auto-fill a clipboard magnet
   link over HTTPS, header storage quota bar, dense file-manager list view, drag a
   file onto a folder to move it (with clear drop-zone highlighting and a move
@@ -55,9 +55,9 @@ RAM box (the Oracle Cloud Free Tier in particular).
   palette (Ctrl-K), loading states, error boundary, responsive.
 - **Documented & tested** — interactive Swagger UI at `/api/docs` (OpenAPI 3.0)
   and a Vitest suite (auth, refresh, 2FA, isolation) run in CI.
-- **Low-memory by design** — Node streams end-to-end, `--max-old-space-size=384`,
-  WAL SQLite with a small page cache, capped torrent connections, and one
-  protected ffmpeg transcode slot.
+- **Low-memory by design** — Node streams end-to-end, per-user storage quotas,
+  `--max-old-space-size=384`, WAL SQLite with a small page cache, capped torrent
+  connections, and one protected ffmpeg transcode slot.
 - **Background resilience** — production runs as a detached Docker Compose
   service with `restart: unless-stopped`, so crashes/OOM exits are restarted by
   Docker without an SSH login.
@@ -135,6 +135,9 @@ full table in **[docs/HANDOFF.md §6](docs/HANDOFF.md)**. Key values:
 | `JWT_SECRET` | Token signing secret (set a strong one) |
 | `AUTH_TOKEN_TTL` | Login token lifetime (default `30d`) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Seeded admin on first boot |
+| `ALLOW_REGISTRATION` | Enable public self sign-up (`false` by default) |
+| `DEFAULT_QUOTA_BYTES` | New-user quota (default 20 GB, `0` unlimited) |
+| `MAX_REMOTE_BYTES` | Max add-by-URL file size |
 | `DATA_DIR` / `DB_PATH` | Data + SQLite location |
 | `CORS_ORIGIN` | Allowed browser origin |
 | `MAX_UPLOAD_RATE` / `MAX_DOWNLOAD_RATE` | Bandwidth throttles (bytes/s) |
@@ -199,20 +202,20 @@ static frontend can be deployed there, pointed at your VPS API via
 
 ## Roadmap
 
-Implemented: multi-user isolation + open sign-up, refresh tokens, TOTP 2FA,
+Implemented: multi-user isolation + gated sign-up, refresh tokens, password
+change, TOTP 2FA,
 wishlist, torrent engine (magnet + `.torrent`), Seedr-style clipboard auto-paste,
-streaming, uploads, file manager (search/rename/delete/bulk/ZIP/folders/
-context-menus/drag-to-folder/delete-confirm), video/audio/image/PDF/text/EPUB viewing, themed file previews,
-header storage quota, low-cost fast magnet mode, premium dark/light redesign,
-automatic completion cleanup, live per-user updates, media probing, OpenAPI docs,
-automated tests, deploy tooling.
+streaming, uploads, add-by-URL, thumbnails, file manager (search/rename/delete/
+bulk/ZIP/folders/context-menus/drag-to-folder/delete-confirm), video/audio/image/
+PDF/text/EPUB viewing, themed file previews, header storage quota, low-cost fast
+magnet mode, premium dark/light redesign, automatic completion cleanup, live
+per-user updates, media probing, OpenAPI docs, automated tests, deploy tooling.
 
 Fast mode is deliberately cheap: it improves perceived speed with optimistic UI,
 immediate socket publication, and same-user duplicate reuse. It does **not** keep
 a large shared Seedr-style cache of other users' torrents.
 
-Not yet built: **OAuth** (blocked on a domain for a stable redirect URL),
-thumbnails/posters, on-the-fly transcoding (heavy on 1 GB RAM), remote URL/FTP
+Not yet built: **OAuth** (blocked on a domain for a stable redirect URL), FTP/SFTP
 fetch, cloud integrations, share links, RSS automation, plugin architecture. See
 **[docs/HANDOFF.md §10](docs/HANDOFF.md)** for detail.
 

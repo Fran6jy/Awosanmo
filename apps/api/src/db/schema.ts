@@ -88,8 +88,10 @@ export function migrate() {
   // TOTP two-factor auth.
   addColumn("users", "totp_secret", "TEXT");
   addColumn("users", "totp_enabled", "INTEGER NOT NULL DEFAULT 0");
+  addColumn("users", "quota_bytes", `INTEGER NOT NULL DEFAULT ${config.defaultQuotaBytes}`);
   addColumn("files", "probe_status", "TEXT NOT NULL DEFAULT 'pending'");
   addColumn("files", "probe_error", "TEXT");
+  addColumn("files", "thumbnail_path", "TEXT");
   addColumn("files", "codec_video", "TEXT");
   addColumn("files", "codec_audio", "TEXT");
   addColumn("files", "width", "INTEGER");
@@ -107,6 +109,10 @@ export function migrate() {
     UPDATE files
     SET probe_status = 'ready'
     WHERE streamable = 0 AND probe_status = 'pending';
+
+    UPDATE users
+    SET quota_bytes = ${config.defaultQuotaBytes}
+    WHERE quota_bytes IS NULL;
   `);
 }
 
