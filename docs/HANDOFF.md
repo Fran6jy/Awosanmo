@@ -67,6 +67,9 @@ Browser ──HTTP:80──> nginx ──> 127.0.0.1:4000 (Docker container)
 - **nginx** is the public entry on port 80 (streaming, WebSocket upgrade, large
   uploads all configured).
 - **Cloudflare tunnel** provides HTTPS without a domain or open 443.
+- The HTTP IP intentionally works without CSP `upgrade-insecure-requests`; adding
+  that directive back makes browsers fetch the SPA assets over HTTPS from the raw
+  IP and can leave the page blank.
 - **SQLite (WAL)** at `/var/lib/awosanmo/awosanmo.sqlite`; downloads under
   `/var/lib/awosanmo/downloads/<torrent-id>/`.
 - Memory kept low: Node `--max-old-space-size=384`, streams everywhere, capped

@@ -57,6 +57,9 @@ app.use(helmet({
   crossOriginResourcePolicy: false,
   contentSecurityPolicy: {
     directives: {
+      // The raw public IP is HTTP-only; Helmet's default upgrade directive makes
+      // browsers request HTTPS assets from that IP, which leaves the SPA blank.
+      "upgrade-insecure-requests": null,
       "frame-src": ["'self'", "blob:"],
       "child-src": ["'self'", "blob:"],
       "img-src": ["'self'", "data:", "blob:"],
