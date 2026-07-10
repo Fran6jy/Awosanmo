@@ -168,6 +168,16 @@ export function FileViewer() {
                 onError={() => {
                   if (!shouldTranscode) setForceTranscode(true);
                 }}
+                onPlay={(e) => {
+                  // Safety net: metadata can load while frames are undecodable
+                  // (no error fires). If play produces nothing, fall back to HLS.
+                  if (shouldTranscode) return;
+                  const video = e.currentTarget;
+                  window.setTimeout(() => {
+                    if (!video.isConnected) return;
+                    if (video.currentTime < 0.3 && video.readyState < 3) setForceTranscode(true);
+                  }, 7000);
+                }}
               >
                 {tracks.map((track, index) => <track key={track.id} kind="subtitles" label={track.name} src={track.src} default={index === 0} />)}
               </video>
@@ -282,8 +292,18 @@ function Empty({ icon: Icon, title, detail, children }: { icon: typeof Video | t
   );
 }
 
+// Browsers only decode a narrow set of codecs. Whitelist those; transcode the rest.
+const BROWSER_VIDEO = new Set(["h264", "avc", "avc1", "vp8", "vp9", "av1"]);
+const BROWSER_AUDIO = new Set(["aac", "mp3", "opus", "vorbis", "flac"]);
+
 function needsTranscode(file: FileRow) {
   const ext = file.name.split(".").pop()?.toLowerCase();
-  const codec = file.codec_video?.toLowerCase();
-  return ["mkv", "avi", "flv", "wmv", "mpeg", "mpg"].includes(ext ?? "") || codec === "hevc" || codec === "h265";
+  if (["mkv", "avi", "flv", "wmv", "mpeg", "mpg", "ts", "m2ts", "vob"].includes(ext ?? "")) return true;
+  const video = file.codec_video?.toLowerCase();
+  const audio = file.codec_audio?.toLowerCase();
+  // If the probe identified a codec the browser can't decode (e.g. HEVC video,
+  // AC3/EAC3/DTS audio — common in large MP4 rips), go through the transcoder.
+  if (video && !BROWSER_VIDEO.has(video)) return true;
+  if (audio && !BROWSER_AUDIO.has(audio)) return true;
+  return false;
 }
