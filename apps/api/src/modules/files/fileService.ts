@@ -81,8 +81,19 @@ export function renameFile(id: string, name: string, userId: string) {
   const oldDiskPath = getDiskPath(file);
   const nextRelative = path.join(path.dirname(file.path), clean);
   const nextDiskPath = path.join(config.dataDir, "downloads", file.torrent_id, nextRelative);
-  if (fs.existsSync(oldDiskPath)) fs.renameSync(oldDiskPath, nextDiskPath);
-  db.prepare("UPDATE files SET name = ?, path = ?, mime = ? WHERE id = ?").run(clean, nextRelative, mime.lookup(clean) || file.mime, id);
+  const samePath = path.resolve(oldDiskPath) === path.resolve(nextDiskPath);
+  if (!samePath && fs.existsSync(nextDiskPath)) throw new Error("A file with that name already exists");
+  const moved = !samePath && fs.existsSync(oldDiskPath);
+  if (moved) fs.renameSync(oldDiskPath, nextDiskPath);
+  try {
+    db.transaction(() => {
+      db.prepare("UPDATE files SET name = ?, path = ?, mime = ? WHERE id = ? AND user_id = ?")
+        .run(clean, nextRelative, mime.lookup(clean) || file.mime, id, userId);
+    })();
+  } catch (error) {
+    if (moved && fs.existsSync(nextDiskPath) && !fs.existsSync(oldDiskPath)) fs.renameSync(nextDiskPath, oldDiskPath);
+    throw error;
+  }
   return getFile(id);
 }
 

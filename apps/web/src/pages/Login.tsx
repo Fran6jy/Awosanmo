@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, setTokens } from "../lib/api";
 
-type Session = { token: string; refreshToken: string };
+type Session = { token: string };
 type LoginResult = Session | { twoFactorRequired: true; ticket: string };
 
 export function Login() {

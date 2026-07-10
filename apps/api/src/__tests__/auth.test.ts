@@ -9,7 +9,13 @@ import {
   issueRefreshToken,
   login,
   register,
+  requireAuth,
+  requireDownloadAuth,
+  requireStreamAuth,
   rotateRefresh,
+  signDownloadToken,
+  signStreamToken,
+  signToken,
   setupTotp,
 } from "../modules/auth/auth.js";
 
@@ -70,6 +76,38 @@ describe("refresh tokens", () => {
 
   it("rejects a garbage refresh token", () => {
     expect(rotateRefresh("not-a-jwt")).toBeNull();
+  });
+});
+
+describe("token scopes", () => {
+  function invoke(middleware: Function, token: string, fileId = "file-a") {
+    const req = { headers: { authorization: `Bearer ${token}` }, query: {}, params: { id: fileId } } as any;
+    const result = { status: 200, body: null as any, next: false };
+    const res = {
+      status(code: number) { result.status = code; return this; },
+      json(body: unknown) { result.body = body; return this; },
+    };
+    middleware(req, res, () => { result.next = true; });
+    return result;
+  }
+
+  it("rejects media tokens on authenticated API routes", () => {
+    expect(invoke(requireAuth, signStreamToken("alice", "file-a")).status).toBe(401);
+  });
+
+  it("rejects ordinary access tokens on media routes", () => {
+    const access = signToken({ id: "alice", email: "alice@x.com", role: "user" });
+    expect(invoke(requireStreamAuth, access).status).toBe(403);
+    expect(invoke(requireDownloadAuth, access).status).toBe(403);
+  });
+
+  it("requires the exact media scope and file id", () => {
+    const stream = signStreamToken("alice", "file-a");
+    const download = signDownloadToken("alice", "file-a");
+    expect(invoke(requireStreamAuth, stream).next).toBe(true);
+    expect(invoke(requireStreamAuth, stream, "file-b").status).toBe(403);
+    expect(invoke(requireDownloadAuth, stream).status).toBe(403);
+    expect(invoke(requireDownloadAuth, download).next).toBe(true);
   });
 });
 

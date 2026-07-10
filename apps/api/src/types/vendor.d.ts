@@ -3,6 +3,7 @@ declare module "better-sqlite3" {
     constructor(path: string);
     pragma(sql: string): unknown;
     exec(sql: string): unknown;
+    transaction<T extends (...args: any[]) => any>(fn: T): T;
     prepare(sql: string): {
       run(...params: unknown[]): unknown;
       get(...params: unknown[]): unknown;

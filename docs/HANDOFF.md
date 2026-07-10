@@ -125,18 +125,19 @@ token-in-query media routes. **Accounts are fully siloed** — every torrent, fi
 folder, wishlist item, and search result is scoped to the authenticated user.
 
 ### Auth & accounts
-- `POST /api/register` `{ email, password }` → `{ token, refreshToken }` only
+- `POST /api/register` `{ email, password }` → `{ token }` plus an HttpOnly refresh cookie, only
   when `ALLOW_REGISTRATION=true`; otherwise 403
-- `POST /api/login` `{ email, password }` → `{ token, refreshToken }` **or**
+- `POST /api/login` `{ email, password }` → `{ token }` plus an HttpOnly refresh cookie, **or**
   `{ twoFactorRequired: true, ticket }` when 2FA is enabled
 - `POST /api/account/password` `{ currentPassword, nextPassword }` → changes the
   current user's password and revokes refresh sessions
-- `POST /api/login/2fa` `{ ticket, code }` → `{ token, refreshToken }`
-- `POST /api/refresh` `{ refreshToken }` → new `{ token, refreshToken }` (rotates)
-- `POST /api/logout` `{ refreshToken }` → 204 (revokes the refresh token)
+- `POST /api/login/2fa` `{ ticket, code }` → `{ token }` plus an HttpOnly refresh cookie
+- `POST /api/refresh` uses the cookie → new `{ token }` and rotates the cookie
+- `POST /api/logout` → 204, revokes and clears the refresh cookie
 
 Access tokens are short-lived (1h); the SPA refreshes them transparently on 401
-using the refresh token (30d), which is whitelisted in the DB for revocation.
+using the 30-day HttpOnly, SameSite cookie, which is whitelisted in the DB for
+rotation/revocation and marked Secure on HTTPS. Access tokens stay in memory.
 
 ### Two-factor (TOTP)
 - `GET  /api/2fa/status` → `{ enabled }`
@@ -433,15 +434,18 @@ Two layers must both allow a port:
   change passwords from System; regular users get quota defaults while the seeded
   admin is unlimited.
 - **Add-by-URL + thumbnails:** direct HTTP/HTTPS file fetches are available from
-  Dashboard/Files with SSRF/private-IP protection, byte caps, and quota checks;
+  Dashboard/Files with per-hop redirect validation, DNS-pinned SSRF/private-IP
+  protection, byte caps, and atomic quota reservations;
   media probing now generates thumbnails served via token-authenticated URLs.
 - **Refresh tokens:** 1h access + 30d refresh (DB-whitelisted, rotating); the
-  SPA refreshes transparently on 401; a sidebar **logout** revokes server-side.
+  refresh token is an HttpOnly/SameSite cookie (Secure over HTTPS), access tokens
+  are memory-only, and sidebar **logout** revokes server-side.
 - **2FA (TOTP):** enroll from the System page (QR via `otplib`/`qrcode`), a
   two-step coded login, and disable — all code-verified.
 - **Wishlist:** save magnets to add later (header star + panel).
 - **OpenAPI/Swagger:** spec at `/api/openapi.json`, UI at `/api/docs`.
-- **Automated tests:** Vitest suite (auth, refresh, 2FA, isolation) run in CI.
+- **Automated tests:** Vitest covers auth/token scopes, refresh, 2FA, isolation,
+  SSRF address guards, quota reservations, rename collisions, and byte ranges.
 
 ### Fixes made during initial build/deploy
 
@@ -525,17 +529,14 @@ drag-and-drop into folders, and a delete confirmation modal.
 
 ## 11. Security posture & TODO
 
-**In place:** per-user isolation, authenticated per-user WebSocket, refresh-token
-rotation + revocation, optional TOTP 2FA, ownership checks on every media token,
-helmet, rate limiting, input validation (Zod), path-traversal guards.
+**In place:** per-user isolation, authenticated per-user WebSocket, HttpOnly-cookie
+refresh rotation + revocation, optional TOTP 2FA, strict scoped media tokens,
+helmet, rate limiting, input validation, path-traversal guards, DNS-pinned SSRF
+protection, atomic quota reservations, and validated HTTP byte ranges.
 
 **Still to do before treating this as public production:**
-1. Change the seeded admin password (§7) and set a strong `JWT_SECRET`.
+1. Rotate the seeded admin password and `JWT_SECRET` if either has ever been shared.
 2. Move to HTTPS with a real domain (named Cloudflare tunnel or certbot); then
    close the direct HTTP `:80` path.
-3. Open self sign-up is **on** — anyone who can reach the site can create an
-   account. Restrict it (invite-only / disable `/api/register`) if the URL is
-   public and you don't want that.
-4. Storage is a single shared disk with no per-user quota — add quotas before
-   opening sign-up widely.
-5. Review the `epubjs` dependency audit findings (§8) before broad exposure.
+3. Keep `ALLOW_REGISTRATION=false` unless intentionally opening account creation.
+4. Review the `epubjs` dependency audit findings (§8) before broad exposure.

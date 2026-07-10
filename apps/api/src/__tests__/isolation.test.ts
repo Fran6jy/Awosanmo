@@ -1,9 +1,13 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db, migrate } from "../db/schema.js";
 import { register } from "../modules/auth/auth.js";
-import { getOwnedFile, listFiles, deleteFile } from "../modules/files/fileService.js";
+import { getOwnedFile, listFiles, deleteFile, renameFile } from "../modules/files/fileService.js";
 import { createFolder, getFolder, listFolders, moveFiles } from "../modules/folders/folderService.js";
+import { config } from "../config.js";
+import { releaseQuota, reserveQuota, withQuotaAllocation } from "../modules/storage/storageService.js";
 
 function clearDb() {
   for (const t of ["refresh_tokens", "wishlist", "folders", "files", "torrents", "users"]) {
@@ -64,6 +68,30 @@ describe("file isolation", () => {
     seedFile(bob, "shared-name.mkv");
     expect((listFiles(alice, "shared") as any[])).toHaveLength(1);
     expect((listFiles(bob, "shared") as any[])).toHaveLength(1);
+  });
+
+  it("does not overwrite an existing file during rename", () => {
+    const fileId = seedFile(alice, "first.txt");
+    const file = getOwnedFile(fileId, alice);
+    const dir = path.join(config.dataDir, "downloads", file.torrent_id);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "first.txt"), "first");
+    fs.writeFileSync(path.join(dir, "second.txt"), "second");
+    expect(() => renameFile(fileId, "second.txt", alice)).toThrow(/already exists/i);
+    expect(fs.readFileSync(path.join(dir, "first.txt"), "utf8")).toBe("first");
+    expect(fs.readFileSync(path.join(dir, "second.txt"), "utf8")).toBe("second");
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("quota reservations", () => {
+  it("prevents competing uploads from claiming the same capacity", () => {
+    db.prepare("UPDATE users SET quota_bytes = 150 WHERE id = ?").run(alice);
+    reserveQuota(alice, "upload-a", 100);
+    expect(() => reserveQuota(alice, "upload-b", 60)).toThrow(/quota exceeded/i);
+    expect(() => withQuotaAllocation(alice, 60, () => undefined)).toThrow(/quota exceeded/i);
+    releaseQuota("upload-a", alice);
+    expect(() => reserveQuota(alice, "upload-b", 60)).not.toThrow();
   });
 });
 

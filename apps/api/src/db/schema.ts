@@ -78,7 +78,15 @@ export function migrate() {
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_refresh_user ON refresh_tokens(user_id);
+    CREATE TABLE IF NOT EXISTS quota_reservations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      bytes INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_quota_reservations_user ON quota_reservations(user_id);
   `);
+  db.prepare("DELETE FROM quota_reservations WHERE expires_at < ?").run(Date.now());
   // Virtual folder a file belongs to (NULL = library root).
   addColumn("files", "folder_id", "TEXT");
   // Per-user ownership for isolation (NULL rows predate multi-user).

@@ -12,8 +12,8 @@ export const loginSchema = z.object({
 });
 
 export function ensureAdminUser() {
-  const email = process.env.ADMIN_EMAIL ?? "admin@awosanmo.local";
-  const password = process.env.ADMIN_PASSWORD ?? "change-me-now";
+  const email = config.adminEmail;
+  const password = config.adminPassword;
   let admin = db.prepare("SELECT id FROM users WHERE email = ?").get(email) as any;
   if (!admin) {
     const id = crypto.randomUUID();
@@ -133,8 +133,9 @@ export function requireAuth(req: any, res: any, next: any) {
   if (!token) return res.status(401).json({ error: "Missing bearer token" });
   try {
     const payload = jwt.verify(token, config.jwtSecret) as any;
-    // A refresh token must never be accepted as an access token.
-    if (payload.typ === "refresh") return res.status(401).json({ error: "Invalid token" });
+    if (payload.typ !== "access" || typeof payload.id !== "string") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
     req.user = payload;
     next();
   } catch {
@@ -145,47 +146,31 @@ export function requireAuth(req: any, res: any, next: any) {
 export function requireStreamAuth(req: any, res: any, next: any) {
   const bearer = req.headers.authorization?.replace("Bearer ", "");
   const token = bearer ?? req.query.st;
-  if (!token) return res.status(401).json({ error: "Missing stream token" });
-  try {
-    const payload = jwt.verify(token, config.jwtSecret) as any;
-    if (payload.scope === "stream" && payload.fileId !== req.params.id) {
-      return res.status(403).json({ error: "Stream token does not match this file" });
-    }
-    req.user = payload;
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid stream token" });
-  }
+  return requireScopedToken("stream", token, req, res, next);
 }
 
 export function requireDownloadAuth(req: any, res: any, next: any) {
   const bearer = req.headers.authorization?.replace("Bearer ", "");
   const token = bearer ?? req.query.dt;
-  if (!token) return res.status(401).json({ error: "Missing download token" });
-  try {
-    const payload = jwt.verify(token, config.jwtSecret) as any;
-    if (payload.scope === "download" && payload.fileId !== req.params.id) {
-      return res.status(403).json({ error: "Download token does not match this file" });
-    }
-    req.user = payload;
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid download token" });
-  }
+  return requireScopedToken("download", token, req, res, next);
 }
 
 export function requireSubtitleAuth(req: any, res: any, next: any) {
   const token = req.query.tt;
-  if (!token) return res.status(401).json({ error: "Missing subtitle token" });
+  return requireScopedToken("subtitle", token, req, res, next);
+}
+
+function requireScopedToken(scope: "stream" | "download" | "subtitle", token: unknown, req: any, res: any, next: any) {
+  if (typeof token !== "string" || !token) return res.status(401).json({ error: `Missing ${scope} token` });
   try {
     const payload = jwt.verify(token, config.jwtSecret) as any;
-    if (payload.scope !== "subtitle" || payload.fileId !== req.params.id) {
-      return res.status(403).json({ error: "Subtitle token does not match this file" });
+    if (payload.scope !== scope || payload.fileId !== req.params.id || typeof payload.sub !== "string") {
+      return res.status(403).json({ error: `${scope[0].toUpperCase()}${scope.slice(1)} token does not match this file` });
     }
     req.user = payload;
     next();
   } catch {
-    res.status(401).json({ error: "Invalid subtitle token" });
+    res.status(401).json({ error: `Invalid ${scope} token` });
   }
 }
 

@@ -6,7 +6,7 @@ import { Server } from "socket.io";
 import { config } from "../../config.js";
 import { db } from "../../db/schema.js";
 import { logger } from "../../logger.js";
-import { assertQuota } from "../storage/storageService.js";
+import { withQuotaAllocation } from "../storage/storageService.js";
 
 const videoExt = new Set([".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".mpeg", ".mpg"]);
 const audioExt = new Set([".aac", ".flac", ".m4a", ".mp3", ".oga", ".ogg", ".opus", ".wav", ".weba"]);
@@ -263,36 +263,37 @@ export class TorrentService {
     this.active.set(id, torrent);
     torrent.on("metadata", () => {
       const ownerId = this.ownerOf(id);
-      if (ownerId) {
-        try {
-          assertQuota(ownerId, torrent.length);
-        } catch (error: any) {
-          db.prepare("UPDATE torrents SET status = ?, size = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("error", torrent.length, id);
-          this.notifyUser(ownerId, "notification", { type: "error", title: "Storage quota exceeded", body: torrent.name });
-          this.stopSeeding(id, torrent);
-          this.publishStats();
-          return;
-        }
-      }
-      const current = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
-      const nextStatus = current?.status === "paused" ? "paused" : "downloading";
       try {
-        db.prepare("UPDATE torrents SET info_hash = ?, name = ?, size = ?, status = ? WHERE id = ?").run(
-          torrent.infoHash, torrent.name, torrent.length, nextStatus, id,
-        );
+        const persistMetadata = () => {
+          const current = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
+          const nextStatus = current?.status === "paused" ? "paused" : "downloading";
+          try {
+            db.prepare("UPDATE torrents SET info_hash = ?, name = ?, size = ?, status = ? WHERE id = ?").run(
+              torrent.infoHash, torrent.name, torrent.length, nextStatus, id,
+            );
+          } catch (error: any) {
+            if (error?.code !== "SQLITE_CONSTRAINT_UNIQUE") throw error;
+            db.prepare("UPDATE torrents SET name = ?, size = ?, status = ? WHERE id = ?").run(
+              torrent.name, torrent.length, nextStatus, id,
+            );
+          }
+          const insert = db.prepare(`INSERT OR IGNORE INTO files
+            (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+          for (const file of torrent.files) {
+            const { kind, streamable, mimeType } = classifyFile(file.name);
+            insert.run(crypto.randomUUID(), id, ownerId, file.name, file.path, file.length, mimeType, kind, streamable, streamable ? "pending" : "ready");
+            if (kind === "video") file.select();
+          }
+        };
+        if (ownerId) withQuotaAllocation(ownerId, torrent.length, persistMetadata);
+        else persistMetadata();
       } catch (error: any) {
-        if (error?.code !== "SQLITE_CONSTRAINT_UNIQUE") throw error;
-        db.prepare("UPDATE torrents SET name = ?, size = ?, status = ? WHERE id = ?").run(
-          torrent.name, torrent.length, nextStatus, id,
-        );
-      }
-      const insert = db.prepare(`INSERT OR IGNORE INTO files
-        (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-      for (const file of torrent.files) {
-        const { kind, streamable, mimeType } = classifyFile(file.name);
-        insert.run(crypto.randomUUID(), id, ownerId, file.name, file.path, file.length, mimeType, kind, streamable, streamable ? "pending" : "ready");
-        if (kind === "video") file.select();
+        db.prepare("UPDATE torrents SET status = ?, size = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("error", torrent.length, id);
+        if (ownerId) this.notifyUser(ownerId, "notification", { type: "error", title: "Could not add torrent", body: error.message ?? torrent.name });
+        this.stopSeeding(id, torrent);
+        this.publishStats();
+        return;
       }
       if (ownerId) this.notifyUser(ownerId, "torrent:metadata", { id, name: torrent.name });
     });

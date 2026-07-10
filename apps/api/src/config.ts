@@ -1,8 +1,20 @@
 import "dotenv/config";
 
+const production = process.env.NODE_ENV === "production";
+
+function requiredInProduction(name: string, developmentFallback: string, minimumLength = 1) {
+  const value = process.env[name]?.trim();
+  if (production && (!value || value.length < minimumLength)) {
+    throw new Error(`${name} must be set to at least ${minimumLength} characters in production`);
+  }
+  return value || developmentFallback;
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 4000),
-  jwtSecret: process.env.JWT_SECRET ?? "change-this-before-production",
+  jwtSecret: requiredInProduction("JWT_SECRET", "development-only-jwt-secret", 32),
+  adminEmail: requiredInProduction("ADMIN_EMAIL", "admin@awosanmo.local"),
+  adminPassword: requiredInProduction("ADMIN_PASSWORD", "change-me-now", 12),
   authTokenTtl: process.env.AUTH_TOKEN_TTL ?? "30d",
   accessTokenTtl: process.env.ACCESS_TOKEN_TTL ?? "1h",
   refreshTokenTtl: process.env.REFRESH_TOKEN_TTL ?? "30d",

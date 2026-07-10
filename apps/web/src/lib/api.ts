@@ -5,20 +5,18 @@
 export const API_URL =
   import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 
-export function token() {
-  return localStorage.getItem("awosanmo_token");
-}
+let accessToken: string | null = null;
+localStorage.removeItem("awosanmo_token");
+localStorage.removeItem("awosanmo_refresh");
+
+export function token() { return accessToken; }
 
 /** Persist a fresh access (and optional refresh) token pair. */
-export function setTokens(t: { token: string; refreshToken?: string }) {
-  localStorage.setItem("awosanmo_token", t.token);
-  if (t.refreshToken) localStorage.setItem("awosanmo_refresh", t.refreshToken);
-}
+export function setTokens(t: { token: string }) { accessToken = t.token; }
 
 /** Clear the session and bounce to login. Called when auth can't be recovered. */
 function forceLogin() {
-  localStorage.removeItem("awosanmo_token");
-  localStorage.removeItem("awosanmo_refresh");
+  accessToken = null;
   if (!location.pathname.startsWith("/login")) location.assign("/login");
 }
 
@@ -26,13 +24,11 @@ function forceLogin() {
 let refreshInFlight: Promise<boolean> | null = null;
 
 async function refreshAccessToken(): Promise<boolean> {
-  const rt = localStorage.getItem("awosanmo_refresh");
-  if (!rt) return false;
   if (!refreshInFlight) {
     refreshInFlight = fetch(`${API_URL}/api/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: rt }),
+      credentials: "include",
     })
       .then(async (r) => {
         if (!r.ok) return false;
@@ -48,6 +44,7 @@ async function refreshAccessToken(): Promise<boolean> {
 export async function api<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
@@ -70,9 +67,8 @@ export async function api<T>(path: string, init: RequestInit = {}, retried = fal
 
 /** Best-effort server-side logout (revokes the refresh token) + clear session. */
 export async function logout() {
-  const rt = localStorage.getItem("awosanmo_refresh");
   try {
-    if (rt) await fetch(`${API_URL}/api/logout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken: rt }) });
+    await fetch(`${API_URL}/api/logout`, { method: "POST", credentials: "include" });
   } catch { /* ignore network errors on logout */ }
   forceLogin();
 }
@@ -91,6 +87,7 @@ export function uploadFile(
     form.append("file", file);
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_URL}/api/uploads`);
+    xhr.withCredentials = true;
     const t = token();
     if (t) xhr.setRequestHeader("Authorization", `Bearer ${t}`);
     xhr.upload.onprogress = (e) => {
@@ -126,6 +123,7 @@ export async function uploadTorrentFile(file: File): Promise<{ id: string }> {
   form.append("torrent", file);
   const res = await fetch(`${API_URL}/api/torrents/upload`, {
     method: "POST",
+    credentials: "include",
     headers: token() ? { Authorization: `Bearer ${token()}` } : {},
     body: form,
   });

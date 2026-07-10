@@ -16,7 +16,7 @@ RAM box (the Oracle Cloud Free Tier in particular).
 ## Highlights
 
 - **Multi-user & secure** — fully siloed accounts with sign-up locked by default,
-  refresh-token sessions (1h access / 30d refresh, rotating + revocable),
+  HttpOnly-cookie refresh sessions (1h access / 30d refresh, rotating + revocable),
   password change, server-side logout, and optional **TOTP two-factor** (Google
   Authenticator / Authy) enrolled via QR.
 - **Torrent engine** — magnet links & `.torrent` uploads, live peers/seeds/ETA/
@@ -54,7 +54,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
   dark mode, polished light mode, Plus Jakarta Sans, glass surfaces, command
   palette (Ctrl-K), loading states, error boundary, responsive.
 - **Documented & tested** — interactive Swagger UI at `/api/docs` (OpenAPI 3.0)
-  and a Vitest suite (auth, refresh, 2FA, isolation) run in CI.
+  and a Vitest suite covering auth, token scopes, SSRF guards, quota races,
+  byte ranges, 2FA, and user isolation.
 - **Low-memory by design** — Node streams end-to-end, per-user storage quotas,
   `--max-old-space-size=384`, WAL SQLite with a small page cache, capped torrent
   connections, and one protected ffmpeg transcode slot.
@@ -132,9 +133,9 @@ full table in **[docs/HANDOFF.md §6](docs/HANDOFF.md)**. Key values:
 
 | Key | Purpose |
 | --- | --- |
-| `JWT_SECRET` | Token signing secret (set a strong one) |
+| `JWT_SECRET` | Token signing secret (production requires 32+ characters) |
 | `AUTH_TOKEN_TTL` | Login token lifetime (default `30d`) |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Seeded admin on first boot |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Seeded admin; required in production (password 12+ characters) |
 | `ALLOW_REGISTRATION` | Enable public self sign-up (`false` by default) |
 | `DEFAULT_QUOTA_BYTES` | New-user quota (default 20 GB, `0` unlimited) |
 | `MAX_REMOTE_BYTES` | Max add-by-URL file size |

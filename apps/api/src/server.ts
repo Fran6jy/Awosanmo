@@ -47,6 +47,7 @@ migrate();
 ensureAdminUser();
 
 const app = express();
+app.set("trust proxy", 1);
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: config.corsOrigin } });
 torrentService.attach(io);
@@ -96,14 +97,14 @@ app.post("/api/login", async (req, res) => {
   const body = loginSchema.parse(req.body);
   const session = await login(body.email, body.password);
   if (!session) return res.status(401).json({ error: "Invalid credentials" });
-  res.json(session);
+  sendSession(req, res, session);
 });
 app.post("/api/register", async (req, res) => {
   if (!config.allowRegistration) return res.status(403).json({ error: "Sign-up is disabled" });
   const body = registerSchema.parse(req.body);
   const session = await register(body.email, body.password);
   if (!session) return res.status(409).json({ error: "An account with that email already exists" });
-  res.status(201).json(session);
+  sendSession(req, res, session, 201);
 });
 app.post("/api/account/password", requireAuth, async (req: any, res) => {
   const currentPassword = typeof req.body?.currentPassword === "string" ? req.body.currentPassword : "";
@@ -117,7 +118,7 @@ app.post("/api/login/2fa", async (req, res) => {
   if (typeof ticket !== "string" || typeof code !== "string") return res.status(400).json({ error: "Missing ticket or code" });
   const session = await completeTwoFactorLogin(ticket, code);
   if (!session) return res.status(401).json({ error: "Invalid or expired code" });
-  res.json(session);
+  sendSession(req, res, session);
 });
 // 2FA management (all require an active session).
 app.get("/api/2fa/status", requireAuth, (req: any, res) => res.json(twoFactorStatus(req.user.id)));
@@ -139,14 +140,16 @@ app.post("/api/2fa/disable", requireAuth, async (req: any, res) => {
   res.json({ enabled: false });
 });
 app.post("/api/refresh", (req, res) => {
-  const refreshToken = req.body?.refreshToken;
-  if (typeof refreshToken !== "string") return res.status(400).json({ error: "Missing refresh token" });
+  const refreshToken = cookieValue(req.headers.cookie, "awosanmo_refresh");
+  if (!refreshToken) return res.status(401).json({ error: "Missing refresh token" });
   const next = rotateRefresh(refreshToken);
   if (!next) return res.status(401).json({ error: "Invalid or expired refresh token" });
-  res.json(next);
+  sendSession(req, res, next);
 });
 app.post("/api/logout", (req, res) => {
-  if (typeof req.body?.refreshToken === "string") revokeRefresh(req.body.refreshToken);
+  const refreshToken = cookieValue(req.headers.cookie, "awosanmo_refresh");
+  if (refreshToken) revokeRefresh(refreshToken);
+  res.clearCookie("awosanmo_refresh", refreshCookieOptions(req));
   res.sendStatus(204);
 });
 app.use("/api/torrents", requireAuth, torrentRoutes);
@@ -214,3 +217,33 @@ io.on("connection", (socket) => {
 });
 
 server.listen(config.port, () => logger.info({ port: config.port }, "Awosanmo API listening"));
+
+function sendSession(req: express.Request, res: express.Response, session: any, status = 200) {
+  if (session?.refreshToken) {
+    res.cookie("awosanmo_refresh", session.refreshToken, {
+      ...refreshCookieOptions(req),
+      maxAge: config.refreshTokenTtlMs,
+    });
+    return res.status(status).json({ token: session.token });
+  }
+  return res.status(status).json(session);
+}
+
+function refreshCookieOptions(req: express.Request) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: req.secure,
+    path: "/api",
+  };
+}
+
+function cookieValue(header: string | undefined, name: string) {
+  if (!header) return null;
+  for (const part of header.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 0) continue;
+    if (part.slice(0, separator).trim() === name) return decodeURIComponent(part.slice(separator + 1).trim());
+  }
+  return null;
+}

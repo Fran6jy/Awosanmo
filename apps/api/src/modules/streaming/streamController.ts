@@ -26,16 +26,24 @@ export function streamFile(req: any, res: any) {
     return fs.createReadStream(diskPath).pipe(res);
   }
 
-  const [startRaw, endRaw] = range.replace(/bytes=/, "").split("-");
-  const start = Number.parseInt(startRaw, 10);
-  const requestedEnd = endRaw ? Number.parseInt(endRaw, 10) : start + 4 * 1024 * 1024 - 1;
-  const end = Math.min(requestedEnd, stat.size - 1);
-  if (Number.isNaN(start) || start >= stat.size) {
+  const parsed = parseByteRange(range, stat.size);
+  if (!parsed) {
     res.setHeader("Content-Range", `bytes */${stat.size}`);
     return res.sendStatus(416);
   }
+  const { start, end } = parsed;
   res.status(206);
   res.setHeader("Content-Range", `bytes ${start}-${end}/${stat.size}`);
   res.setHeader("Content-Length", end - start + 1);
   fs.createReadStream(diskPath, { start, end, highWaterMark: 64 * 1024 }).pipe(res);
+}
+
+export function parseByteRange(range: string, size: number): { start: number; end: number } | null {
+  if (!Number.isSafeInteger(size) || size <= 0 || !/^bytes=\d+-\d*$/.test(range)) return null;
+  const [startRaw, endRaw] = range.slice(6).split("-");
+  const start = Number(startRaw);
+  const requestedEnd = endRaw ? Number(endRaw) : Math.min(size - 1, start + 4 * 1024 * 1024 - 1);
+  const end = Math.min(requestedEnd, size - 1);
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(requestedEnd) || start < 0 || start >= size || end < start) return null;
+  return { start, end };
 }
