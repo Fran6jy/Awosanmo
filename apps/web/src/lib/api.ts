@@ -41,6 +41,11 @@ async function refreshAccessToken(): Promise<boolean> {
   return refreshInFlight;
 }
 
+/** Restore the memory-only access token from the HttpOnly refresh cookie. */
+export function restoreSession(): Promise<boolean> {
+  return accessToken ? Promise.resolve(true) : refreshAccessToken();
+}
+
 export async function api<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,

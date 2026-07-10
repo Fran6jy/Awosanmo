@@ -137,7 +137,8 @@ folder, wishlist item, and search result is scoped to the authenticated user.
 
 Access tokens are short-lived (1h); the SPA refreshes them transparently on 401
 using the 30-day HttpOnly, SameSite cookie, which is whitelisted in the DB for
-rotation/revocation and marked Secure on HTTPS. Access tokens stay in memory.
+rotation/revocation and marked Secure on HTTPS. Access tokens stay in memory;
+the SPA restores one from the cookie before mounting so page refreshes stay signed in.
 
 ### Two-factor (TOTP)
 - `GET  /api/2fa/status` → `{ enabled }`

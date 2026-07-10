@@ -7,6 +7,7 @@ import "./styles.css";
 import { LiveSync } from "./components/LiveSync";
 import { Toaster } from "./components/Toast";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { restoreSession } from "./lib/api";
 
 const savedTheme = localStorage.getItem("theme");
 document.documentElement.dataset.theme = savedTheme === "light" ? "light" : "dark";
@@ -34,14 +35,19 @@ const router = createBrowserRouter([
   { path: "/view/:id", element: <Page><FileViewer /></Page> }
 ]);
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <LiveSync />
-        <RouterProvider router={router} />
-        <Toaster />
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+async function start() {
+  await restoreSession();
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <LiveSync />
+          <RouterProvider router={router} />
+          <Toaster />
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+}
+
+void start();
