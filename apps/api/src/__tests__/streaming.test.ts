@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseByteRange } from "../modules/streaming/streamController.js";
+import { reannounceTorrent } from "../modules/torrents/torrentService.js";
 
 describe("HTTP byte ranges", () => {
   it("accepts valid bounded and open-ended ranges", () => {
@@ -16,5 +17,18 @@ describe("HTTP byte ranges", () => {
     "bytes=1000-",
   ])("rejects malformed or unsupported range %s", (range) => {
     expect(parseByteRange(range, 1000)).toBeNull();
+  });
+});
+
+describe("torrent reannounce", () => {
+  it("uses the tracker discovery client instead of the announce URL list", () => {
+    let calls = 0;
+    const torrent = { announce: ["udp://tracker.example"], discovery: { tracker: { announce: () => { calls += 1; } } } };
+    expect(reannounceTorrent(torrent)).toBe(true);
+    expect(calls).toBe(1);
+  });
+
+  it("does not throw when a torrent has no tracker client", () => {
+    expect(reannounceTorrent({ announce: ["udp://tracker.example"] })).toBe(false);
   });
 });

@@ -231,8 +231,7 @@ export class TorrentService {
   reannounce(id: string, userId: string) {
     if (!this.owns(id, userId)) return false;
     const torrent = this.find(id) as any;
-    torrent?.announce?.();
-    return Boolean(torrent);
+    return reannounceTorrent(torrent);
   }
 
   forceRecheck(id: string, userId: string) {
@@ -416,6 +415,20 @@ export class TorrentService {
       map,
     };
   }
+}
+
+/** WebTorrent exposes announce URLs on `torrent.announce`; the callable lives on discovery.tracker. */
+export function reannounceTorrent(torrent: any): boolean {
+  const tracker = torrent?.discovery?.tracker;
+  if (typeof tracker?.announce === "function") {
+    tracker.announce();
+    return true;
+  }
+  if (typeof torrent?.announce === "function") {
+    torrent.announce();
+    return true;
+  }
+  return false;
 }
 
 export const torrentService = new TorrentService();
