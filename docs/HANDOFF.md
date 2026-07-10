@@ -140,6 +140,9 @@ using the 30-day HttpOnly, SameSite cookie, which is whitelisted in the DB for
 rotation/revocation and marked Secure on HTTPS. Access tokens stay in memory;
 the SPA restores one from the cookie before mounting so page refreshes stay signed in.
 
+Downloaded files support single HTTP byte ranges (`206 Partial Content`), so browsers
+and download managers can resume interrupted downloads to the local computer.
+
 ### Two-factor (TOTP)
 - `GET  /api/2fa/status` → `{ enabled }`
 - `POST /api/2fa/setup` → `{ secret, otpauthUrl, qrDataUrl }` (begins enrollment)

@@ -3,6 +3,9 @@ import mime from "mime-types";
 import { db } from "../../db/schema.js";
 import { torrentService } from "../torrents/torrentService.js";
 import { resolveDiskPath } from "../files/fileService.js";
+import { parseByteRange } from "./byteRange.js";
+
+export { parseByteRange } from "./byteRange.js";
 
 export function streamFile(req: any, res: any) {
   const file = db.prepare("SELECT * FROM files WHERE id = ?").get(req.params.id) as any;
@@ -36,14 +39,4 @@ export function streamFile(req: any, res: any) {
   res.setHeader("Content-Range", `bytes ${start}-${end}/${stat.size}`);
   res.setHeader("Content-Length", end - start + 1);
   fs.createReadStream(diskPath, { start, end, highWaterMark: 64 * 1024 }).pipe(res);
-}
-
-export function parseByteRange(range: string, size: number): { start: number; end: number } | null {
-  if (!Number.isSafeInteger(size) || size <= 0 || !/^bytes=\d+-\d*$/.test(range)) return null;
-  const [startRaw, endRaw] = range.slice(6).split("-");
-  const start = Number(startRaw);
-  const requestedEnd = endRaw ? Number(endRaw) : Math.min(size - 1, start + 4 * 1024 * 1024 - 1);
-  const end = Math.min(requestedEnd, size - 1);
-  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(requestedEnd) || start < 0 || start >= size || end < start) return null;
-  return { start, end };
 }
