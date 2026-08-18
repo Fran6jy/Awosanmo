@@ -24,6 +24,16 @@ export function streamFile(req: any, res: any) {
   res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
   res.setHeader("X-Content-Type-Options", "nosniff");
 
+  // A HEAD probe must be answered from the stat alone. Express routes HEAD to this
+  // GET handler, and piping the stream would read the entire file off disk while
+  // Node discards every byte -- on a 50 GB file that never returns in time, so
+  // download managers give up on learning the size and fall back to a single
+  // connection instead of splitting the transfer across parallel ones.
+  if (req.method === "HEAD") {
+    res.setHeader("Content-Length", stat.size);
+    return res.end();
+  }
+
   if (!range) {
     res.setHeader("Content-Length", stat.size);
     return fs.createReadStream(diskPath).pipe(res);
