@@ -3,7 +3,7 @@ import mime from "mime-types";
 import { db } from "../../db/schema.js";
 import { torrentService } from "../torrents/torrentService.js";
 import { resolveDiskPath } from "../files/fileService.js";
-import { parseByteRange } from "./byteRange.js";
+import { STREAM_CHUNK_BYTES, parseByteRange } from "./byteRange.js";
 
 export { parseByteRange } from "./byteRange.js";
 
@@ -29,7 +29,8 @@ export function streamFile(req: any, res: any) {
     return fs.createReadStream(diskPath).pipe(res);
   }
 
-  const parsed = parseByteRange(range, stat.size);
+  // Video seeks pull a bounded window rather than the rest of the file.
+  const parsed = parseByteRange(range, stat.size, STREAM_CHUNK_BYTES);
   if (!parsed) {
     res.setHeader("Content-Range", `bytes */${stat.size}`);
     return res.sendStatus(416);

@@ -171,7 +171,7 @@ app.post("/api/stream-token/:id", requireAuth, ownsFile, (req: any, res) => {
   res.json({ streamToken: signStreamToken(req.user.id, req.params.id), expiresIn: config.streamTokenTtlSeconds });
 });
 app.post("/api/download-token/:id", requireAuth, ownsFile, (req: any, res) => {
-  res.json({ downloadToken: signDownloadToken(req.user.id, req.params.id), expiresIn: config.streamTokenTtlSeconds });
+  res.json({ downloadToken: signDownloadToken(req.user.id, req.params.id), expiresIn: config.downloadTokenTtlSeconds });
 });
 app.post("/api/subtitle-token/:id", requireAuth, ownsFile, (req: any, res) => {
   res.json({ subtitleToken: signSubtitleToken(req.user.id, req.params.id), expiresIn: config.streamTokenTtlSeconds });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseByteRange } from "../modules/streaming/streamController.js";
+import { STREAM_CHUNK_BYTES, parseByteRange } from "../modules/streaming/byteRange.js";
 import { reannounceTorrent } from "../modules/torrents/torrentService.js";
 
 describe("HTTP byte ranges", () => {
@@ -17,6 +17,23 @@ describe("HTTP byte ranges", () => {
     "bytes=1000-",
   ])("rejects malformed or unsupported range %s", (range) => {
     expect(parseByteRange(range, 1000)).toBeNull();
+  });
+
+  it("serves an open-ended range through end-of-file when uncapped", () => {
+    // Downloads rely on this: a browser resuming a large download sends
+    // "bytes=N-" and must receive everything that remains, not a window.
+    const huge = 54_347_978_748;
+    expect(parseByteRange("bytes=0-", huge)).toEqual({ start: 0, end: huge - 1 });
+    expect(parseByteRange("bytes=7301444000-", huge)).toEqual({ start: 7301444000, end: huge - 1 });
+  });
+
+  it("bounds an open-ended range to the chunk cap when streaming", () => {
+    const huge = 54_347_978_748;
+    expect(parseByteRange("bytes=0-", huge, STREAM_CHUNK_BYTES)).toEqual({ start: 0, end: STREAM_CHUNK_BYTES - 1 });
+    // An explicit end from the client is always honoured over the cap.
+    expect(parseByteRange("bytes=0-99", huge, STREAM_CHUNK_BYTES)).toEqual({ start: 0, end: 99 });
+    // The cap never runs past the end of a small file.
+    expect(parseByteRange("bytes=900-", 1000, STREAM_CHUNK_BYTES)).toEqual({ start: 900, end: 999 });
   });
 });
 

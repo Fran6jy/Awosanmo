@@ -118,7 +118,7 @@ export function signStreamToken(userId: string, fileId: string) {
 
 export function signDownloadToken(userId: string, fileId: string) {
   return jwt.sign({ sub: userId, fileId, scope: "download" }, config.jwtSecret, {
-    expiresIn: config.streamTokenTtlSeconds
+    expiresIn: config.downloadTokenTtlSeconds
   });
 }
 
