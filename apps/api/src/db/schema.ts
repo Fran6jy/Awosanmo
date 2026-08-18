@@ -122,6 +122,16 @@ export function migrate() {
     SET quota_bytes = ${config.defaultQuotaBytes}
     WHERE quota_bytes IS NULL;
   `);
+  // A torrent's file list was re-inserted every time WebTorrent re-emitted
+  // "metadata" (notably on every server restart), because the INSERT OR IGNORE
+  // used a fresh UUID primary key and so had nothing to collide with. Drop the
+  // duplicates that accumulated, keeping the oldest row of each set, then add
+  // the uniqueness constraint that makes OR IGNORE actually ignore.
+  db.exec(`
+    DELETE FROM files
+    WHERE rowid NOT IN (SELECT MIN(rowid) FROM files GROUP BY torrent_id, path);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_files_torrent_path ON files(torrent_id, path);
+  `);
 }
 
 function addColumn(table: string, column: string, definition: string) {

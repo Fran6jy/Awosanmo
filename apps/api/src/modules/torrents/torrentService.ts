@@ -276,6 +276,8 @@ export class TorrentService {
               torrent.name, torrent.length, nextStatus, id,
             );
           }
+          // Deduplicated by the unique (torrent_id, path) index — "metadata" is
+          // re-emitted whenever the torrent is re-added, e.g. on every restart.
           const insert = db.prepare(`INSERT OR IGNORE INTO files
             (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -285,7 +287,11 @@ export class TorrentService {
             if (kind === "video") file.select();
           }
         };
-        if (ownerId) withQuotaAllocation(ownerId, torrent.length, persistMetadata);
+        // Only charge quota the first time we see this torrent's files; on a
+        // re-emit its bytes are already counted in the user's usage, and
+        // re-charging them could spuriously fail an existing torrent.
+        const alreadyRegistered = (db.prepare("SELECT COUNT(*) AS n FROM files WHERE torrent_id = ?").get(id) as any).n > 0;
+        if (ownerId && !alreadyRegistered) withQuotaAllocation(ownerId, torrent.length, persistMetadata);
         else persistMetadata();
       } catch (error: any) {
         db.prepare("UPDATE torrents SET status = ?, size = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("error", torrent.length, id);
