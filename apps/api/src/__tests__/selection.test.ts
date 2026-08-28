@@ -119,6 +119,33 @@ describe("selective downloads", () => {
     expect(torrentService.selectFiles(torrentId, userId, [fileIds[0]])).toMatchObject({ selectedFiles: 1 });
   });
 
+  it("stays selectable while the torrent seeds to peers", () => {
+    const torrent = fakeTorrent();
+    const { torrentId, fileIds } = seedTorrent(userId, ["repack/wanted.bin", "repack/unwanted.bin"]);
+    (torrentService as any).active.set(torrentId, torrent);
+
+    // A torrent awaiting a choice still uploads to peers. That activity used to
+    // rewrite the row as "downloading", after which the picker was refused.
+    (torrentService as any).update(torrentId, { ...torrent, downloadSpeed: 0, uploadSpeed: 900, uploaded: 57317 });
+
+    const row = db.prepare("SELECT status, uploaded FROM torrents WHERE id = ?").get(torrentId) as any;
+    expect(row.status).toBe("awaiting_selection");
+    expect(row.uploaded).toBe(57317);
+    // ...and the selection still goes through.
+    expect(torrentService.selectFiles(torrentId, userId, [fileIds[0]])).toMatchObject({ selectedFiles: 1 });
+  });
+
+  it("does not retire a torrent that is still awaiting a choice", () => {
+    const torrent = fakeTorrent();
+    const { torrentId } = seedTorrent(userId, ["repack/wanted.bin", "repack/unwanted.bin"]);
+    (torrentService as any).active.set(torrentId, torrent);
+
+    (torrentService as any).completeTorrent(torrentId, { ...torrent, name: "repack", downloaded: 0, uploaded: 0 });
+
+    const row = db.prepare("SELECT status FROM torrents WHERE id = ?").get(torrentId) as any;
+    expect(row.status).toBe("awaiting_selection");
+  });
+
   it("hides unselected files from the library", () => {
     const torrent = fakeTorrent();
     const { torrentId, fileIds } = seedTorrent(userId, ["repack/wanted.bin", "repack/unwanted.bin"]);

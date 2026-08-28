@@ -11,6 +11,8 @@ import { withQuotaAllocation } from "../storage/storageService.js";
 const videoExt = new Set([".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".mpeg", ".mpg"]);
 const audioExt = new Set([".aac", ".flac", ".m4a", ".mp3", ".oga", ".ogg", ".opus", ".wav", ".weba"]);
 const base32Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+/** Lifecycle states that raw transfer activity must never advance on its own. */
+const HELD_STATUSES = new Set(["paused", "awaiting_selection", "fetching_metadata"]);
 
 /** Each user gets their own uploads pseudo-torrent so direct uploads stay siloed. */
 export function uploadsIdFor(userId: string): string {
@@ -395,10 +397,17 @@ export class TorrentService {
   private update(id: string, torrent: Torrent, status = "downloading") {
     const current = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
     const transfer = this.getSelectedTransfer(id, torrent);
-    if (current?.status === "paused") {
-      db.prepare(`UPDATE torrents SET progress = ?, download_speed = 0, upload_speed = 0,
+    // Record the counters but keep the status. A torrent still waiting on the
+    // user's file choice happily uploads to peers, and the "upload" event would
+    // otherwise rewrite the row as "downloading" -- which makes the pending
+    // selection look like a download that already began, so submitting the
+    // picker is refused with a 409 and it springs straight back open.
+    if (current?.status && HELD_STATUSES.has(current.status)) {
+      const paused = current.status === "paused";
+      db.prepare(`UPDATE torrents SET progress = ?, download_speed = ?, upload_speed = ?,
         downloaded = ?, uploaded = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
-        transfer.progress, transfer.downloaded, torrent.uploaded, id,
+        transfer.progress, paused ? 0 : torrent.downloadSpeed, paused ? 0 : torrent.uploadSpeed,
+        transfer.downloaded, torrent.uploaded, id,
       );
       return;
     }
@@ -414,6 +423,10 @@ export class TorrentService {
 
   private completeTorrent(id: string, torrent: Torrent) {
     const alreadyCompleted = db.prepare("SELECT status, size FROM torrents WHERE id = ?").get(id) as any;
+    // "done" fires when every file is present, which must not retire a torrent
+    // the user has not chosen files for yet -- that would strand its files
+    // unselected and therefore invisible in the library.
+    if (alreadyCompleted?.status === "awaiting_selection" || alreadyCompleted?.status === "fetching_metadata") return;
     db.prepare(`UPDATE torrents SET progress = ?, download_speed = 0, upload_speed = 0,
       downloaded = ?, uploaded = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
       1, Number(alreadyCompleted?.size ?? torrent.downloaded), torrent.uploaded, "completed", id,
