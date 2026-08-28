@@ -110,6 +110,7 @@ export class TorrentService {
     );
     const torrent = this.client.add(buffer as unknown as string, {
       path: path.join(config.dataDir, "downloads", id),
+      deselect: true,
     });
     this.bindTorrent(id, torrent);
     torrent.on("ready", () => {
@@ -256,7 +257,7 @@ export class TorrentService {
   }
 
   selectFiles(id: string, userId: string, fileIds: string[]) {
-    const row = db.prepare("SELECT status FROM torrents WHERE id = ? AND user_id = ?").get(id, userId) as any;
+    const row = db.prepare("SELECT status, magnet_uri FROM torrents WHERE id = ? AND user_id = ?").get(id, userId) as any;
     if (!row) return null;
     const uniqueIds = [...new Set(fileIds)];
     const files = db.prepare("SELECT id, path, size, selected FROM files WHERE torrent_id = ? AND user_id = ?").all(id, userId) as any[];
@@ -287,13 +288,19 @@ export class TorrentService {
     });
 
     try {
-      const torrent = this.find(id);
-      if (torrent) {
+      // Re-add the torrent when it is not live (e.g. the picker was left open
+      // across a restart); otherwise the row says "downloading" but no session
+      // exists and the transfer would sit at 0% forever. A freshly started
+      // torrent applies the saved selection from its own metadata handler.
+      const torrent = this.find(id) ?? this.start(id, row.magnet_uri, "downloading");
+      if (torrent.files.length) {
         const paths = new Set(chosen.map((file) => file.path));
-        for (const file of torrent.files) {
-          file.deselect();
-          if (paths.has(file.path)) file.select();
-        }
+        // Two passes, never interleaved: neighbouring files share the pieces at
+        // their boundaries, so deselecting an unwanted file after selecting a
+        // wanted one strips that shared piece back off the wanted file, and the
+        // download then stalls a hair short of complete and never finishes.
+        for (const file of torrent.files) file.deselect();
+        for (const file of torrent.files) if (paths.has(file.path)) file.select();
         torrent.resume();
       }
     } catch (error) {
@@ -376,7 +383,11 @@ export class TorrentService {
 
   private start(id: string, magnetUri: string, status: string) {
     db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(status, id);
-    const torrent = this.client.add(magnetUri, { path: path.join(config.dataDir, "downloads", id) });
+    // deselect: true stops WebTorrent from selecting the whole torrent on
+    // metadata. Selection is always explicit here, so nothing is fetched until
+    // the user chooses -- otherwise the payload starts arriving in the window
+    // before the metadata handler can deselect it.
+    const torrent = this.client.add(magnetUri, { path: path.join(config.dataDir, "downloads", id), deselect: true });
     this.bindTorrent(id, torrent);
     return torrent;
   }

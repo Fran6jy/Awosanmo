@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, File, Film, LoaderCircle, Music, Search, X } from "lucide-react";
@@ -34,7 +34,8 @@ export function TorrentFilePickerHost() {
     window.addEventListener(PICKER_EVENT, open);
     return () => window.removeEventListener(PICKER_EVENT, open);
   }, []);
-  return <TorrentFilePicker torrentId={torrentId} onClose={() => setTorrentId(null)} />;
+  const close = useCallback(() => setTorrentId(null), []);
+  return <TorrentFilePicker torrentId={torrentId} onClose={close} />;
 }
 
 function TorrentFilePicker({ torrentId, onClose }: { torrentId: string | null; onClose: () => void }) {
@@ -49,11 +50,13 @@ function TorrentFilePicker({ torrentId, onClose }: { torrentId: string | null; o
     refetchInterval: (query) => query.state.data?.files.length ? false : 1000,
   });
 
+  // Only wipe the working state for a torrent we have not set up yet. Reopening
+  // the same one restores the choices already made, so a submit that fails does
+  // not force the user to pick everything again.
   useEffect(() => {
-    if (!torrentId) return;
+    if (!torrentId || initializedFor.current === torrentId) return;
     setSearch("");
     setSelected(new Set());
-    initializedFor.current = null;
   }, [torrentId]);
 
   useEffect(() => {
@@ -83,21 +86,30 @@ function TorrentFilePicker({ torrentId, onClose }: { torrentId: string | null; o
   const allVisibleSelected = visible.length > 0 && visible.every((file) => selected.has(file.id));
 
   const confirm = useMutation({
-    mutationFn: () => api<{ selectedFiles: number; selectedBytes: number }>(`/api/torrents/${torrentId}/selection`, {
+    mutationFn: ({ id, fileIds }: { id: string; fileIds: string[] }) => api<{ selectedFiles: number; selectedBytes: number }>(`/api/torrents/${id}/selection`, {
       method: "POST",
-      body: JSON.stringify({ fileIds: [...selected] }),
+      body: JSON.stringify({ fileIds }),
     }),
     onSuccess: (result) => {
-      // Close first so a secondary cache/toast failure cannot strand a
-      // successfully submitted picker over the dashboard.
-      onClose();
+      initializedFor.current = null;
       qc.invalidateQueries({ queryKey: ["torrents"] });
       qc.invalidateQueries({ queryKey: ["files"] });
       qc.invalidateQueries({ queryKey: ["storage"] });
       pushToast({ type: "success", title: "Download started", body: `${result.selectedFiles} file${result.selectedFiles === 1 ? "" : "s"} · ${formatBytes(result.selectedBytes)}` });
     },
-    onError: (error: Error) => pushToast({ type: "error", title: "Could not start download", body: error.message.slice(0, 160) }),
+    onError: (error: Error, variables) => {
+      pushToast({ type: "error", title: "Could not start download", body: error.message.slice(0, 160) });
+      // The picker was closed optimistically on submit; reopen it so the choice
+      // is not silently lost and the user can retry.
+      requestTorrentFileSelection(variables.id);
+    },
   });
+
+  function submitSelection() {
+    if (!torrentId || !selected.size || confirm.isPending) return;
+    confirm.mutate({ id: torrentId, fileIds: [...selected] });
+    onClose();
+  }
 
   function toggleVisible() {
     setSelected((current) => {
@@ -171,7 +183,7 @@ function TorrentFilePicker({ torrentId, onClose }: { torrentId: string | null; o
                   <p className="text-sm text-slate-300"><strong className="text-white">{selected.size}</strong> of {files.length} selected <span className="text-slate-500">·</span> <strong className="text-white">{formatBytes(selectedBytes)}</strong></p>
                   <div className="flex gap-2">
                     <button type="button" onClick={onClose} className="btn-ghost min-h-11 flex-1 justify-center px-4 sm:flex-none">Choose later</button>
-                    <button type="button" onClick={() => confirm.mutate()} disabled={!selected.size || confirm.isPending} className="btn-primary min-h-11 flex-1 justify-center px-5 sm:flex-none">
+                    <button type="button" onClick={submitSelection} disabled={!selected.size || confirm.isPending} className="btn-primary min-h-11 flex-1 justify-center px-5 sm:flex-none">
                       {confirm.isPending ? "Starting…" : "Download selected"}
                     </button>
                   </div>
