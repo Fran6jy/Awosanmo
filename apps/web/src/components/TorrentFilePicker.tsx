@@ -88,11 +88,13 @@ function TorrentFilePicker({ torrentId, onClose }: { torrentId: string | null; o
       body: JSON.stringify({ fileIds: [...selected] }),
     }),
     onSuccess: (result) => {
+      // Close first so a secondary cache/toast failure cannot strand a
+      // successfully submitted picker over the dashboard.
+      onClose();
       qc.invalidateQueries({ queryKey: ["torrents"] });
       qc.invalidateQueries({ queryKey: ["files"] });
       qc.invalidateQueries({ queryKey: ["storage"] });
       pushToast({ type: "success", title: "Download started", body: `${result.selectedFiles} file${result.selectedFiles === 1 ? "" : "s"} · ${formatBytes(result.selectedBytes)}` });
-      onClose();
     },
     onError: (error: Error) => pushToast({ type: "error", title: "Could not start download", body: error.message.slice(0, 160) }),
   });

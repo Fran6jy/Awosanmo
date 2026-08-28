@@ -258,14 +258,8 @@ export class TorrentService {
   selectFiles(id: string, userId: string, fileIds: string[]) {
     const row = db.prepare("SELECT status FROM torrents WHERE id = ? AND user_id = ?").get(id, userId) as any;
     if (!row) return null;
-    if (row.status !== "awaiting_selection") {
-      const error = new Error("File selection is only available before downloading starts");
-      (error as any).status = 409;
-      throw error;
-    }
-
     const uniqueIds = [...new Set(fileIds)];
-    const files = db.prepare("SELECT id, path, size FROM files WHERE torrent_id = ? AND user_id = ?").all(id, userId) as any[];
+    const files = db.prepare("SELECT id, path, size, selected FROM files WHERE torrent_id = ? AND user_id = ?").all(id, userId) as any[];
     const chosen = files.filter((file) => uniqueIds.includes(file.id));
     if (chosen.length !== uniqueIds.length) {
       const error = new Error("One or more selected files do not belong to this torrent");
@@ -274,6 +268,16 @@ export class TorrentService {
     }
     const selectedBytes = chosen.reduce((sum, file) => sum + Number(file.size), 0);
     if (!Number.isSafeInteger(selectedBytes) || selectedBytes <= 0) throw new Error("Select at least one non-empty file");
+    if (row.status !== "awaiting_selection") {
+      const persisted = files.filter((file) => file.selected === 1).map((file) => file.id).sort();
+      const requested = [...uniqueIds].sort();
+      if (["downloading", "completed"].includes(row.status) && persisted.length === requested.length && persisted.every((id, index) => id === requested[index])) {
+        return { id, selectedFiles: chosen.length, selectedBytes };
+      }
+      const error = new Error("File selection is only available before downloading starts");
+      (error as any).status = 409;
+      throw error;
+    }
 
     withQuotaAllocation(userId, selectedBytes, () => {
       db.prepare("UPDATE files SET selected = 0 WHERE torrent_id = ? AND user_id = ?").run(id, userId);
@@ -282,14 +286,20 @@ export class TorrentService {
       db.prepare("UPDATE torrents SET size = ?, status = 'downloading', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(selectedBytes, id);
     });
 
-    const torrent = this.find(id);
-    if (torrent) {
-      const paths = new Set(chosen.map((file) => file.path));
-      for (const file of torrent.files) {
-        file.deselect();
-        if (paths.has(file.path)) file.select();
+    try {
+      const torrent = this.find(id);
+      if (torrent) {
+        const paths = new Set(chosen.map((file) => file.path));
+        for (const file of torrent.files) {
+          file.deselect();
+          if (paths.has(file.path)) file.select();
+        }
+        torrent.resume();
       }
-      torrent.resume();
+    } catch (error) {
+      // The database selection is authoritative and will be restored after a
+      // restart. Do not report a failed request after it was already committed.
+      logger.warn({ error, id }, "Could not apply torrent selection to active session");
     }
     this.notifyUser(userId, "torrent:selection", { id });
     this.publishStats();

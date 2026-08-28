@@ -117,6 +117,8 @@ describe("torrent file selection", () => {
     expect(db.prepare("SELECT selected FROM files WHERE id = ?").get(first)).toMatchObject({ selected: 0 });
     expect(db.prepare("SELECT selected FROM files WHERE id = ?").get(second)).toMatchObject({ selected: 1 });
     expect(db.prepare("SELECT status, size FROM torrents WHERE id = ?").get(torrentId)).toMatchObject({ status: "downloading", size: 200 });
+    expect(torrentService.selectFiles(torrentId, alice, [second])).toMatchObject({ selectedFiles: 1, selectedBytes: 200 });
+    expect(getUserStorageStats(alice).used).toBe(200);
   });
 
   it("rejects a selection that exceeds quota without starting", () => {
