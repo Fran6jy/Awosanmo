@@ -112,6 +112,14 @@ export const openapiSpec = {
     },
     "/api/torrents/{id}/pause": { post: { tags: ["Torrents"], summary: "Pause", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "204": { description: "Paused" } } } },
     "/api/torrents/{id}/resume": { post: { tags: ["Torrents"], summary: "Resume", parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "204": { description: "Resumed" } } } },
+    "/api/torrents/{id}/selection": {
+      post: {
+        tags: ["Torrents"], summary: "Choose files and start downloading",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["fileIds"], properties: { fileIds: { type: "array", minItems: 1, items: { type: "string", format: "uuid" } } } } } } },
+        responses: { "200": { description: "Selection accepted" }, "400": { description: "Invalid selection" }, "409": { description: "Download already started" } },
+      },
+    },
     "/api/uploads": { post: { tags: ["Files"], summary: "Upload any file (multipart 'file'), streamed to disk", responses: { "201": { description: "Stored" } } } },
     "/api/files": {
       get: {

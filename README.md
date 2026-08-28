@@ -23,6 +23,9 @@ RAM box (the Oracle Cloud Free Tier in particular).
   speeds, sticky pause/resume/reannounce, sequential download for streaming,
   session persistence + restore after restart, crash-safe error handling, and
   Seedr-style auto-stop when downloads complete.
+- **Selective torrent downloads** — metadata-first file picker with search,
+  select-all, per-file sizes, and a selected-total summary. Only chosen files
+  download, appear in the library, and count against the user's storage quota.
 - **Wishlist** — save magnets to add to downloads later (header star + panel).
 - **Streaming + previews** — HTTP range requests / 206 partial content, fast seek,
   no full buffering, token-authenticated per file, video resume position, audio
@@ -55,7 +58,7 @@ RAM box (the Oracle Cloud Free Tier in particular).
   palette (Ctrl-K), loading states, error boundary, responsive.
 - **Documented & tested** — interactive Swagger UI at `/api/docs` (OpenAPI 3.0)
   and a Vitest suite covering auth, token scopes, SSRF guards, quota races,
-  byte ranges, 2FA, and user isolation.
+  selective torrent storage, byte ranges, 2FA, and user isolation.
 - **Low-memory by design** — Node streams end-to-end, per-user storage quotas,
   `--max-old-space-size=384`, WAL SQLite with a small page cache, capped torrent
   connections, and one protected ffmpeg transcode slot.

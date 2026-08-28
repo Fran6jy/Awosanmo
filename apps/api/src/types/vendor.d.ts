@@ -27,7 +27,11 @@ declare module "webtorrent" {
     name: string;
     path: string;
     length: number;
+    downloaded: number;
+    progress: number;
+    done: boolean;
     select(): void;
+    deselect(): void;
   };
   export type Torrent = {
     infoHash: string;

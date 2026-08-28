@@ -28,7 +28,7 @@ export function getStorageStats() {
 }
 
 export function getUserStorageStats(userId: string) {
-  const usage = db.prepare("SELECT COALESCE(SUM(size), 0) AS used FROM files WHERE user_id = ?").get(userId) as any;
+  const usage = db.prepare("SELECT COALESCE(SUM(size), 0) AS used FROM files WHERE user_id = ? AND selected = 1").get(userId) as any;
   const reservations = db.prepare("SELECT COALESCE(SUM(bytes), 0) AS reserved FROM quota_reservations WHERE user_id = ? AND expires_at >= ?").get(userId, Date.now()) as any;
   const quota = db.prepare("SELECT quota_bytes FROM users WHERE id = ?").get(userId) as any;
   const used = Number(usage?.used ?? 0);
@@ -60,7 +60,7 @@ export const reserveQuota = db.transaction((userId: string, reservationId: strin
   if (!Number.isSafeInteger(bytes) || bytes < 0) throw new Error("Invalid quota reservation");
   const now = Date.now();
   db.prepare("DELETE FROM quota_reservations WHERE expires_at < ?").run(now);
-  const usage = db.prepare("SELECT COALESCE(SUM(size), 0) AS used FROM files WHERE user_id = ?").get(userId) as any;
+  const usage = db.prepare("SELECT COALESCE(SUM(size), 0) AS used FROM files WHERE user_id = ? AND selected = 1").get(userId) as any;
   const reserved = db.prepare("SELECT COALESCE(SUM(bytes), 0) AS reserved FROM quota_reservations WHERE user_id = ? AND id != ?").get(userId, reservationId) as any;
   const quota = db.prepare("SELECT quota_bytes FROM users WHERE id = ?").get(userId) as any;
   const quotaBytes = Number(quota?.quota_bytes ?? config.defaultQuotaBytes);

@@ -82,9 +82,11 @@ export class TorrentService {
       : null;
     const existing = byHash ?? db.prepare("SELECT id, status FROM torrents WHERE user_id = ? AND magnet_uri = ?").get(userId, magnetUri) as any;
     if (existing) {
-      if (!this.find(existing.id) && !["completed", "paused"].includes(existing.status)) this.start(existing.id, magnetUri, "resuming");
+      if (!this.find(existing.id) && !["completed", "paused", "error"].includes(existing.status)) {
+        this.start(existing.id, magnetUri, existing.status === "awaiting_selection" ? "awaiting_selection" : "resuming");
+      }
       this.publishStats();
-      return { id: existing.id, reused: true };
+      return { id: existing.id, reused: true, selectionRequired: existing.status === "awaiting_selection" || existing.status === "fetching_metadata" };
     }
     const globalHashOwner = infoHash
       ? db.prepare("SELECT user_id FROM torrents WHERE info_hash = ?").get(infoHash) as any
@@ -93,18 +95,18 @@ export class TorrentService {
 
     const id = crypto.randomUUID();
     db.prepare("INSERT INTO torrents (id, user_id, info_hash, name, magnet_uri, status) VALUES (?, ?, ?, ?, ?, ?)").run(
-      id, userId, storableInfoHash, "Fetching metadata", magnetUri, "connecting",
+      id, userId, storableInfoHash, "Fetching metadata", magnetUri, "fetching_metadata",
     );
-    this.start(id, magnetUri, "downloading");
+    this.start(id, magnetUri, "fetching_metadata");
     this.publishStats();
-    return { id, reused: false };
+    return { id, reused: false, selectionRequired: true };
   }
 
   /** Add a torrent from an uploaded .torrent file buffer. */
   addTorrentFile(buffer: Buffer, userId: string) {
     const id = crypto.randomUUID();
     db.prepare("INSERT INTO torrents (id, user_id, name, magnet_uri, status) VALUES (?, ?, ?, ?, ?)").run(
-      id, userId, "Fetching metadata", `torrentfile://${id}`, "downloading",
+      id, userId, "Fetching metadata", `torrentfile://${id}`, "fetching_metadata",
     );
     const torrent = this.client.add(buffer as unknown as string, {
       path: path.join(config.dataDir, "downloads", id),
@@ -114,7 +116,7 @@ export class TorrentService {
       const magnet = (torrent as any).magnetURI;
       if (magnet) db.prepare("UPDATE torrents SET magnet_uri = ? WHERE id = ?").run(magnet, id);
     });
-    return { id };
+    return { id, selectionRequired: true };
   }
 
   restore() {
@@ -127,7 +129,7 @@ export class TorrentService {
     for (const row of rows) {
       if (row.status === "paused") continue;
       if (String(row.magnet_uri).startsWith("local://")) continue; // uploads bucket, nothing to resume
-      this.start(row.id, row.magnet_uri, "resuming");
+      this.start(row.id, row.magnet_uri, row.status === "awaiting_selection" ? "awaiting_selection" : "resuming");
     }
     logger.info({ count: rows.length }, "Torrent restore scan complete");
   }
@@ -199,6 +201,8 @@ export class TorrentService {
 
   pause(id: string, userId: string) {
     if (!this.owns(id, userId)) return false;
+    const row = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
+    if (row?.status === "awaiting_selection" || row?.status === "fetching_metadata") return false;
     const torrent = this.find(id);
     torrent?.pause();
     db.prepare("UPDATE torrents SET status = ?, download_speed = 0, upload_speed = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("paused", id);
@@ -208,8 +212,9 @@ export class TorrentService {
   }
 
   resume(id: string, userId: string) {
-    const row = db.prepare("SELECT magnet_uri FROM torrents WHERE id = ? AND user_id = ?").get(id, userId) as any;
+    const row = db.prepare("SELECT magnet_uri, status FROM torrents WHERE id = ? AND user_id = ?").get(id, userId) as any;
     if (!row) return false;
+    if (row.status === "awaiting_selection" || row.status === "fetching_metadata") return false;
     const torrent = this.find(id) ?? this.start(id, row.magnet_uri, "downloading");
     torrent.resume();
     db.prepare("UPDATE torrents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("downloading", id);
@@ -250,10 +255,51 @@ export class TorrentService {
     return { ok: Boolean(target) };
   }
 
+  selectFiles(id: string, userId: string, fileIds: string[]) {
+    const row = db.prepare("SELECT status FROM torrents WHERE id = ? AND user_id = ?").get(id, userId) as any;
+    if (!row) return null;
+    if (row.status !== "awaiting_selection") {
+      const error = new Error("File selection is only available before downloading starts");
+      (error as any).status = 409;
+      throw error;
+    }
+
+    const uniqueIds = [...new Set(fileIds)];
+    const files = db.prepare("SELECT id, path, size FROM files WHERE torrent_id = ? AND user_id = ?").all(id, userId) as any[];
+    const chosen = files.filter((file) => uniqueIds.includes(file.id));
+    if (chosen.length !== uniqueIds.length) {
+      const error = new Error("One or more selected files do not belong to this torrent");
+      (error as any).status = 400;
+      throw error;
+    }
+    const selectedBytes = chosen.reduce((sum, file) => sum + Number(file.size), 0);
+    if (!Number.isSafeInteger(selectedBytes) || selectedBytes <= 0) throw new Error("Select at least one non-empty file");
+
+    withQuotaAllocation(userId, selectedBytes, () => {
+      db.prepare("UPDATE files SET selected = 0 WHERE torrent_id = ? AND user_id = ?").run(id, userId);
+      const mark = db.prepare("UPDATE files SET selected = 1 WHERE id = ? AND torrent_id = ? AND user_id = ?");
+      for (const file of chosen) mark.run(file.id, id, userId);
+      db.prepare("UPDATE torrents SET size = ?, status = 'downloading', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(selectedBytes, id);
+    });
+
+    const torrent = this.find(id);
+    if (torrent) {
+      const paths = new Set(chosen.map((file) => file.path));
+      for (const file of torrent.files) {
+        file.deselect();
+        if (paths.has(file.path)) file.select();
+      }
+      torrent.resume();
+    }
+    this.notifyUser(userId, "torrent:selection", { id });
+    this.publishStats();
+    return { id, selectedFiles: chosen.length, selectedBytes };
+  }
+
   markFileForProbe(fileId: string, userId: string) {
     const result = db.prepare(`
       UPDATE files SET probe_status = 'pending', probe_error = NULL
-      WHERE id = ? AND streamable = 1 AND user_id = ?
+      WHERE id = ? AND streamable = 1 AND selected = 1 AND user_id = ?
     `).run(fileId, userId) as any;
     return result.changes > 0;
   }
@@ -263,9 +309,14 @@ export class TorrentService {
     torrent.on("metadata", () => {
       const ownerId = this.ownerOf(id);
       try {
+        // WebTorrent selects every file by default. Stop payload transfer while
+        // metadata is presented to the user, then restore a saved selection.
+        for (const file of torrent.files) file.deselect();
+        const alreadyRegistered = (db.prepare("SELECT COUNT(*) AS n FROM files WHERE torrent_id = ?").get(id) as any).n > 0;
         const persistMetadata = () => {
           const current = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
-          const nextStatus = current?.status === "paused" ? "paused" : "downloading";
+          const waiting = !alreadyRegistered || current?.status === "fetching_metadata" || current?.status === "awaiting_selection";
+          const nextStatus = current?.status === "paused" ? "paused" : waiting ? "awaiting_selection" : "downloading";
           try {
             db.prepare("UPDATE torrents SET info_hash = ?, name = ?, size = ?, status = ? WHERE id = ?").run(
               torrent.infoHash, torrent.name, torrent.length, nextStatus, id,
@@ -279,20 +330,19 @@ export class TorrentService {
           // Deduplicated by the unique (torrent_id, path) index — "metadata" is
           // re-emitted whenever the torrent is re-added, e.g. on every restart.
           const insert = db.prepare(`INSERT OR IGNORE INTO files
-            (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+            (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status, selected)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`);
           for (const file of torrent.files) {
             const { kind, streamable, mimeType } = classifyFile(file.name);
             insert.run(crypto.randomUUID(), id, ownerId, file.name, file.path, file.length, mimeType, kind, streamable, streamable ? "pending" : "ready");
-            if (kind === "video") file.select();
+          }
+          const selectedPaths = db.prepare("SELECT path FROM files WHERE torrent_id = ? AND selected = 1").all(id) as any[];
+          if (!waiting) {
+            const selected = new Set(selectedPaths.map((file) => file.path));
+            for (const file of torrent.files) if (selected.has(file.path)) file.select();
           }
         };
-        // Only charge quota the first time we see this torrent's files; on a
-        // re-emit its bytes are already counted in the user's usage, and
-        // re-charging them could spuriously fail an existing torrent.
-        const alreadyRegistered = (db.prepare("SELECT COUNT(*) AS n FROM files WHERE torrent_id = ?").get(id) as any).n > 0;
-        if (ownerId && !alreadyRegistered) withQuotaAllocation(ownerId, torrent.length, persistMetadata);
-        else persistMetadata();
+        persistMetadata();
       } catch (error: any) {
         db.prepare("UPDATE torrents SET status = ?, size = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run("error", torrent.length, id);
         if (ownerId) this.notifyUser(ownerId, "notification", { type: "error", title: "Could not add torrent", body: error.message ?? torrent.name });
@@ -323,28 +373,29 @@ export class TorrentService {
 
   private update(id: string, torrent: Torrent, status = "downloading") {
     const current = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
+    const transfer = this.getSelectedTransfer(id, torrent);
     if (current?.status === "paused") {
       db.prepare(`UPDATE torrents SET progress = ?, download_speed = 0, upload_speed = 0,
         downloaded = ?, uploaded = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
-        torrent.progress, torrent.downloaded, torrent.uploaded, id,
+        transfer.progress, transfer.downloaded, torrent.uploaded, id,
       );
       return;
     }
-    if (status !== "completed" && torrent.progress >= 0.999) {
+    if (status !== "completed" && transfer.selectedBytes > 0 && transfer.progress >= 0.999) {
       this.completeTorrent(id, torrent);
       return;
     }
     db.prepare(`UPDATE torrents SET progress = ?, download_speed = ?, upload_speed = ?,
       downloaded = ?, uploaded = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
-      torrent.progress, torrent.downloadSpeed, torrent.uploadSpeed, torrent.downloaded, torrent.uploaded, status, id,
+      transfer.progress, torrent.downloadSpeed, torrent.uploadSpeed, transfer.downloaded, torrent.uploaded, status, id,
     );
   }
 
   private completeTorrent(id: string, torrent: Torrent) {
-    const alreadyCompleted = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
+    const alreadyCompleted = db.prepare("SELECT status, size FROM torrents WHERE id = ?").get(id) as any;
     db.prepare(`UPDATE torrents SET progress = ?, download_speed = 0, upload_speed = 0,
       downloaded = ?, uploaded = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
-      1, torrent.downloaded, torrent.uploaded, "completed", id,
+      1, Number(alreadyCompleted?.size ?? torrent.downloaded), torrent.uploaded, "completed", id,
     );
     const ownerId = this.ownerOf(id);
     if (ownerId && alreadyCompleted?.status !== "completed") {
@@ -379,6 +430,24 @@ export class TorrentService {
 
   private find(id: string) {
     return this.active.get(id);
+  }
+
+  private getSelectedTransfer(id: string, torrent: Torrent) {
+    const rows = db.prepare("SELECT path, size FROM files WHERE torrent_id = ? AND selected = 1").all(id) as any[];
+    const selected = new Map(rows.map((row) => [row.path, Number(row.size)]));
+    let selectedBytes = 0;
+    let downloaded = 0;
+    for (const file of torrent.files) {
+      const size = selected.get(file.path);
+      if (size === undefined) continue;
+      selectedBytes += size;
+      downloaded += Math.min(size, Number(file.downloaded ?? 0));
+    }
+    return {
+      selectedBytes,
+      downloaded,
+      progress: selectedBytes > 0 ? Math.min(1, downloaded / selectedBytes) : 0,
+    };
   }
 
   private getHealth(row: any, peerCount: number) {

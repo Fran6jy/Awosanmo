@@ -123,7 +123,7 @@ export async function downloadZip(ids: string[]): Promise<void> {
 }
 
 /** Upload a .torrent file, which the server adds to the swarm. */
-export async function uploadTorrentFile(file: File): Promise<{ id: string }> {
+export async function uploadTorrentFile(file: File): Promise<{ id: string; selectionRequired?: boolean }> {
   const form = new FormData();
   form.append("torrent", file);
   const res = await fetch(`${API_URL}/api/torrents/upload`, {

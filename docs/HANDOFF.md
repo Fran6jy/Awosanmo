@@ -157,6 +157,9 @@ and download managers can resume interrupted downloads to the local computer.
 - `POST /api/torrents/upload` (multipart `torrent`) — add a `.torrent` file
 - `GET /api/torrents/:id` — detail (peers, trackers, pieces, ETA, health)
 - `GET /api/torrents/:id/files`
+- `POST /api/torrents/:id/selection` `{ fileIds: string[] }` — confirm which
+  metadata files to download. New torrents remain in `awaiting_selection` until
+  this succeeds; only selected rows count toward quota and enter Files.
 - `POST /api/torrents/:id/pause` · `/resume` · `/reannounce`
 - `POST /api/torrents/files/:fileId/probe` — queue media probe
 - `DELETE /api/torrents/:id?destroy=true|false`
@@ -165,6 +168,14 @@ Completed torrent behavior: when WebTorrent reports `done`, or progress reaches
 `>= 0.999`, the backend marks the row `completed`, zeroes transfer speeds, stops
 the active torrent with `destroyStore: false`, and leaves files on disk for the
 library/viewer. Completed rows are not restored for seeding on app restart.
+
+Selective torrent behavior: WebTorrent initially selects every file, so the
+metadata handler immediately deselects all payload ranges and persists the file
+catalog with `selected = 0`. The browser picker confirms one or more file IDs;
+the API validates ownership and quota atomically, persists that selection, then
+requests only those file ranges. Progress and completion are calculated from
+the selected files rather than WebTorrent's whole-torrent percentage. Existing
+installations migrate old file rows as selected, preserving current libraries.
 
 Completed file access: download, streaming, subtitles, ZIP export, and media
 probing all resolve files through the shared `resolveDiskPath()` helper. It first

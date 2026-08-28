@@ -11,7 +11,7 @@ searchRoutes.get("/", (req: any, res) => {
     ? db.prepare(`
       SELECT id, name, path, media_kind, streamable, size
       FROM files
-      WHERE user_id = ? AND (name LIKE ? OR path LIKE ? OR media_kind LIKE ? OR codec_video LIKE ? OR codec_audio LIKE ?)
+      WHERE user_id = ? AND selected = 1 AND (name LIKE ? OR path LIKE ? OR media_kind LIKE ? OR codec_video LIKE ? OR codec_audio LIKE ?)
       ORDER BY created_at DESC
       LIMIT 20
     `).all(userId, like, like, like, like, like) as any[]

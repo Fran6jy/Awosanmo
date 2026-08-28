@@ -109,6 +109,9 @@ export function migrate() {
   addColumn("files", "audio_tracks", "INTEGER NOT NULL DEFAULT 0");
   addColumn("files", "subtitle_tracks", "INTEGER NOT NULL DEFAULT 0");
   addColumn("files", "probed_at", "TEXT");
+  // Torrent metadata may be visible before the user chooses what to download.
+  // Existing rows default to selected so upgrades preserve current libraries.
+  addColumn("files", "selected", "INTEGER NOT NULL DEFAULT 1");
   db.exec(`
     UPDATE files
     SET streamable = 1, probe_status = 'pending'

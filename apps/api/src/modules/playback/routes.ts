@@ -36,7 +36,7 @@ function findSubtitles(fileId: string, userId: string) {
   const file = db.prepare("SELECT * FROM files WHERE id = ? AND user_id = ?").get(fileId, userId) as any;
   if (!file) return [];
   const baseDir = path.dirname(file.path);
-  const siblings = db.prepare("SELECT id, name, path FROM files WHERE user_id = ? AND torrent_id = ?").all(userId, file.torrent_id) as any[];
+  const siblings = db.prepare("SELECT id, name, path FROM files WHERE user_id = ? AND torrent_id = ? AND selected = 1").all(userId, file.torrent_id) as any[];
   return siblings
     .filter((candidate) => path.dirname(candidate.path) === baseDir)
     .filter((candidate) => subtitleExt.has(path.extname(candidate.name).toLowerCase()))

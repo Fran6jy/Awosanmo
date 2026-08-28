@@ -5,6 +5,7 @@ import { ChevronRight, Download, Eye, FileArchive, FileText, Film, Folder, Folde
 import { Shell } from "../components/Shell";
 import { API_URL, addByUrl, api, token, uploadFile, uploadTorrentFile, downloadZip } from "../lib/api";
 import { pushToast } from "../components/Toast";
+import { requestTorrentFileSelection } from "../components/TorrentFilePicker";
 import { ContextMenu, type MenuItem } from "../components/ContextMenu";
 import { formatBytes, formatDuration } from "../lib/format";
 import { canPreview, previewKind } from "../lib/fileTypes";
@@ -137,7 +138,7 @@ export function FilesPage() {
       const isTorrent = file.name.toLowerCase().endsWith(".torrent");
       try {
         setUploadPct(0);
-        if (isTorrent) { await uploadTorrentFile(file); pushToast({ type: "success", title: "Torrent added", body: file.name }); qc.invalidateQueries({ queryKey: ["torrents"] }); }
+        if (isTorrent) { const result = await uploadTorrentFile(file); requestTorrentFileSelection(result.id); pushToast({ type: "success", title: "Torrent added", body: "Choose which files you want." }); qc.invalidateQueries({ queryKey: ["torrents"] }); }
         else { await uploadFile(file, (f) => setUploadPct(Math.round(f * 100))); pushToast({ type: "success", title: "Upload complete", body: file.name }); }
         invalidate();
       } catch (e) {

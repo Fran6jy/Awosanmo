@@ -13,9 +13,10 @@ import { readClipboardMagnet } from "../lib/clipboard";
 import { formatBytes } from "../lib/format";
 import { pushToast } from "./Toast";
 import { ThemeToggle } from "./ThemeToggle";
+import { requestTorrentFileSelection, TorrentFilePickerHost } from "./TorrentFilePicker";
 
 type StorageStats = { used: number; available: number; total: number; user?: { used: number; quota: number; available: number; unlimited: boolean } };
-type AddTorrentResponse = { id: string; reused?: boolean };
+type AddTorrentResponse = { id: string; reused?: boolean; selectionRequired?: boolean };
 
 function AddMagnet() {
   const [open, setOpen] = useState(false);
@@ -30,9 +31,10 @@ function AddMagnet() {
       qc.invalidateQueries({ queryKey: ["torrents"] });
       pushToast({
         type: "success",
-        title: result.reused ? "Already in your library" : "Magnet accepted",
-        body: result.reused ? "Using the existing torrent entry." : "Awosanmo is joining the swarm."
+        title: result.reused ? "Torrent found" : "Magnet accepted",
+        body: result.selectionRequired ? "Choose which files you want to download." : "Using the existing torrent entry."
       });
+      if (result.selectionRequired) requestTorrentFileSelection(result.id);
       nav("/");
     },
     onError: (e: Error) => pushToast({ type: "error", title: "Could not add magnet", body: e.message.slice(0, 140) }),
@@ -198,6 +200,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="min-h-screen overflow-x-hidden">
       <Sidebar />
       <MobileNav />
+      <TorrentFilePickerHost />
       {/* Bottom padding on mobile keeps content clear of the fixed bottom nav. */}
       <main className="min-w-0 px-3 pb-24 pt-3 sm:px-4 sm:pt-4 lg:ml-28 lg:max-w-[calc(100vw-8rem)] lg:pb-6 lg:pr-6">
         <header className="glass mb-4 flex flex-col gap-3 rounded-2xl p-4 sm:mb-5 md:flex-row md:items-center md:justify-between">

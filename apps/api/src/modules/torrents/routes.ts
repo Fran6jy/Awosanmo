@@ -6,6 +6,7 @@ import { db } from "../../db/schema.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const addSchema = z.object({ magnetUri: z.string().startsWith("magnet:") });
+const selectionSchema = z.object({ fileIds: z.array(z.string().uuid()).min(1).max(10_000) });
 
 export const torrentRoutes = Router();
 
@@ -29,6 +30,16 @@ torrentRoutes.get("/:id/files", (req: any, res) => {
   const owned = db.prepare("SELECT id FROM torrents WHERE id = ? AND user_id = ?").get(req.params.id, req.user.id);
   if (!owned) return res.status(404).json({ error: "Torrent not found" });
   res.json(torrentService.getFiles(req.params.id));
+});
+torrentRoutes.post("/:id/selection", (req: any, res) => {
+  const body = selectionSchema.parse(req.body);
+  try {
+    const result = torrentService.selectFiles(req.params.id, req.user.id, body.fileIds);
+    if (!result) return res.status(404).json({ error: "Torrent not found" });
+    res.json(result);
+  } catch (error: any) {
+    res.status(error.status ?? 400).json({ error: error.message ?? "Could not select files" });
+  }
 });
 torrentRoutes.post("/files/:fileId/probe", (req: any, res) => {
   if (!torrentService.markFileForProbe(req.params.fileId, req.user.id)) return res.status(404).json({ error: "Streamable file not found" });

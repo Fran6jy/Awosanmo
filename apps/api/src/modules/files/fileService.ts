@@ -11,7 +11,7 @@ export function listFiles(userId: string, query?: string, folderId?: string | nu
     const like = `%${query}%`;
     return db.prepare(`
       SELECT * FROM files
-      WHERE user_id = ? AND (name LIKE ? OR path LIKE ? OR media_kind LIKE ?)
+      WHERE user_id = ? AND selected = 1 AND (name LIKE ? OR path LIKE ? OR media_kind LIKE ?)
       ORDER BY created_at DESC
       LIMIT 200
     `).all(userId, like, like, like);
@@ -19,11 +19,11 @@ export function listFiles(userId: string, query?: string, folderId?: string | nu
   // When a folder is specified, scope to it (null = library root).
   if (folderId !== undefined) {
     if (folderId === null) {
-      return db.prepare("SELECT * FROM files WHERE user_id = ? AND folder_id IS NULL ORDER BY created_at DESC LIMIT 200").all(userId);
+      return db.prepare("SELECT * FROM files WHERE user_id = ? AND selected = 1 AND folder_id IS NULL ORDER BY created_at DESC LIMIT 200").all(userId);
     }
-    return db.prepare("SELECT * FROM files WHERE user_id = ? AND folder_id = ? ORDER BY created_at DESC LIMIT 200").all(userId, folderId);
+    return db.prepare("SELECT * FROM files WHERE user_id = ? AND selected = 1 AND folder_id = ? ORDER BY created_at DESC LIMIT 200").all(userId, folderId);
   }
-  return db.prepare("SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC LIMIT 200").all(userId);
+  return db.prepare("SELECT * FROM files WHERE user_id = ? AND selected = 1 ORDER BY created_at DESC LIMIT 200").all(userId);
 }
 
 export function getFile(id: string) {
@@ -32,7 +32,7 @@ export function getFile(id: string) {
 
 /** Fetch a file only if it belongs to the given user (null otherwise). */
 export function getOwnedFile(id: string, userId: string) {
-  return db.prepare("SELECT * FROM files WHERE id = ? AND user_id = ?").get(id, userId) as any;
+  return db.prepare("SELECT * FROM files WHERE id = ? AND user_id = ? AND selected = 1").get(id, userId) as any;
 }
 
 export function getDiskPath(file: any) {

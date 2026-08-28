@@ -33,7 +33,7 @@ export class MediaWorker {
       const row = db.prepare(`
         SELECT id, torrent_id, path, streamable, probe_status
         FROM files
-        WHERE streamable = 1
+        WHERE streamable = 1 AND selected = 1
           AND (probe_status = 'pending' OR probe_status = 'retry')
         ORDER BY created_at ASC
         LIMIT 1

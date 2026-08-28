@@ -8,9 +8,10 @@ import { addByUrl, api, token, uploadFile, uploadTorrentFile } from "../lib/api"
 import { readClipboardMagnet } from "../lib/clipboard";
 import { pushToast } from "../components/Toast";
 import { Shell } from "../components/Shell";
+import { requestTorrentFileSelection } from "../components/TorrentFilePicker";
 
 type Torrent = { id: string; name: string; progress: number; status: string; download_speed: number; upload_speed: number; size: number };
-type AddTorrentResponse = { id: string; reused?: boolean };
+type AddTorrentResponse = { id: string; reused?: boolean; selectionRequired?: boolean };
 type StorageStats = { used: number; available: number; total: number; user?: { used: number } };
 
 const fmt = (bytes = 0) =>
@@ -22,6 +23,8 @@ const statusTone: Record<string, string> = {
   paused: "text-amber-400",
   connecting: "text-sky-400",
   resuming: "text-sky-400",
+  fetching_metadata: "text-sky-400",
+  awaiting_selection: "text-amber-400",
   error: "text-rose-400",
 };
 
@@ -59,6 +62,7 @@ export function Dashboard() {
       qc.setQueryData<Torrent[]>(["torrents"], (rows = []) => rows.filter((row) => row.id !== context?.tempId));
       qc.invalidateQueries({ queryKey: ["torrents"] });
       if (result.reused) pushToast({ type: "success", title: "Already in your library", body: "Using the existing torrent entry." });
+      if (result.selectionRequired) requestTorrentFileSelection(result.id);
     },
     onError: (e: Error, _uri, context) => {
       if (context?.previous) qc.setQueryData(["torrents"], context.previous);
@@ -81,7 +85,7 @@ export function Dashboard() {
       const isTorrent = file.name.toLowerCase().endsWith(".torrent");
       try {
         setUploadPct(0);
-        if (isTorrent) { await uploadTorrentFile(file); pushToast({ type: "success", title: "Torrent added", body: file.name }); }
+        if (isTorrent) { const result = await uploadTorrentFile(file); requestTorrentFileSelection(result.id); pushToast({ type: "success", title: "Torrent added", body: "Choose which files you want." }); }
         else { await uploadFile(file, (f) => setUploadPct(Math.round(f * 100))); pushToast({ type: "success", title: "Upload complete", body: file.name }); }
         qc.invalidateQueries({ queryKey: ["files"] });
         qc.invalidateQueries({ queryKey: ["torrents"] });
@@ -212,7 +216,10 @@ export function Dashboard() {
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    {torrent.status !== "completed" && (
+                    {torrent.status === "awaiting_selection" && (
+                      <button onClick={() => requestTorrentFileSelection(torrent.id)} className="btn-primary min-h-10 px-3 text-xs">Choose files</button>
+                    )}
+                    {torrent.status !== "completed" && torrent.status !== "awaiting_selection" && torrent.status !== "fetching_metadata" && (
                       <>
                         <button aria-label={torrent.status === "paused" ? "Resume" : "Pause"} onClick={() => action.mutate({ id: torrent.id, kind: torrent.status === "paused" ? "resume" : "pause" })} className="icon-btn">
                           {torrent.status === "paused" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}

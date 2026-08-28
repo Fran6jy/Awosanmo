@@ -7,7 +7,8 @@ import { register } from "../modules/auth/auth.js";
 import { getOwnedFile, listFiles, deleteFile, renameFile } from "../modules/files/fileService.js";
 import { createFolder, getFolder, listFolders, moveFiles } from "../modules/folders/folderService.js";
 import { config } from "../config.js";
-import { releaseQuota, reserveQuota, withQuotaAllocation } from "../modules/storage/storageService.js";
+import { getUserStorageStats, releaseQuota, reserveQuota, withQuotaAllocation } from "../modules/storage/storageService.js";
+import { torrentService } from "../modules/torrents/torrentService.js";
 
 function clearDb() {
   for (const t of ["refresh_tokens", "wishlist", "folders", "files", "torrents", "users"]) {
@@ -92,6 +93,44 @@ describe("quota reservations", () => {
     expect(() => withQuotaAllocation(alice, 60, () => undefined)).toThrow(/quota exceeded/i);
     releaseQuota("upload-a", alice);
     expect(() => reserveQuota(alice, "upload-b", 60)).not.toThrow();
+  });
+});
+
+describe("torrent file selection", () => {
+  function seedPendingTorrent() {
+    const torrentId = crypto.randomUUID();
+    db.prepare("INSERT INTO torrents (id, user_id, name, magnet_uri, status, size) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(torrentId, alice, "Season pack", "magnet:?xt=urn:btih:test", "awaiting_selection", 300);
+    const insert = db.prepare("INSERT INTO files (id, torrent_id, user_id, name, path, size, media_kind, streamable, selected) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)");
+    const first = crypto.randomUUID();
+    const second = crypto.randomUUID();
+    insert.run(first, torrentId, alice, "episode-1.mkv", "episode-1.mkv", 100, "video", 1);
+    insert.run(second, torrentId, alice, "episode-2.mkv", "episode-2.mkv", 200, "video", 1);
+    return { torrentId, first, second };
+  }
+
+  it("commits only the chosen files to storage usage", () => {
+    const { torrentId, first, second } = seedPendingTorrent();
+    expect(getUserStorageStats(alice).used).toBe(0);
+    expect(torrentService.selectFiles(torrentId, alice, [second])).toMatchObject({ selectedFiles: 1, selectedBytes: 200 });
+    expect(getUserStorageStats(alice).used).toBe(200);
+    expect(db.prepare("SELECT selected FROM files WHERE id = ?").get(first)).toMatchObject({ selected: 0 });
+    expect(db.prepare("SELECT selected FROM files WHERE id = ?").get(second)).toMatchObject({ selected: 1 });
+    expect(db.prepare("SELECT status, size FROM torrents WHERE id = ?").get(torrentId)).toMatchObject({ status: "downloading", size: 200 });
+  });
+
+  it("rejects a selection that exceeds quota without starting", () => {
+    const { torrentId, second } = seedPendingTorrent();
+    db.prepare("UPDATE users SET quota_bytes = 150 WHERE id = ?").run(alice);
+    expect(() => torrentService.selectFiles(torrentId, alice, [second])).toThrow(/quota exceeded/i);
+    expect(db.prepare("SELECT status FROM torrents WHERE id = ?").get(torrentId)).toMatchObject({ status: "awaiting_selection" });
+    expect(getUserStorageStats(alice).used).toBe(0);
+  });
+
+  it("rejects files owned by another torrent", () => {
+    const { torrentId } = seedPendingTorrent();
+    const foreign = seedFile(bob, "private.mkv");
+    expect(() => torrentService.selectFiles(torrentId, alice, [foreign])).toThrow(/do not belong/i);
   });
 });
 
