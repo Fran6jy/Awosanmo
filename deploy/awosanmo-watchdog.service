@@ -1,0 +1,8 @@
+[Unit]
+Description=Restart Awosanmo container when Docker reports it unhealthy
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/awosanmo-watchdog.sh
