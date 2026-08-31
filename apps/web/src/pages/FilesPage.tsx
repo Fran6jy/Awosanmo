@@ -83,14 +83,18 @@ export function FilesPage() {
 
   async function copyDownloadLink(id: string) {
     try {
-      const { downloadToken } = await api<{ downloadToken: string }>(`/api/download-token/${id}`, { method: "POST" });
+      const { downloadToken, expiresIn } = await api<{ downloadToken: string; expiresIn: number }>(`/api/download-token/${id}`, { method: "POST" });
       const url = `${location.origin}${API_URL}/api/download/${id}?dt=${encodeURIComponent(downloadToken)}`;
+      // Take the lifetime from the server rather than hard-coding it, so the
+      // wording cannot drift out of step with the token that was just issued.
+      const hours = Math.round((expiresIn ?? 3600) / 3600);
+      const validFor = hours >= 1 ? `${hours} hour${hours === 1 ? "" : "s"}` : `${Math.max(1, Math.round((expiresIn ?? 3600) / 60))} minutes`;
       try {
         await navigator.clipboard.writeText(url);
-        pushToast({ type: "success", title: "Download link copied", body: "Valid for 1 hour." });
+        pushToast({ type: "success", title: "Download link copied", body: `Valid for ${validFor}.` });
       } catch {
         // Clipboard needs a secure context (HTTPS); fall back to a prompt.
-        window.prompt("Copy this download link (valid 1 hour):", url);
+        window.prompt(`Copy this download link (valid ${validFor}):`, url);
       }
     } catch (e) {
       pushToast({ type: "error", title: "Could not create link", body: (e as Error).message.slice(0, 120) });
