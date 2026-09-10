@@ -10,3 +10,4 @@ downloads/
 *.sqlite-*
 *.tsbuildinfo
 .DS_Store
+.claude/

@@ -163,10 +163,12 @@ app.use("/api/search", requireAuth, searchRoutes);
 app.use("/api/uploads", requireAuth, uploadRoutes);
 app.use("/api/folders", requireAuth, folderRoutes);
 app.use("/api/wishlist", requireAuth, wishlistRoutes);
-app.use("/api/music", requireAuth, musicRoutes);
 // Art and audio are fetched by <img>/<audio>, which cannot send a bearer
-// header, so these authenticate via a token in the URL instead.
+// header, so these authenticate via a token in the URL instead. They must be
+// mounted before the bearer-protected router on the same prefix, or requireAuth
+// rejects them first.
 app.use("/api/music", musicMediaRoutes);
+app.use("/api/music", requireAuth, musicRoutes);
 // Token-authenticated so the browser can download by navigation (no header).
 app.get("/api/zip", zipDownload);
 // Only issue a media token if the caller owns the file.

@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --slider-fill: #B8A9A3; color-scheme: dark; }
+
+html, body { background: #0D0909; color: #F5EDE8; font-family: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+body { overscroll-behavior-y: none; }
+::selection { background: rgba(163, 38, 56, .5); }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-thumb { background: #3a2d2d; border-radius: 6px; border: 3px solid #0D0909; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Progress / volume: hairline bar, thumb only on hover, fill turns maroon on hover. */
+.slider { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 9999px; outline: none; cursor: pointer; }
+.slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #F5EDE8; opacity: 0; transition: opacity .15s; }
+.slider::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: #F5EDE8; opacity: 0; transition: opacity .15s; }
+.slider:hover { --slider-fill: #C43A4E; }
+.slider:hover::-webkit-slider-thumb, .slider:focus-visible::-webkit-slider-thumb { opacity: 1; }
+.slider:hover::-moz-range-thumb, .slider:focus-visible::-moz-range-thumb { opacity: 1; }

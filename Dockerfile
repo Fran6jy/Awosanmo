@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3 
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
+COPY apps/music/package.json apps/music/package.json
 RUN npm install
 
 FROM deps AS build
@@ -21,6 +22,8 @@ COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 # Workspace deps that npm did not hoist to the root live here (e.g. archiver).
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/web/dist ./apps/web/dist
+# JYMusic frontend; served instead of the web app when APP=music.
+COPY --from=build /app/apps/music/dist ./apps/music/dist
 VOLUME ["/data"]
 EXPOSE 4000
 ENTRYPOINT ["/usr/bin/tini", "--"]
