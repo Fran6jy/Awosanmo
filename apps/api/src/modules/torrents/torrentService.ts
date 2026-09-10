@@ -55,8 +55,23 @@ function base32ToHex(value: string): string | null {
   return hex.length >= 40 ? hex.slice(0, 40).toLowerCase() : null;
 }
 
+/** Translate a configured byte/sec cap into WebTorrent's throttle argument.
+ *
+ *  The config follows the usual convention where 0 means "no limit", but
+ *  WebTorrent reads -1 as unlimited and treats 0 literally -- throttling to
+ *  zero bytes a second. Passing the config value straight through would stall
+ *  transfers completely, so the two conventions have to be bridged here. */
+export function throttleRate(configured: number): number {
+  return Number.isFinite(configured) && configured > 0 ? configured : -1;
+}
+
 export class TorrentService {
-  private readonly client = new WebTorrent({ maxConns: config.torrentMaxConns, torrentPort: config.torrentPort });
+  private readonly client = new WebTorrent({
+    maxConns: config.torrentMaxConns,
+    torrentPort: config.torrentPort,
+    downloadLimit: throttleRate(config.maxDownloadRate),
+    uploadLimit: throttleRate(config.maxUploadRate),
+  });
   private readonly active = new Map<string, Torrent>();
   private io?: Server;
 

@@ -85,6 +85,86 @@ export function migrate() {
       expires_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_quota_reservations_user ON quota_reservations(user_id);
+
+    -- Music library. Artists and albums are derived from track tags; a track
+    -- always resolves to both, falling back to "Unknown" rows so that browsing
+    -- never dead-ends on a poorly tagged file.
+    CREATE TABLE IF NOT EXISTS music_artists (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      sort_name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(sort_name)
+    );
+    CREATE TABLE IF NOT EXISTS music_albums (
+      id TEXT PRIMARY KEY,
+      artist_id TEXT NOT NULL REFERENCES music_artists(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      sort_title TEXT NOT NULL,
+      year INTEGER,
+      art_path TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(artist_id, sort_title)
+    );
+    CREATE TABLE IF NOT EXISTS music_tracks (
+      id TEXT PRIMARY KEY,
+      album_id TEXT NOT NULL REFERENCES music_albums(id) ON DELETE CASCADE,
+      artist_id TEXT NOT NULL REFERENCES music_artists(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      track_no INTEGER,
+      disc_no INTEGER,
+      duration REAL,
+      genre TEXT,
+      year INTEGER,
+      path TEXT NOT NULL UNIQUE,
+      size INTEGER NOT NULL,
+      mtime INTEGER NOT NULL,
+      mime TEXT,
+      bitrate INTEGER,
+      playable INTEGER NOT NULL DEFAULT 1,
+      art_path TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_music_tracks_album ON music_tracks(album_id);
+    CREATE INDEX IF NOT EXISTS idx_music_tracks_artist ON music_tracks(artist_id);
+    CREATE INDEX IF NOT EXISTS idx_music_tracks_title ON music_tracks(title);
+    CREATE INDEX IF NOT EXISTS idx_music_tracks_genre ON music_tracks(genre);
+    CREATE TABLE IF NOT EXISTS music_playlists (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_music_playlists_user ON music_playlists(user_id);
+    CREATE TABLE IF NOT EXISTS music_playlist_tracks (
+      playlist_id TEXT NOT NULL REFERENCES music_playlists(id) ON DELETE CASCADE,
+      track_id TEXT NOT NULL REFERENCES music_tracks(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(playlist_id, position)
+    );
+    -- Play history drives "recently played" and "on repeat" on the home page.
+    CREATE TABLE IF NOT EXISTS music_plays (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      track_id TEXT NOT NULL REFERENCES music_tracks(id) ON DELETE CASCADE,
+      played_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_music_plays_user_time ON music_plays(user_id, played_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_music_plays_track ON music_plays(track_id);
+    CREATE TABLE IF NOT EXISTS music_scan_state (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+    -- "Liked Songs": the one playlist every user has without creating it.
+    CREATE TABLE IF NOT EXISTS music_likes (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      track_id TEXT NOT NULL REFERENCES music_tracks(id) ON DELETE CASCADE,
+      liked_at INTEGER NOT NULL,
+      PRIMARY KEY(user_id, track_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_music_likes_user_time ON music_likes(user_id, liked_at DESC);
   `);
   db.prepare("DELETE FROM quota_reservations WHERE expires_at < ?").run(Date.now());
   // Virtual folder a file belongs to (NULL = library root).

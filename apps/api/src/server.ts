@@ -17,6 +17,8 @@ import { migrate } from "./db/schema.js";
 import { changePassword, completeTwoFactorLogin, disableTotp, enableTotp, ensureAdminUser, login, loginSchema, register, registerSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, rotateRefresh, revokeRefresh, setupTotp, signDownloadToken, signStreamToken, signSubtitleToken, twoFactorStatus } from "./modules/auth/auth.js";
 import { getOwnedFile } from "./modules/files/fileService.js";
 import { torrentRoutes } from "./modules/torrents/routes.js";
+import { musicMediaRoutes, musicRoutes } from "./modules/music/routes.js";
+import { startMusicScanner } from "./modules/music/scanner.js";
 import { torrentService } from "./modules/torrents/torrentService.js";
 import { streamFile } from "./modules/streaming/streamController.js";
 import { transcodeFile } from "./modules/streaming/transcodeController.js";
@@ -53,6 +55,7 @@ const io = new Server(server, { cors: { origin: config.corsOrigin } });
 torrentService.attach(io);
 torrentService.restore();
 mediaWorker.start();
+startMusicScanner();
 
 app.use(helmet({
   crossOriginResourcePolicy: false,
@@ -160,6 +163,10 @@ app.use("/api/search", requireAuth, searchRoutes);
 app.use("/api/uploads", requireAuth, uploadRoutes);
 app.use("/api/folders", requireAuth, folderRoutes);
 app.use("/api/wishlist", requireAuth, wishlistRoutes);
+app.use("/api/music", requireAuth, musicRoutes);
+// Art and audio are fetched by <img>/<audio>, which cannot send a bearer
+// header, so these authenticate via a token in the URL instead.
+app.use("/api/music", musicMediaRoutes);
 // Token-authenticated so the browser can download by navigation (no header).
 app.get("/api/zip", zipDownload);
 // Only issue a media token if the caller owns the file.
@@ -191,7 +198,9 @@ app.get("/api/stats", requireAuth, (req: any, res) => {
 app.get("/api/storage", requireAuth, (req: any, res) => res.json({ ...getStorageStats(), user: getUserStorageStats(req.user.id) }));
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const webDist = path.resolve(here, "../../web/dist");
+// The same API image serves either frontend; APP=music switches the static
+// bundle to JYMusic while the API surface stays identical.
+const webDist = path.resolve(here, process.env.APP === "music" ? "../../music/dist" : "../../web/dist");
 if (process.env.NODE_ENV === "production" && fs.existsSync(webDist)) {
   app.use(express.static(webDist, { index: false, etag: true, maxAge: "1h" }));
   app.get(/.*/, (_req, res) => res.sendFile(path.join(webDist, "index.html")));

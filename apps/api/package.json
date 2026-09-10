@@ -24,6 +24,7 @@
     "jsonwebtoken": "^9.0.2",
     "mime-types": "^2.1.35",
     "multer": "^2.0.0",
+    "music-metadata": "^11.15.0",
     "otplib": "^13.4.1",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",

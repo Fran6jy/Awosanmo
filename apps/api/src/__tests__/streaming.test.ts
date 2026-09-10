@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { STREAM_CHUNK_BYTES, parseByteRange } from "../modules/streaming/byteRange.js";
-import { reannounceTorrent } from "../modules/torrents/torrentService.js";
+import { reannounceTorrent, throttleRate } from "../modules/torrents/torrentService.js";
 
 describe("HTTP byte ranges", () => {
   it("accepts valid bounded and open-ended ranges", () => {
@@ -34,6 +34,22 @@ describe("HTTP byte ranges", () => {
     expect(parseByteRange("bytes=0-99", huge, STREAM_CHUNK_BYTES)).toEqual({ start: 0, end: 99 });
     // The cap never runs past the end of a small file.
     expect(parseByteRange("bytes=900-", 1000, STREAM_CHUNK_BYTES)).toEqual({ start: 900, end: 999 });
+  });
+});
+
+describe("transfer rate limits", () => {
+  it("maps the config's 0-means-unlimited onto WebTorrent's -1", () => {
+    // WebTorrent throttles to 0 B/s if handed a literal 0, which would stall
+    // every transfer -- unlimited has to become -1.
+    expect(throttleRate(0)).toBe(-1);
+    expect(throttleRate(-5)).toBe(-1);
+    expect(throttleRate(Number.NaN)).toBe(-1);
+    expect(throttleRate(Number.POSITIVE_INFINITY)).toBe(-1);
+  });
+
+  it("passes a real cap through unchanged", () => {
+    expect(throttleRate(65536)).toBe(65536);
+    expect(throttleRate(1)).toBe(1);
   });
 });
 
