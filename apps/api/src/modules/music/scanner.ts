@@ -6,6 +6,7 @@ import { config } from "../../config.js";
 import { db } from "../../db/schema.js";
 import { logger } from "../../logger.js";
 import { sortKey, toTrackRecord, type CommonTags } from "./normalize.js";
+import { invalidateHome } from "./service.js";
 
 const AUDIO_EXT = new Set([".mp3", ".m4a", ".aac", ".flac", ".ogg", ".oga", ".opus", ".wav", ".wma", ".weba"]);
 const FOLDER_ART = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "album.jpg"];
@@ -185,6 +186,7 @@ export async function scanLibrary(): Promise<ScanSummary> {
     summary.seconds = Math.round((Date.now() - started) / 1000);
     db.prepare("INSERT INTO music_scan_state (key, value) VALUES ('last_scan', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
       .run(JSON.stringify({ at: new Date().toISOString(), ...summary }));
+    invalidateHome();
     logger.info(summary, "Music library scan complete");
     return summary;
   } finally {

@@ -153,7 +153,7 @@ export function listGenres() {
   return (db.prepare(`
     SELECT t.genre AS name, COUNT(*) AS track_count,
            (SELECT COALESCE(t2.art_path, al2.art_path) FROM music_tracks t2 JOIN music_albums al2 ON al2.id = t2.album_id
-              WHERE t2.genre = t.genre AND COALESCE(t2.art_path, al2.art_path) IS NOT NULL ORDER BY random() LIMIT 1) AS art
+              WHERE t2.genre = t.genre AND COALESCE(t2.art_path, al2.art_path) IS NOT NULL LIMIT 1) AS art
     FROM music_tracks t WHERE t.genre IS NOT NULL
     GROUP BY t.genre ORDER BY track_count DESC
   `).all() as any[]).map((r) => ({ name: r.name, trackCount: r.track_count, art: r.art }));
@@ -178,7 +178,7 @@ export function search(userId: string, q: string) {
 
 // ---------- home ----------
 
-export function home(userId: string) {
+function buildHome(userId: string) {
   const recent = withLikes(userId, db.prepare(`
     ${TRACK_SELECT}
     JOIN (SELECT track_id, MAX(played_at) AS last FROM music_plays WHERE user_id = ? GROUP BY track_id ORDER BY last DESC LIMIT 12) p ON p.track_id = t.id
@@ -192,8 +192,26 @@ export function home(userId: string) {
   const recentAlbums = listAlbums({ limit: 12, offset: 0, sort: "added" });
   const genres = listGenres().slice(0, 8);
   // A fresh shuffle each visit gives the home page something to say before there is any history.
-  const discover = withLikes(userId, db.prepare(`${TRACK_SELECT} WHERE t.playable = 1 ORDER BY random() LIMIT 12`).all());
+  const discover = withLikes(userId, db.prepare(`${TRACK_SELECT} WHERE t.id IN (SELECT id FROM music_tracks WHERE playable = 1 ORDER BY random() LIMIT 12)`).all());
   return { recent, onRepeat, recentAlbums, genres, discover };
+}
+
+// The home page is hit on every visit and its shelves change slowly, so serve
+// it from a short per-user cache. Plays and likes invalidate it so the page
+// reflects what you just did; the scanner invalidates all of it.
+const homeCache = new Map<string, { at: number; data: ReturnType<typeof buildHome> }>();
+const HOME_TTL_MS = 60_000;
+
+export function home(userId: string) {
+  const hit = homeCache.get(userId);
+  if (hit && Date.now() - hit.at < HOME_TTL_MS) return hit.data;
+  const data = buildHome(userId);
+  homeCache.set(userId, { at: Date.now(), data });
+  return data;
+}
+
+export function invalidateHome(userId?: string) {
+  if (userId) homeCache.delete(userId); else homeCache.clear();
 }
 
 // ---------- plays & likes ----------
@@ -202,6 +220,7 @@ export function recordPlay(userId: string, trackId: string) {
   const exists = db.prepare("SELECT 1 FROM music_tracks WHERE id = ?").get(trackId);
   if (!exists) return false;
   db.prepare("INSERT INTO music_plays (user_id, track_id, played_at) VALUES (?, ?, ?)").run(userId, trackId, Date.now());
+  invalidateHome(userId);
   return true;
 }
 
@@ -210,6 +229,7 @@ export function setLiked(userId: string, trackId: string, liked: boolean) {
   if (!exists) return false;
   if (liked) db.prepare("INSERT OR IGNORE INTO music_likes (user_id, track_id, liked_at) VALUES (?, ?, ?)").run(userId, trackId, Date.now());
   else db.prepare("DELETE FROM music_likes WHERE user_id = ? AND track_id = ?").run(userId, trackId);
+  invalidateHome(userId);
   return true;
 }
 
