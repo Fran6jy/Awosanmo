@@ -54,31 +54,52 @@ function folderArt(filePath: string): string | null {
   return null;
 }
 
-const upsertArtist = db.prepare(`
-  INSERT INTO music_artists (id, name, sort_name) VALUES (?, ?, ?)
-  ON CONFLICT(sort_name) DO UPDATE SET name = excluded.name
-  RETURNING id
-`);
-const upsertAlbum = db.prepare(`
-  INSERT INTO music_albums (id, artist_id, title, sort_title, year, art_path) VALUES (?, ?, ?, ?, ?, ?)
-  ON CONFLICT(artist_id, sort_title) DO UPDATE SET
-    year = COALESCE(music_albums.year, excluded.year),
-    art_path = COALESCE(music_albums.art_path, excluded.art_path)
-  RETURNING id
-`);
-const findTrack = db.prepare("SELECT id, size, mtime FROM music_tracks WHERE path = ?");
-const insertTrack = db.prepare(`
-  INSERT INTO music_tracks (id, album_id, artist_id, title, track_no, disc_no, duration, genre, year, path, size, mtime, mime, bitrate, playable, art_path)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-const updateTrack = db.prepare(`
-  UPDATE music_tracks SET album_id = ?, artist_id = ?, title = ?, track_no = ?, disc_no = ?, duration = ?, genre = ?, year = ?,
-    size = ?, mtime = ?, mime = ?, bitrate = ?, playable = ?, art_path = ?
-  WHERE id = ?
-`);
+/**
+ * Prepared statements, created on first use rather than at import time: the
+ * module is loaded before migrate() has run, and db.prepare() compiles the SQL
+ * immediately, so preparing at module scope fails on a database that does not
+ * yet have the music tables.
+ */
+let stmts: {
+  upsertArtist: ReturnType<typeof db.prepare>;
+  upsertAlbum: ReturnType<typeof db.prepare>;
+  findTrack: ReturnType<typeof db.prepare>;
+  insertTrack: ReturnType<typeof db.prepare>;
+  updateTrack: ReturnType<typeof db.prepare>;
+} | null = null;
+
+function sql() {
+  if (stmts) return stmts;
+  stmts = {
+    upsertArtist: db.prepare(`
+      INSERT INTO music_artists (id, name, sort_name) VALUES (?, ?, ?)
+      ON CONFLICT(sort_name) DO UPDATE SET name = excluded.name
+      RETURNING id
+    `),
+    upsertAlbum: db.prepare(`
+      INSERT INTO music_albums (id, artist_id, title, sort_title, year, art_path) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(artist_id, sort_title) DO UPDATE SET
+        year = COALESCE(music_albums.year, excluded.year),
+        art_path = COALESCE(music_albums.art_path, excluded.art_path)
+      RETURNING id
+    `),
+    findTrack: db.prepare("SELECT id, size, mtime FROM music_tracks WHERE path = ?"),
+    insertTrack: db.prepare(`
+      INSERT INTO music_tracks (id, album_id, artist_id, title, track_no, disc_no, duration, genre, year, path, size, mtime, mime, bitrate, playable, art_path)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateTrack: db.prepare(`
+      UPDATE music_tracks SET album_id = ?, artist_id = ?, title = ?, track_no = ?, disc_no = ?, duration = ?, genre = ?, year = ?,
+        size = ?, mtime = ?, mime = ?, bitrate = ?, playable = ?, art_path = ?
+      WHERE id = ?
+    `),
+  };
+  return stmts;
+}
 
 async function indexFile(filePath: string, rootDir: string): Promise<"added" | "updated" | "unchanged"> {
   const stat = fs.statSync(filePath);
+  const { findTrack, upsertArtist, upsertAlbum, insertTrack, updateTrack } = sql();
   const existing = findTrack.get(filePath) as { id: string; size: number; mtime: number } | undefined;
   const mtime = Math.floor(stat.mtimeMs);
   if (existing && existing.size === stat.size && existing.mtime === mtime) return "unchanged";
