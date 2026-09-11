@@ -5,7 +5,8 @@ services:
   jymusic:
     build:
       context: .
-      target: runtime
+      # Prebuilt dists shipped from a faster machine; see Dockerfile.prebuilt.
+      dockerfile: Dockerfile.prebuilt
     image: awosanmo:local
     restart: unless-stopped
     env_file:
