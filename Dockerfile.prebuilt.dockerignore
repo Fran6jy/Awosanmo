@@ -1,0 +1,11 @@
+# Ignore rules for Dockerfile.prebuilt only. Unlike the main .dockerignore this
+# must let the prebuilt dist folders into the build context.
+node_modules
+npm-debug.log
+data
+data-prod-smoke
+apps/web/tsconfig.tsbuildinfo
+apps/music/tsconfig.tsbuildinfo
+.git
+.env
+.DS_Store
