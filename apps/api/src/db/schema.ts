@@ -165,6 +165,22 @@ export function migrate() {
       PRIMARY KEY(user_id, track_id)
     );
     CREATE INDEX IF NOT EXISTS idx_music_likes_user_time ON music_likes(user_id, liked_at DESC);
+    -- One playback session per user: which device is playing what. Every
+    -- other device shows it and can take over, Spotify Connect style.
+    CREATE TABLE IF NOT EXISTS music_playback (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      device_id TEXT NOT NULL,
+      device_name TEXT NOT NULL,
+      track_id TEXT REFERENCES music_tracks(id) ON DELETE SET NULL,
+      queue_ids TEXT NOT NULL DEFAULT '[]',
+      cursor INTEGER NOT NULL DEFAULT 0,
+      shuffle INTEGER NOT NULL DEFAULT 0,
+      repeat TEXT NOT NULL DEFAULT 'off',
+      position REAL NOT NULL DEFAULT 0,
+      playing INTEGER NOT NULL DEFAULT 0,
+      context TEXT,
+      updated_at INTEGER NOT NULL
+    );
   `);
   db.prepare("DELETE FROM quota_reservations WHERE expires_at < ?").run(Date.now());
   // Virtual folder a file belongs to (NULL = library root).

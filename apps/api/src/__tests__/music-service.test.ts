@@ -145,3 +145,58 @@ describe("playlists", () => {
     expect(music.listPlaylists(user)[0].art).toBe("aaaa.jpg");
   });
 });
+
+describe("playback session (one active device)", () => {
+  const dev = (id: string, name: string, extra: Partial<music.PlaybackInput> = {}): music.PlaybackInput => ({
+    deviceId: id, deviceName: name, trackId: null, queueIds: [], cursor: 0, shuffle: false, repeat: "off",
+    position: 0, playing: true, context: null, ...extra,
+  });
+
+  it("is empty until a device reports", () => {
+    expect(music.getPlayback(user)).toBeNull();
+  });
+
+  it("the latest device to report owns the session, with the track resolved", () => {
+    const a = seed({ artist: "A", album: "X", title: "One" });
+    const b = seed({ artist: "A", album: "X", title: "Two" });
+    music.setPlayback(user, dev("phone", "Safari on iPhone", { trackId: a.id, queueIds: [a.id, b.id], cursor: 0, position: 12 }));
+    let s = music.getPlayback(user)!;
+    expect(s).toMatchObject({ deviceId: "phone", deviceName: "Safari on iPhone", playing: true, position: 12, stale: false });
+    expect(s.track?.title).toBe("One");
+    expect(s.queueIds).toEqual([a.id, b.id]);
+    // A laptop starts playing: it simply becomes the session.
+    music.setPlayback(user, dev("laptop", "Chrome on Windows", { trackId: b.id, queueIds: [a.id, b.id], cursor: 1 }));
+    s = music.getPlayback(user)!;
+    expect(s.deviceId).toBe("laptop");
+    expect(s.track?.title).toBe("Two");
+  });
+
+  it("is private per user", () => {
+    music.setPlayback(user, dev("phone", "Phone"));
+    expect(music.getPlayback(other)).toBeNull();
+  });
+
+  it("only the owning device can clear it", () => {
+    music.setPlayback(user, dev("phone", "Phone"));
+    expect(music.clearPlayback(user, "laptop")).toBe(false);
+    expect(music.getPlayback(user)).not.toBeNull();
+    expect(music.clearPlayback(user, "phone")).toBe(true);
+    expect(music.getPlayback(user)).toBeNull();
+  });
+
+  it("reports a silent device as no longer playing", () => {
+    music.setPlayback(user, dev("phone", "Phone"));
+    // Simulate a tab that closed without saying goodbye: last report a minute ago.
+    db.prepare("UPDATE music_playback SET updated_at = ? WHERE user_id = ?").run(Date.now() - 60_000, user);
+    const s = music.getPlayback(user)!;
+    expect(s.stale).toBe(true);
+    expect(s.playing).toBe(false);
+  });
+
+  it("returns queued tracks in the order asked, skipping unknown ids", () => {
+    const a = seed({ artist: "A", album: "X", title: "One" });
+    const b = seed({ artist: "A", album: "X", title: "Two" });
+    const got = music.tracksByIds(user, [b.id, crypto.randomUUID(), a.id]);
+    expect(got.map((t) => t.title)).toEqual(["Two", "One"]);
+  });
+});

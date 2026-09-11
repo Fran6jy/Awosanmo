@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, ListMusic, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
 import { fmtTime } from "../lib/api";
-import { cycleRepeat, next, prev, seek, setVolume, toggle, toggleMute, toggleShuffle, useCurrent, usePlayer } from "../lib/player";
+import { cycleRepeat, next, prev, seek, setVolume, takeOver, toggle, toggleMute, toggleShuffle, useCurrent, usePlayer } from "../lib/player";
+import { useRemotePlayback } from "../lib/session";
+import { MonitorSpeaker } from "lucide-react";
 import { Art } from "./Art";
 import { useLike } from "./TrackList";
 import { QueuePanel } from "./QueuePanel";
@@ -23,12 +25,31 @@ export function PlayerBar() {
   const track = useCurrent();
   const like = useLike();
   const [queueOpen, setQueueOpen] = useState(false);
+  const remote = useRemotePlayback();
+  const [switching, setSwitching] = useState(false);
   const VolIcon = s.muted || s.volume === 0 ? VolumeX : s.volume < 0.5 ? Volume1 : Volume2;
+  // Only a device that is actually playing right now is worth announcing.
+  const elsewhere = remote && remote.playing && !remote.stale ? remote : null;
 
   return (
     <>
       {queueOpen && <QueuePanel onClose={() => setQueueOpen(false)} />}
       <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {/* Spotify Connect-style banner: the session is live on another device. */}
+        {elsewhere && (
+          <div className="flex items-center gap-3 bg-accent px-4 py-1.5 text-sm text-cream">
+            <MonitorSpeaker className="h-4 w-4 shrink-0" />
+            <p className="min-w-0 flex-1 truncate">
+              <span className="font-bold">Playing on {elsewhere.deviceName}</span>
+              {elsewhere.track && <span className="text-cream/85"> · {elsewhere.track.title} — {elsewhere.track.artist}</span>}
+            </p>
+            <button type="button" disabled={switching}
+              onClick={async () => { setSwitching(true); try { await takeOver(elsewhere); } finally { setSwitching(false); } }}
+              className="shrink-0 rounded-full bg-cream px-3 py-1 text-xs font-bold text-ink transition hover:scale-105 disabled:opacity-60">
+              {switching ? "Switching…" : "Play here"}
+            </button>
+          </div>
+        )}
         {/* mobile: progress strip along the very top of the bar */}
         <div className="h-0.5 w-full bg-raised sm:hidden"><div className="h-full bg-accent2" style={{ width: `${s.duration ? (s.progress / s.duration) * 100 : 0}%` }} /></div>
         <div className="mx-auto grid h-[72px] max-w-screen-2xl grid-cols-[1fr_auto] items-center gap-3 px-3 sm:h-[88px] sm:grid-cols-[1fr_2fr_1fr] sm:px-4">

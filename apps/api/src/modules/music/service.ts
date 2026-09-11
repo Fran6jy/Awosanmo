@@ -310,3 +310,60 @@ export function removeFromPlaylist(userId: string, id: string, position: number)
   if (r.changes) db.prepare("UPDATE music_playlists SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
   return r.changes > 0;
 }
+
+// ---------- playback session (one active device per user) ----------
+
+export type PlaybackInput = {
+  deviceId: string; deviceName: string; trackId: string | null; queueIds: string[]; cursor: number;
+  shuffle: boolean; repeat: "off" | "all" | "one"; position: number; playing: boolean;
+  context: { kind: string; name: string } | null;
+};
+export type PlaybackView = PlaybackInput & { track: TrackView | null; updatedAt: number; stale: boolean };
+
+/** A device that has not reported for this long is assumed gone (tab closed). */
+const PLAYBACK_STALE_MS = 25_000;
+
+export function getPlayback(userId: string): PlaybackView | null {
+  const r = db.prepare("SELECT * FROM music_playback WHERE user_id = ?").get(userId) as any;
+  if (!r) return null;
+  const stale = Date.now() - r.updated_at > PLAYBACK_STALE_MS;
+  return {
+    deviceId: r.device_id, deviceName: r.device_name, trackId: r.track_id,
+    queueIds: JSON.parse(r.queue_ids || "[]"), cursor: r.cursor, shuffle: Boolean(r.shuffle), repeat: r.repeat,
+    position: r.position, playing: Boolean(r.playing) && !stale, context: r.context ? JSON.parse(r.context) : null,
+    track: r.track_id ? getTrack(userId, r.track_id) : null, updatedAt: r.updated_at, stale,
+  };
+}
+
+/**
+ * Record a device's playback state. The most recent report always wins: a
+ * device that starts playing simply becomes the session, and the previous one
+ * learns it has been superseded from the broadcast that follows.
+ */
+export function setPlayback(userId: string, s: PlaybackInput): PlaybackView {
+  db.prepare(`
+    INSERT INTO music_playback (user_id, device_id, device_name, track_id, queue_ids, cursor, shuffle, repeat, position, playing, context, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      device_id = excluded.device_id, device_name = excluded.device_name, track_id = excluded.track_id,
+      queue_ids = excluded.queue_ids, cursor = excluded.cursor, shuffle = excluded.shuffle, repeat = excluded.repeat,
+      position = excluded.position, playing = excluded.playing, context = excluded.context, updated_at = excluded.updated_at
+  `).run(userId, s.deviceId, s.deviceName.slice(0, 80), s.trackId, JSON.stringify(s.queueIds.slice(0, 2000)), s.cursor,
+    s.shuffle ? 1 : 0, s.repeat, s.position, s.playing ? 1 : 0, s.context ? JSON.stringify(s.context) : null, Date.now());
+  return getPlayback(userId)!;
+}
+
+/** A device bowing out clears the session only if it still owns it. */
+export function clearPlayback(userId: string, deviceId: string): boolean {
+  const r = db.prepare("DELETE FROM music_playback WHERE user_id = ? AND device_id = ?").run(userId, deviceId) as any;
+  return r.changes > 0;
+}
+
+/** Tracks by id, in the order asked for (queue handoff between devices). */
+export function tracksByIds(userId: string, ids: string[]): TrackView[] {
+  if (!ids.length) return [];
+  const marks = ids.map(() => "?").join(",");
+  const rows = withLikes(userId, db.prepare(`${TRACK_SELECT} WHERE t.id IN (${marks})`).all(...ids));
+  const byId = new Map(rows.map((t) => [t.id, t]));
+  return ids.map((id) => byId.get(id)).filter((t): t is TrackView => Boolean(t));
+}

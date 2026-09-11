@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { api, artUrl, getMusicToken, streamUrl, type Track } from "./api";
+import { deviceId, deviceName } from "./device";
+import { currentRemote, setSupersededHandler, type RemotePlayback } from "./session";
 
 /**
  * The player engine: one <audio> element, a queue, and a tiny external store
@@ -68,6 +70,62 @@ function countPlayIfDue(force = false) {
   }
 }
 
+// ---------- account-wide session: one active device ----------
+// `active` means this tab owns the session. Only the owner reports, so a tab
+// that was just superseded cannot overwrite the new device's state with its
+// own pause. A user gesture to play always claims the session.
+let active = false;
+let yielding = false;
+let lastReport = 0;
+
+function report(force = false) {
+  if (!active) return;
+  const now = Date.now();
+  if (!force && now - lastReport < 4_000) return;
+  lastReport = now;
+  const t = current();
+  api("/api/music/playback", {
+    method: "PUT",
+    body: JSON.stringify({
+      deviceId, deviceName,
+      trackId: t?.id ?? null,
+      queueIds: state.order.map((i) => state.queue[i].id),
+      cursor: state.cursor,
+      shuffle: state.shuffle, repeat: state.repeat,
+      position: audio.currentTime || 0,
+      playing: !audio.paused && !!t,
+      context: state.context,
+    }),
+  }).catch(() => undefined);
+}
+
+function claim() { active = true; }
+
+/** Another device started playing: pause here without reporting it. */
+setSupersededHandler(() => {
+  if (!active && audio.paused) return;
+  active = false;
+  yielding = true;
+  audio.pause();
+  yielding = false;
+});
+
+/** Continue the session on this device from where the other one is. */
+export async function takeOver(r: RemotePlayback = currentRemote()!) {
+  if (!r) return;
+  const tracks = r.queueIds.length
+    ? await api<Track[]>("/api/music/tracks/batch", { method: "POST", body: JSON.stringify({ ids: r.queueIds }) })
+    : (r.track ? [r.track] : []);
+  if (!tracks.length) return;
+  const cursor = Math.max(0, Math.min(r.cursor, tracks.length - 1));
+  // The remote queue arrives already in play order, so order is the identity.
+  set({ queue: tracks, order: tracks.map((_, i) => i), cursor, shuffle: r.shuffle, repeat: r.repeat, context: r.context as PlayerState["context"] });
+  claim();
+  await load(tracks[cursor], true);
+  if (r.position > 0) seek(r.position);
+  report(true);
+}
+
 // ---------- audio element wiring ----------
 audio.addEventListener("timeupdate", () => {
   const dt = audio.currentTime - lastTick;
@@ -76,10 +134,11 @@ audio.addEventListener("timeupdate", () => {
   set({ progress: audio.currentTime, duration: audio.duration || state.duration });
   countPlayIfDue();
   updatePositionState();
+  report();
 });
 audio.addEventListener("durationchange", () => set({ duration: audio.duration || 0 }));
-audio.addEventListener("play", () => set({ playing: true }));
-audio.addEventListener("pause", () => set({ playing: false }));
+audio.addEventListener("play", () => { set({ playing: true }); claim(); report(true); });
+audio.addEventListener("pause", () => { set({ playing: false }); if (!yielding) report(true); });
 audio.addEventListener("ended", () => { countPlayIfDue(true); next(true); });
 audio.addEventListener("error", () => {
   // A broken file should not stall the whole queue: move on after a beat.
@@ -93,8 +152,10 @@ async function load(track: Track, autoplay: boolean) {
   set({ progress: 0, duration: track.duration ?? 0 });
   updateMediaSession(track);
   if (autoplay) {
+    claim();
     try { await audio.play(); } catch { /* autoplay blocked until a gesture */ }
   }
+  report(true);
 }
 
 function buildOrder(length: number, shuffle: boolean, keepFirst: number | null): number[] {
@@ -186,6 +247,7 @@ export function seek(seconds: number) {
   audio.currentTime = Math.max(0, Math.min(seconds, audio.duration || seconds));
   lastTick = audio.currentTime;
   set({ progress: audio.currentTime });
+  report(true);
 }
 
 export function setVolume(v: number) {
@@ -219,6 +281,7 @@ export function removeFromQueue(orderIndex: number) {
 }
 
 export function clearQueue() {
+  if (active) { active = false; api(`/api/music/playback?deviceId=${encodeURIComponent(deviceId)}`, { method: "DELETE" }).catch(() => undefined); }
   audio.pause();
   audio.removeAttribute("src");
   set({ queue: [], order: [], cursor: -1, playing: false, progress: 0, duration: 0, context: null });

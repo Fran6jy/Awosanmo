@@ -5,6 +5,7 @@ import { Router } from "express";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import { z } from "zod";
+import type { Server } from "socket.io";
 import { config } from "../../config.js";
 import { parseByteRange, STREAM_CHUNK_BYTES } from "../streaming/byteRange.js";
 import { lastScan, musicEnabled, scanInProgress, scanLibrary } from "./scanner.js";
@@ -96,6 +97,45 @@ musicRoutes.get("/artists/:id", (req: any, res) => {
 
 musicRoutes.get("/genres", (_req, res) => res.json(music.listGenres()));
 musicRoutes.get("/genres/:name", (req: any, res) => res.json(music.getGenre(req.user.id, req.params.name, page(req))));
+
+// ---------- playback session: one active device, mirrored to every other ----------
+
+let io: Server | null = null;
+/** Called once at boot so playback changes can be pushed to the user's other devices. */
+export function attachMusicRealtime(server: Server) { io = server; }
+function broadcastPlayback(userId: string) {
+  io?.to(`u:${userId}`).emit("music:playback", music.getPlayback(userId));
+}
+
+const playbackSchema = z.object({
+  deviceId: z.string().min(1).max(64),
+  deviceName: z.string().min(1).max(80),
+  trackId: z.string().uuid().nullable(),
+  queueIds: z.array(z.string().uuid()).max(2000),
+  cursor: z.number().int().min(-1),
+  shuffle: z.boolean(),
+  repeat: z.enum(["off", "all", "one"]),
+  position: z.number().min(0),
+  playing: z.boolean(),
+  context: z.object({ kind: z.string().max(20), name: z.string().max(200) }).nullable(),
+});
+
+musicRoutes.get("/playback", (req: any, res) => res.json(music.getPlayback(req.user.id)));
+musicRoutes.put("/playback", (req: any, res) => {
+  const body = playbackSchema.parse(req.body);
+  const view = music.setPlayback(req.user.id, body);
+  broadcastPlayback(req.user.id);
+  res.json(view);
+});
+musicRoutes.delete("/playback", (req: any, res) => {
+  const deviceId = String(req.query.deviceId ?? "");
+  if (music.clearPlayback(req.user.id, deviceId)) broadcastPlayback(req.user.id);
+  res.sendStatus(204);
+});
+musicRoutes.post("/tracks/batch", (req: any, res) => {
+  const body = z.object({ ids: z.array(z.string().uuid()).max(2000) }).parse(req.body);
+  res.json(music.tracksByIds(req.user.id, body.ids));
+});
 
 // ---------- plays & likes ----------
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, setTokens } from "../lib/api";
+import { startSession } from "../lib/session";
 
 type Session = { token: string };
 type LoginResult = Session | { twoFactorRequired: true; ticket: string };
@@ -21,7 +22,7 @@ export function Login() {
         ? await api<Session>("/api/login/2fa", { method: "POST", body: JSON.stringify({ ticket, code }) })
         : await api<LoginResult>("/api/login", { method: "POST", body: JSON.stringify({ email, password }) });
       if ("twoFactorRequired" in r) setTicket(r.ticket);
-      else { setTokens(r); nav("/"); }
+      else { setTokens(r); void startSession(); nav("/"); }
     } catch { setError(ticket ? "Invalid or expired code." : "Invalid email or password."); }
     finally { setBusy(false); }
   }

@@ -7,6 +7,7 @@ import { Layout } from "./components/Layout";
 import { Toaster } from "./components/Toast";
 import { restoreSession, token } from "./lib/api";
 import { installKeyboardShortcuts } from "./lib/player";
+import { startSession } from "./lib/session";
 
 const Home = lazy(() => import("./pages/Home").then((m) => ({ default: m.Home })));
 const SearchPage = lazy(() => import("./pages/SearchPage").then((m) => ({ default: m.SearchPage })));
@@ -47,8 +48,10 @@ const router = createBrowserRouter([
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } });
 
 async function start() {
-  await restoreSession();
+  const authed = await restoreSession();
   installKeyboardShortcuts();
+  // Learn what (if anything) is playing on the account's other devices.
+  if (authed) void startSession();
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
