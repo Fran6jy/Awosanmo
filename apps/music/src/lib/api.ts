@@ -63,6 +63,18 @@ export function streamUrl(trackId: string, mt: string) {
   return `${API_URL}/api/music/stream/${trackId}?mt=${encodeURIComponent(mt)}`;
 }
 
+/** Multipart upload of a playlist cover; fetch cannot use api()'s JSON headers here. */
+export async function uploadPlaylistCover(playlistId: string, file: File): Promise<{ art: string }> {
+  const form = new FormData();
+  form.append("cover", file);
+  const res = await fetch(`${API_URL}/api/music/playlists/${playlistId}/cover`, {
+    method: "POST", body: form, credentials: "include",
+    headers: token() ? { Authorization: `Bearer ${token()}` } : {},
+  });
+  if (!res.ok) throw new Error((await res.text()) || "Upload failed");
+  return res.json();
+}
+
 export function artUrl(name: string | null | undefined) {
   return name ? `${API_URL}/api/music/art/${name}` : null;
 }
@@ -76,7 +88,7 @@ export type Track = {
 };
 export type Album = { id: string; title: string; artist: string; artistId: string; year: number | null; art: string | null; trackCount: number; duration: number };
 export type Artist = { id: string; name: string; albumCount: number; trackCount: number; art: string | null };
-export type Playlist = { id: string; name: string; trackCount: number; duration: number; art: string | null; updatedAt: string };
+export type Playlist = { id: string; name: string; trackCount: number; duration: number; art: string | null; customArt: boolean; updatedAt: string };
 export type Genre = { name: string; trackCount: number; art: string | null };
 
 export const fmtTime = (s: number | null | undefined) => {

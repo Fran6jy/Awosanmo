@@ -241,20 +241,21 @@ export function likedTracks(userId: string, opts: { limit: number; offset: numbe
 
 // ---------- playlists ----------
 
-export type PlaylistView = { id: string; name: string; trackCount: number; duration: number; art: string | null; updatedAt: string };
+export type PlaylistView = { id: string; name: string; trackCount: number; duration: number; art: string | null; customArt: boolean; updatedAt: string };
 
 const PLAYLIST_SELECT = `
-  SELECT p.id, p.name, p.updated_at,
+  SELECT p.id, p.name, p.updated_at, p.cover_path AS custom_art,
          COUNT(pt.track_id) AS track_count, COALESCE(SUM(t.duration),0) AS duration,
-         (SELECT COALESCE(t2.art_path, al2.art_path) FROM music_playlist_tracks pt2 JOIN music_tracks t2 ON t2.id = pt2.track_id JOIN music_albums al2 ON al2.id = t2.album_id
-            WHERE pt2.playlist_id = p.id AND COALESCE(t2.art_path, al2.art_path) IS NOT NULL ORDER BY pt2.position LIMIT 1) AS art
+         COALESCE(p.cover_path,
+           (SELECT COALESCE(t2.art_path, al2.art_path) FROM music_playlist_tracks pt2 JOIN music_tracks t2 ON t2.id = pt2.track_id JOIN music_albums al2 ON al2.id = t2.album_id
+              WHERE pt2.playlist_id = p.id AND COALESCE(t2.art_path, al2.art_path) IS NOT NULL ORDER BY pt2.position LIMIT 1)) AS art
   FROM music_playlists p
   LEFT JOIN music_playlist_tracks pt ON pt.playlist_id = p.id
   LEFT JOIN music_tracks t ON t.id = pt.track_id
 `;
 
 function toPlaylist(r: any): PlaylistView {
-  return { id: r.id, name: r.name, trackCount: r.track_count, duration: r.duration, art: r.art, updatedAt: r.updated_at };
+  return { id: r.id, name: r.name, trackCount: r.track_count, duration: r.duration, art: r.art, customArt: Boolean(r.custom_art), updatedAt: r.updated_at };
 }
 
 export function listPlaylists(userId: string) {
@@ -278,6 +279,12 @@ export function getPlaylist(userId: string, id: string) {
 
 export function renamePlaylist(userId: string, id: string, name: string) {
   const r = db.prepare("UPDATE music_playlists SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?").run(name, id, userId) as any;
+  return r.changes > 0;
+}
+
+/** Set (or with null, clear) a custom cover; the file itself lives in the art cache. */
+export function setPlaylistCover(userId: string, id: string, coverPath: string | null) {
+  const r = db.prepare("UPDATE music_playlists SET cover_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?").run(coverPath, id, userId) as any;
   return r.changes > 0;
 }
 

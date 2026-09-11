@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
+import multer from "multer";
 import { z } from "zod";
 import { config } from "../../config.js";
 import { parseByteRange, STREAM_CHUNK_BYTES } from "../streaming/byteRange.js";
@@ -132,6 +134,29 @@ musicRoutes.put("/playlists/:id", (req: any, res) => {
   if (!music.renamePlaylist(req.user.id, req.params.id, name)) return res.status(404).json({ error: "Playlist not found" });
   res.sendStatus(204);
 });
+// Custom playlist covers: small images, stored content-addressed beside album
+// art so the same /art/:name route serves them with long-lived caching.
+const coverUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req: any, file: { mimetype: string }, cb: (err: null, accept: boolean) => void) =>
+    cb(null, ["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)),
+});
+musicRoutes.post("/playlists/:id/cover", coverUpload.single("cover"), (req: any, res) => {
+  if (!req.file?.buffer?.length) return res.status(400).json({ error: "Upload a JPEG, PNG or WebP image under 5 MB" });
+  const ext = req.file.mimetype === "image/png" ? ".png" : req.file.mimetype === "image/webp" ? ".webp" : ".jpg";
+  const name = crypto.createHash("sha1").update(req.file.buffer).digest("hex") + ext;
+  fs.mkdirSync(config.musicArtDir, { recursive: true });
+  const target = path.join(config.musicArtDir, name);
+  if (!fs.existsSync(target)) fs.writeFileSync(target, req.file.buffer);
+  if (!music.setPlaylistCover(req.user.id, req.params.id, name)) return res.status(404).json({ error: "Playlist not found" });
+  res.json({ art: name });
+});
+musicRoutes.delete("/playlists/:id/cover", (req: any, res) => {
+  if (!music.setPlaylistCover(req.user.id, req.params.id, null)) return res.status(404).json({ error: "Playlist not found" });
+  res.sendStatus(204);
+});
+
 musicRoutes.delete("/playlists/:id", (req: any, res) => {
   if (!music.deletePlaylist(req.user.id, req.params.id)) return res.status(404).json({ error: "Playlist not found" });
   res.sendStatus(204);
@@ -155,7 +180,7 @@ export const musicMediaRoutes = Router();
 /** Album art is content-addressed and cacheable for a long time. */
 musicMediaRoutes.get("/art/:name", (req: any, res) => {
   const name = path.basename(String(req.params.name));
-  if (!/^[a-f0-9]{40}\.(jpg|png)$/.test(name)) return res.status(400).end();
+  if (!/^[a-f0-9]{40}\.(jpg|png|webp)$/.test(name)) return res.status(400).end();
   const file = path.join(config.musicArtDir, name);
   if (!fs.existsSync(file)) return res.status(404).end();
   res.setHeader("Cache-Control", "public, max-age=31536000, immutable");

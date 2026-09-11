@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
-import { api, fmtLong, type Playlist, type Track } from "../lib/api";
+import { ImageOff, Pencil, Trash2 } from "lucide-react";
+import { api, fmtLong, uploadPlaylistCover, type Playlist, type Track } from "../lib/api";
 import { playQueue, toggle, toggleShuffle, usePlayer } from "../lib/player";
 import { CollectionHeader } from "../components/CollectionHeader";
 import { TrackList } from "../components/TrackList";
@@ -22,6 +22,12 @@ export function PlaylistPage() {
   const rename = useMutation({ mutationFn: () => api(`/api/music/playlists/${id}`, { method: "PUT", body: JSON.stringify({ name }) }), onSuccess: () => { invalidate(); setRenaming(false); } });
   const remove = useMutation({ mutationFn: () => api(`/api/music/playlists/${id}`, { method: "DELETE" }), onSuccess: () => { invalidate(); pushToast("Playlist deleted"); nav("/library"); } });
   const removeTrack = useMutation({ mutationFn: (position: number) => api(`/api/music/playlists/${id}/tracks/${position}`, { method: "DELETE" }), onSuccess: invalidate });
+  const setCover = useMutation({
+    mutationFn: (file: File) => uploadPlaylistCover(id!, file),
+    onSuccess: () => { invalidate(); pushToast("Cover updated"); },
+    onError: (e: Error) => pushToast(e.message.includes("5 MB") || e.message.includes("JPEG") ? "Use a JPEG, PNG or WebP under 5 MB" : "Could not upload cover"),
+  });
+  const clearCover = useMutation({ mutationFn: () => api(`/api/music/playlists/${id}/cover`, { method: "DELETE" }), onSuccess: () => { invalidate(); pushToast("Cover removed"); } });
 
   const p = playlist.data;
   if (!p) return <div className="py-20 text-center text-muted">Loading…</div>;
@@ -33,8 +39,10 @@ export function PlaylistPage() {
       <CollectionHeader kind="Playlist" title={p.name} art={p.art} seed={p.id} contextName={p.name}
         subtitle={p.trackCount ? `${p.trackCount} song${p.trackCount === 1 ? "" : "s"}, ${fmtLong(p.duration)}` : "Empty — add songs from the ⋯ menu on any track"}
         onPlay={() => (isThis ? void toggle() : void playQueue(p.tracks, 0, context))}
-        onShuffle={() => { if (!s.shuffle) toggleShuffle(); void playQueue(p.tracks, 0, context); }}>
+        onShuffle={() => { if (!s.shuffle) toggleShuffle(); void playQueue(p.tracks, 0, context); }}
+        onChangeArt={(file) => setCover.mutate(file)}>
         <button type="button" onClick={() => { setName(p.name); setRenaming(true); }} aria-label="Rename" className="text-dim hover:text-cream"><Pencil className="h-5 w-5" /></button>
+        {p.customArt && <button type="button" onClick={() => clearCover.mutate()} aria-label="Remove custom cover" title="Remove custom cover" className="text-dim hover:text-cream"><ImageOff className="h-5 w-5" /></button>}
         <button type="button" onClick={() => { if (confirm(`Delete “${p.name}”?`)) remove.mutate(); }} aria-label="Delete playlist" className="text-dim hover:text-accent2"><Trash2 className="h-5 w-5" /></button>
       </CollectionHeader>
       {renaming && (

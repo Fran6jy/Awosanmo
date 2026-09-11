@@ -126,6 +126,18 @@ describe("playlists", () => {
     expect(music.getPlaylist(user, p.id)!.tracks.map((t) => t.title)).toEqual(["Second"]);
   });
 
+  it("lets a custom cover override the first track's art, and clears back to it", () => {
+    const a = seed({ artist: "A", album: "X", title: "Song", art: "aaaa.jpg" });
+    const p = music.createPlaylist(user, "Covers")!;
+    music.addToPlaylist(user, p.id, a.id);
+    expect(music.setPlaylistCover(user, p.id, "custom.png")).toBe(true);
+    expect(music.listPlaylists(user)[0]).toMatchObject({ art: "custom.png", customArt: true });
+    // Only the owner may change it.
+    expect(music.setPlaylistCover(other, p.id, "evil.png")).toBe(false);
+    music.setPlaylistCover(user, p.id, null);
+    expect(music.listPlaylists(user)[0]).toMatchObject({ art: "aaaa.jpg", customArt: false });
+  });
+
   it("uses the first track's art as the playlist cover", () => {
     const a = seed({ artist: "A", album: "X", title: "Song", art: "aaaa.jpg" });
     const p = music.createPlaylist(user, "Covers")!;
