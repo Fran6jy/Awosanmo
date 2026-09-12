@@ -18,6 +18,7 @@ const GenrePage = lazy(() => import("./pages/GenrePage").then((m) => ({ default:
 const PlaylistPage = lazy(() => import("./pages/PlaylistPage").then((m) => ({ default: m.PlaylistPage })));
 const LikedPage = lazy(() => import("./pages/PlaylistPage").then((m) => ({ default: m.LikedPage })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
+const SharePage = lazy(() => import("./pages/SharePage").then((m) => ({ default: m.SharePage })));
 
 const fallback = <div className="grid min-h-[50vh] place-items-center text-muted">Loading…</div>;
 
@@ -29,6 +30,8 @@ function Shell() {
 
 const router = createBrowserRouter([
   { path: "/login", element: <Suspense fallback={fallback}><Login /></Suspense> },
+  // Public share pages: no session required, no app shell.
+  { path: "/s/:slug", element: <Suspense fallback={fallback}><SharePage /></Suspense> },
   {
     element: <Shell />,
     children: [

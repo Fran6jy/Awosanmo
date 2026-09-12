@@ -3,6 +3,10 @@ export const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "h
 
 let accessToken: string | null = null;
 export function token() { return accessToken; }
+/** The role baked into the access token; "admin" may delete songs from the library. */
+export function sessionRole(): string | null {
+  try { return accessToken ? JSON.parse(atob(accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).role ?? null : null; } catch { return null; }
+}
 export function setTokens(t: { token: string }) { accessToken = t.token; }
 
 function forceLogin() {
@@ -77,6 +81,29 @@ export async function uploadPlaylistCover(playlistId: string, file: File): Promi
 
 export function artUrl(name: string | null | undefined) {
   return name ? `${API_URL}/api/music/art/${name}` : null;
+}
+
+// ---------- share links ----------
+
+export type ShareKind = "track" | "album" | "playlist";
+export type Share = {
+  id: string; kind: ShareKind; targetId: string; title: string; subtitle: string; art: string | null; trackCount: number;
+  allowDownload: boolean; createdAt: number; expiresAt: number | null; views: number;
+};
+export type SharedContent = { id: string; kind: ShareKind; title: string; subtitle: string; art: string | null; allowDownload: boolean; sharedBy: string; tracks: Track[] };
+
+/** The public page for a share lives in this app, so the link is on whatever host the app is on. */
+export const shareLink = (id: string) => `${location.origin}/s/${id}`;
+export const shareStreamUrl = (id: string, trackId: string) => `${API_URL}/api/music/s/${id}/stream/${trackId}`;
+export const shareDownloadUrl = (id: string, trackId: string) => `${API_URL}/api/music/s/${id}/download/${trackId}`;
+export const shareZipUrl = (id: string) => `${API_URL}/api/music/s/${id}/zip`;
+
+/** Public fetch: no session, no refresh dance — a dead link is just a 404. */
+export async function fetchShared(id: string): Promise<SharedContent | null> {
+  const res = await fetch(`${API_URL}/api/music/s/${id}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 // ---------- shared types (mirror the API's view shapes) ----------

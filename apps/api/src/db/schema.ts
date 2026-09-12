@@ -165,6 +165,20 @@ export function migrate() {
       PRIMARY KEY(user_id, track_id)
     );
     CREATE INDEX IF NOT EXISTS idx_music_likes_user_time ON music_likes(user_id, liked_at DESC);
+    -- Public share links: a short slug that lets anyone play (and optionally
+    -- download) one track, album or playlist without an account.
+    CREATE TABLE IF NOT EXISTS music_shares (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('track','album','playlist')),
+      target_id TEXT NOT NULL,
+      allow_download INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER,
+      revoked_at INTEGER,
+      views INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_music_shares_user ON music_shares(user_id, created_at DESC);
     -- One playback session per user: which device is playing what. Every
     -- other device shows it and can take over, Spotify Connect style.
     CREATE TABLE IF NOT EXISTS music_playback (

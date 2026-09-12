@@ -5,11 +5,13 @@ import { Router } from "express";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import { z } from "zod";
+import { createRequire } from "node:module";
 import type { Server } from "socket.io";
 import { config } from "../../config.js";
 import { parseByteRange, STREAM_CHUNK_BYTES } from "../streaming/byteRange.js";
 import { lastScan, musicEnabled, scanInProgress, scanLibrary } from "./scanner.js";
 import * as music from "./service.js";
+import * as shares from "./shares.js";
 
 export const musicRoutes = Router();
 
@@ -76,6 +78,29 @@ musicRoutes.get("/tracks/:id", (req: any, res) => {
   const track = music.getTrack(req.user.id, req.params.id);
   if (!track) return res.status(404).json({ error: "Track not found" });
   res.json(track);
+});
+
+/** Delete a song for good: index row and the file on disk. Admin only — it is the library owner's data. */
+musicRoutes.delete("/tracks/:id", (req: any, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ error: "Admin only" });
+  const gone = music.deleteTrack(req.params.id);
+  if (!gone) return res.status(404).json({ error: "Track not found" });
+  try {
+    fs.rmSync(gone.path, { force: true });
+    // Remember what was deleted on purpose, so a later library sync from the
+    // owner's computer knows not to put it straight back.
+    const rel = path.relative(path.resolve(config.musicDir), gone.path).split(path.sep).join("/");
+    if (!rel.startsWith("..")) fs.appendFileSync(path.join(config.dataDir, "deleted-songs.txt"), rel + "\n");
+    // Leave no empty folders behind, but never climb out of the library.
+    const root = path.resolve(config.musicDir);
+    for (let dir = path.dirname(gone.path); dir.startsWith(root) && dir !== root; dir = path.dirname(dir)) {
+      if (fs.readdirSync(dir).length) break;
+      fs.rmdirSync(dir);
+    }
+  } catch (err) {
+    req.log?.warn({ err, path: gone.path }, "Track row removed but the file could not be deleted");
+  }
+  res.sendStatus(204);
 });
 
 musicRoutes.get("/albums", (req: any, res) => {
@@ -213,6 +238,27 @@ musicRoutes.delete("/playlists/:id/tracks/:position", (req: any, res) => {
   res.sendStatus(204);
 });
 
+// ---------- share links (owner side) ----------
+
+const shareSchema = z.object({
+  kind: z.enum(["track", "album", "playlist"]),
+  id: z.string().min(1).max(64),
+  expiresInDays: z.number().int().positive().max(3650).nullable().optional(),
+  allowDownload: z.boolean().optional(),
+});
+
+musicRoutes.get("/shares", (req: any, res) => res.json(shares.listShares(req.user.id)));
+musicRoutes.post("/shares", (req: any, res) => {
+  const body = shareSchema.parse(req.body);
+  const share = shares.createShare(req.user.id, body.kind, body.id, { expiresInDays: body.expiresInDays ?? null, allowDownload: body.allowDownload });
+  if (!share) return res.status(404).json({ error: "Nothing to share" });
+  res.status(201).json(share);
+});
+musicRoutes.delete("/shares/:id", (req: any, res) => {
+  if (!shares.revokeShare(req.user.id, req.params.id)) return res.status(404).json({ error: "Share not found" });
+  res.sendStatus(204);
+});
+
 // ---------- media: art + audio (token-authenticated, mounted without requireAuth) ----------
 
 export const musicMediaRoutes = Router();
@@ -227,8 +273,9 @@ musicMediaRoutes.get("/art/:name", (req: any, res) => {
   res.sendFile(file);
 });
 
-musicMediaRoutes.get("/stream/:id", requireMusicToken, (req: any, res) => {
-  const track = music.getTrackFile(req.params.id);
+/** Stream one file with byte-range support; shared by the private and the public (share link) routes. */
+function sendAudio(req: any, res: any, trackId: string, opts: { download?: string } = {}) {
+  const track = music.getTrackFile(trackId);
   if (!track) return res.status(404).json({ error: "Track not found" });
   if (!track.playable) return res.status(415).json({ error: "This format cannot be played in a browser" });
   if (!fs.existsSync(track.path)) return res.status(404).json({ error: "Audio file is missing from disk" });
@@ -237,6 +284,7 @@ musicMediaRoutes.get("/stream/:id", requireMusicToken, (req: any, res) => {
   res.setHeader("Content-Type", mime);
   res.setHeader("Accept-Ranges", "bytes");
   res.setHeader("Cache-Control", "private, max-age=3600");
+  if (opts.download) res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(opts.download + path.extname(track.path))}`);
   if (req.method === "HEAD") { res.setHeader("Content-Length", stat.size); return res.end(); }
 
   const range = req.headers.range;
@@ -252,4 +300,51 @@ musicMediaRoutes.get("/stream/:id", requireMusicToken, (req: any, res) => {
   res.setHeader("Content-Range", `bytes ${parsed.start}-${parsed.end}/${stat.size}`);
   res.setHeader("Content-Length", parsed.end - parsed.start + 1);
   fs.createReadStream(track.path, { start: parsed.start, end: parsed.end }).pipe(res);
+}
+
+musicMediaRoutes.get("/stream/:id", requireMusicToken, (req: any, res) => sendAudio(req, res, req.params.id));
+
+// ---------- share links (public side): no login, the slug is the credential ----------
+
+const SLUG = /^[A-Za-z0-9]{6,16}$/;
+const fileNameFor = (t: { artist: string; title: string }) => `${t.artist} - ${t.title}`.replace(/[\/:*?"<>|]+/g, "_").slice(0, 150);
+
+musicMediaRoutes.get("/s/:slug", (req: any, res) => {
+  if (!SLUG.test(req.params.slug)) return res.status(404).json({ error: "Not found" });
+  const content = shares.openShare(req.params.slug);
+  if (!content) return res.status(404).json({ error: "This link is no longer available" });
+  res.setHeader("Cache-Control", "no-store");
+  res.json(content);
+});
+
+musicMediaRoutes.get("/s/:slug/stream/:id", (req: any, res) => {
+  if (!SLUG.test(req.params.slug) || !shares.shareGrants(req.params.slug, req.params.id)) return res.status(404).json({ error: "Not found" });
+  sendAudio(req, res, req.params.id);
+});
+
+musicMediaRoutes.get("/s/:slug/download/:id", (req: any, res) => {
+  if (!SLUG.test(req.params.slug) || !shares.shareGrants(req.params.slug, req.params.id, { download: true })) return res.status(404).json({ error: "Not found" });
+  const track = music.getTrack("", req.params.id);
+  if (!track) return res.status(404).json({ error: "Not found" });
+  sendAudio(req, res, req.params.id, { download: fileNameFor(track) });
+});
+
+// archiver is CommonJS; load it via createRequire so the ESM loader is happy.
+const archiver = createRequire(import.meta.url)("archiver") as (format: string, options?: any) => any;
+
+musicMediaRoutes.get("/s/:slug/zip", (req: any, res) => {
+  if (!SLUG.test(req.params.slug)) return res.status(404).json({ error: "Not found" });
+  const set = shares.shareDownloadSet(req.params.slug);
+  if (!set || !set.tracks.length) return res.status(404).json({ error: "Not found" });
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(set.title.replace(/[\/:*?"<>|]+/g, "_").slice(0, 150) + ".zip")}`);
+  const zip = archiver("zip", { store: true }); // audio is already compressed; storing is fast and streams immediately
+  zip.on("error", () => res.destroy());
+  req.on("close", () => zip.abort());
+  zip.pipe(res);
+  set.tracks.forEach((t, i) => {
+    const file = music.getTrackFile(t.id);
+    if (file && fs.existsSync(file.path)) zip.file(file.path, { name: `${String(i + 1).padStart(2, "0")} ${fileNameFor(t)}${path.extname(file.path)}` });
+  });
+  void zip.finalize();
 });

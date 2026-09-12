@@ -280,6 +280,21 @@ export function removeFromQueue(orderIndex: number) {
   set({ queue, order, cursor });
 }
 
+/** A track was deleted from the library: take every copy out of the queue, stopping if it was the one playing. */
+export function dropTrack(trackId: string) {
+  if (!state.queue.some((t) => t.id === trackId)) return;
+  const current = state.queue[state.order[state.cursor]];
+  if (current?.id === trackId) { audio.pause(); audio.removeAttribute("src"); }
+  const keep = state.queue.map((t, i) => (t.id === trackId ? -1 : i));
+  const remap = new Map<number, number>();
+  keep.filter((i) => i >= 0).forEach((old, fresh) => remap.set(old, fresh));
+  const queue = state.queue.filter((t) => t.id !== trackId);
+  const order = state.order.filter((q) => remap.has(q)).map((q) => remap.get(q)!);
+  const removedBefore = state.order.slice(0, state.cursor).filter((q) => !remap.has(q)).length;
+  const cursor = current?.id === trackId ? Math.min(state.cursor - removedBefore, order.length - 1) : state.cursor - removedBefore;
+  set({ queue, order, cursor, ...(current?.id === trackId ? { playing: false, progress: 0, duration: 0 } : {}) });
+}
+
 export function clearQueue() {
   if (active) { active = false; api(`/api/music/playback?deviceId=${encodeURIComponent(deviceId)}`, { method: "DELETE" }).catch(() => undefined); }
   audio.pause();

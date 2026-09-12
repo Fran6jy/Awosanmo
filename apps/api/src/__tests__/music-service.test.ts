@@ -200,3 +200,23 @@ describe("playback session (one active device)", () => {
     expect(got.map((t) => t.title)).toEqual(["Two", "One"]);
   });
 });
+
+describe("deleting a song", () => {
+  it("removes the track, its playlist entries and likes, and any album/artist left empty", () => {
+    const a = seed({ artist: "Solo", album: "Only", title: "Gone" });
+    const b = seed({ artist: "Duo", album: "Two", title: "Stays" });
+    seed({ artist: "Duo", album: "Two", title: "Also stays" });
+    const p = music.createPlaylist(user, "P")!;
+    music.addToPlaylist(user, p.id, a.id); music.addToPlaylist(user, p.id, b.id);
+    music.setLiked(user, a.id, true);
+    expect(music.deleteTrack(a.id)).toEqual({ path: `/m/${a.id}.mp3` });
+    expect(music.getTrack(user, a.id)).toBeNull();
+    expect(music.getAlbum(user, a.albumId)).toBeNull();
+    expect(music.getArtist(user, a.artistId)).toBeNull();
+    expect(music.getPlaylist(user, p.id)!.tracks.map((t) => t.title)).toEqual(["Stays"]);
+    expect(music.likedTracks(user, { limit: 10, offset: 0 }).total).toBe(0);
+    // The other album keeps its remaining track.
+    expect(music.getAlbum(user, b.albumId)!.trackCount).toBe(2);
+    expect(music.deleteTrack(a.id)).toBeNull();
+  });
+});

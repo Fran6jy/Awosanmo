@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, Heart, ListPlus, MoreHorizontal, Play, Volume2 } from "lucide-react";
-import { api, fmtTime, type Playlist, type Track } from "../lib/api";
-import { addToQueue, markLiked, playNext, playTrack, useCurrent, usePlayer, type PlayerState } from "../lib/player";
+import { Clock, Heart, ListPlus, MoreHorizontal, Play, Share2, Trash2, Volume2 } from "lucide-react";
+import { api, fmtTime, sessionRole, type Playlist, type Track } from "../lib/api";
+import { addToQueue, dropTrack, markLiked, playNext, playTrack, useCurrent, usePlayer, type PlayerState } from "../lib/player";
 import { Art } from "./Art";
 import { pushToast } from "./Toast";
+import { ShareDialog } from "./ShareDialog";
 
 /** Shared "like" mutation so every heart in the app stays in sync. */
 export function useLike() {
@@ -34,6 +35,7 @@ export function TrackList({ tracks, context, showAlbum = true, showArt = true, n
   const { playing } = usePlayer();
   const like = useLike();
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [shareFor, setShareFor] = useState<Track | null>(null);
 
   return (
     <div className="mt-2">
@@ -85,29 +87,38 @@ export function TrackList({ tracks, context, showAlbum = true, showArt = true, n
                 </button>
               </div>
               {menuFor === t.id && (
-                <TrackMenu track={t} onClose={() => setMenuFor(null)} onRemove={onRemove ? () => onRemove(t) : undefined} />
+                <TrackMenu track={t} onClose={() => setMenuFor(null)} onRemove={onRemove ? () => onRemove(t) : undefined} onShare={() => { setMenuFor(null); setShareFor(t); }} />
               )}
             </li>
           );
         })}
       </ul>
+      {shareFor && <ShareDialog kind="track" id={shareFor.id} name={`${shareFor.title} — ${shareFor.artist}`} onClose={() => setShareFor(null)} />}
     </div>
   );
 }
 
-function TrackMenu({ track, onClose, onRemove }: { track: Track; onClose: () => void; onRemove?: () => void }) {
+function TrackMenu({ track, onClose, onRemove, onShare }: { track: Track; onClose: () => void; onRemove?: () => void; onShare: () => void }) {
   const qc = useQueryClient();
   const playlists = useQuery({ queryKey: ["music", "playlists"], queryFn: () => api<Playlist[]>("/api/music/playlists") });
   const add = useMutation({
     mutationFn: (playlistId: string) => api(`/api/music/playlists/${playlistId}/tracks`, { method: "POST", body: JSON.stringify({ trackId: track.id }) }),
     onSuccess: (_r, id) => { qc.invalidateQueries({ queryKey: ["music", "playlists"] }); qc.invalidateQueries({ queryKey: ["music", "playlist", id] }); pushToast("Added to playlist"); onClose(); },
   });
+  // Deleting removes the file from the server, so it is admin-only and asks twice (once here, once via confirm).
+  const destroy = useMutation({
+    mutationFn: () => api(`/api/music/tracks/${track.id}`, { method: "DELETE" }),
+    onSuccess: () => { dropTrack(track.id); qc.invalidateQueries({ queryKey: ["music"] }); pushToast(`Deleted “${track.title}”`); onClose(); },
+    onError: () => pushToast("Could not delete the song"),
+  });
+  const isAdmin = sessionRole() === "admin";
   return (
     <>
       <div className="fixed inset-0 z-30" onClick={onClose} />
       <div className="absolute right-2 top-10 z-40 w-56 rounded-lg border border-line bg-raised p-1 shadow-card">
         <MenuItem onClick={() => { playNext([track]); onClose(); }}>Play next</MenuItem>
         <MenuItem onClick={() => { addToQueue([track]); pushToast("Added to queue"); onClose(); }}>Add to queue</MenuItem>
+        <MenuItem onClick={onShare}><Share2 className="mr-2 h-4 w-4 text-dim" />Share</MenuItem>
         <div className="my-1 border-t border-line" />
         <p className="px-3 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-dim">Add to playlist</p>
         <div className="max-h-40 overflow-y-auto">
@@ -118,6 +129,12 @@ function TrackMenu({ track, onClose, onRemove }: { track: Track; onClose: () => 
         <div className="my-1 border-t border-line" />
         <Link to={`/album/${track.albumId}`} onClick={onClose} className="block rounded px-3 py-2 text-sm text-cream hover:bg-surface2">Go to album</Link>
         <Link to={`/artist/${track.artistId}`} onClick={onClose} className="block rounded px-3 py-2 text-sm text-cream hover:bg-surface2">Go to artist</Link>
+        {isAdmin && <><div className="my-1 border-t border-line" />
+          <MenuItem danger onClick={() => { if (confirm(`Delete “${track.title}” from the library?
+
+This removes the file from the server. It cannot be undone.`)) destroy.mutate(); }}>
+            <Trash2 className="mr-2 h-4 w-4" />Delete from library
+          </MenuItem></>}
       </div>
     </>
   );

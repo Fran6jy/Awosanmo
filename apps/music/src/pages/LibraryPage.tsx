@@ -1,14 +1,16 @@
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
-import { api, fmtLong, type Album, type Artist, type Playlist, type Track } from "../lib/api";
+import { Copy, Link2, RefreshCw, Trash2 } from "lucide-react";
+import { api, fmtLong, shareLink, type Album, type Artist, type Playlist, type Share, type Track } from "../lib/api";
 import { playQueue } from "../lib/player";
 import { AlbumCard, ArtistCard, PlaylistCard } from "../components/Cards";
 import { TrackList } from "../components/TrackList";
 import { pushToast } from "../components/Toast";
+import { Art } from "../components/Art";
+import { copyText } from "../components/ShareDialog";
 
 type Status = { enabled: boolean; scanning: boolean; lastScan: { at: string; added: number; scanned: number; seconds: number } | null; tracks: number; albums: number; artists: number; durationSeconds: number };
-const TABS = ["playlists", "albums", "artists", "songs"] as const;
+const TABS = ["playlists", "albums", "artists", "songs", "shared links"] as const;
 
 export function LibraryPage() {
   const [params, setParams] = useSearchParams();
@@ -19,6 +21,8 @@ export function LibraryPage() {
   const albums = useQuery({ queryKey: ["music", "albums", "artist"], queryFn: () => api<Album[]>("/api/music/albums?sort=artist&limit=200"), enabled: tab === "albums" });
   const artists = useQuery({ queryKey: ["music", "artists"], queryFn: () => api<Artist[]>("/api/music/artists?limit=500"), enabled: tab === "artists" });
   const songs = useQuery({ queryKey: ["music", "tracks", "artist"], queryFn: () => api<Track[]>("/api/music/tracks?sort=artist&limit=200"), enabled: tab === "songs" });
+  const shares = useQuery({ queryKey: ["music", "shares"], queryFn: () => api<Share[]>("/api/music/shares"), enabled: tab === "shared links" });
+  const revoke = useMutation({ mutationFn: (id: string) => api(`/api/music/shares/${id}`, { method: "DELETE" }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["music", "shares"] }); pushToast("Link revoked"); } });
   const scan = useMutation({ mutationFn: () => api("/api/music/scan", { method: "POST" }), onSuccess: () => { pushToast("Scanning library…"); qc.invalidateQueries({ queryKey: ["music", "status"] }); }, onError: (e: Error) => pushToast(e.message.slice(0, 80)) });
 
   const st = status.data;
@@ -59,7 +63,42 @@ export function LibraryPage() {
           </div>
         )}
         {tab === "songs" && songs.data && <TrackList tracks={songs.data} context={{ kind: "tracks", name: "All songs" }} />}
+        {tab === "shared links" && <SharesList shares={shares.data} onRevoke={(id) => revoke.mutate(id)} />}
       </div>
     </div>
+  );
+}
+
+/** Every link the user has handed out, with what it points at, how often it was opened, and a way to kill it. */
+function SharesList({ shares, onRevoke }: { shares: Share[] | undefined; onRevoke: (id: string) => void }) {
+  if (!shares) return null;
+  if (!shares.length) return <p className="text-sm text-muted">No links yet — use <Link2 className="inline h-4 w-4" /> Share on a song, album or playlist.</p>;
+  const now = Date.now();
+  return (
+    <ul className="divide-y divide-line">
+      {shares.map((sh) => {
+        const expired = sh.expiresAt !== null && sh.expiresAt < now;
+        const status = expired ? "Expired" : sh.expiresAt ? `Expires ${new Date(sh.expiresAt).toLocaleDateString()}` : "Never expires";
+        return (
+          <li key={sh.id} className="flex items-center gap-3 py-3">
+            <Art src={sh.art} seed={sh.targetId} className="h-12 w-12 shrink-0" iconSize={0.5} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-cream">{sh.title} <span className="font-normal text-muted">· {sh.subtitle}</span></p>
+              <p className={`truncate text-xs ${expired ? "text-accent2" : "text-dim"}`}>
+                <span className="capitalize">{sh.kind}</span> · {sh.trackCount} song{sh.trackCount === 1 ? "" : "s"} · {status} · {sh.allowDownload ? "downloads on" : "listen only"} · opened {sh.views}×
+              </p>
+            </div>
+            {!expired && (
+              <button type="button" onClick={async () => pushToast((await copyText(shareLink(sh.id))) ? "Link copied" : "Copy failed")} aria-label="Copy link" title="Copy link"
+                className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-cream hover:text-cream">
+                <Copy className="h-3.5 w-3.5" /> Copy
+              </button>
+            )}
+            <button type="button" onClick={() => { if (confirm(`Revoke this link? Anyone who has it will lose access.`)) onRevoke(sh.id); }} aria-label="Revoke link" title="Revoke"
+              className="text-dim hover:text-accent2"><Trash2 className="h-4 w-4" /></button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

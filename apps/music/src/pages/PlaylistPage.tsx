@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImageOff, Pencil, Trash2 } from "lucide-react";
+import { ImageOff, Pencil, Share2, Trash2 } from "lucide-react";
 import { api, fmtLong, uploadPlaylistCover, type Playlist, type Track } from "../lib/api";
 import { playQueue, toggle, toggleShuffle, usePlayer } from "../lib/player";
 import { CollectionHeader } from "../components/CollectionHeader";
 import { TrackList } from "../components/TrackList";
 import { pushToast } from "../components/Toast";
+import { ShareDialog } from "../components/ShareDialog";
 
 type PlaylistFull = Playlist & { tracks: Track[] };
 
@@ -17,6 +18,7 @@ export function PlaylistPage() {
   const s = usePlayer();
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState("");
+  const [sharing, setSharing] = useState(false);
   const playlist = useQuery({ queryKey: ["music", "playlist", id], queryFn: () => api<PlaylistFull>(`/api/music/playlists/${id}`), enabled: Boolean(id) });
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["music", "playlist", id] }); qc.invalidateQueries({ queryKey: ["music", "playlists"] }); };
   const rename = useMutation({ mutationFn: () => api(`/api/music/playlists/${id}`, { method: "PUT", body: JSON.stringify({ name }) }), onSuccess: () => { invalidate(); setRenaming(false); } });
@@ -41,10 +43,12 @@ export function PlaylistPage() {
         onPlay={() => (isThis ? void toggle() : void playQueue(p.tracks, 0, context))}
         onShuffle={() => { if (!s.shuffle) toggleShuffle(); void playQueue(p.tracks, 0, context); }}
         onChangeArt={(file) => setCover.mutate(file)}>
+        <button type="button" onClick={() => setSharing(true)} aria-label="Share playlist" title="Share" className="text-dim hover:text-cream"><Share2 className="h-5 w-5" /></button>
         <button type="button" onClick={() => { setName(p.name); setRenaming(true); }} aria-label="Rename" className="text-dim hover:text-cream"><Pencil className="h-5 w-5" /></button>
         {p.customArt && <button type="button" onClick={() => clearCover.mutate()} aria-label="Remove custom cover" title="Remove custom cover" className="text-dim hover:text-cream"><ImageOff className="h-5 w-5" /></button>}
         <button type="button" onClick={() => { if (confirm(`Delete “${p.name}”?`)) remove.mutate(); }} aria-label="Delete playlist" className="text-dim hover:text-accent2"><Trash2 className="h-5 w-5" /></button>
       </CollectionHeader>
+      {sharing && <ShareDialog kind="playlist" id={p.id} name={p.name} onClose={() => setSharing(false)} />}
       {renaming && (
         <form onSubmit={(e) => { e.preventDefault(); if (name.trim()) rename.mutate(); }} className="mb-4 flex gap-2">
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={100} className="h-10 flex-1 rounded-md bg-surface2 px-3 text-cream focus:outline-none focus:ring-2 focus:ring-accent" />

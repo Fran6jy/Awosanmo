@@ -20,7 +20,7 @@ export type TrackView = {
   liked?: boolean;
 };
 
-const TRACK_SELECT = `
+export const TRACK_SELECT = `
   SELECT t.id, t.title, t.track_no, t.disc_no, t.duration, t.genre, t.year, t.playable,
          COALESCE(t.art_path, al.art_path) AS art,
          a.name AS artist, a.id AS artist_id,
@@ -32,7 +32,7 @@ const TRACK_SELECT = `
   JOIN music_artists aa ON aa.id = al.artist_id
 `;
 
-function toView(row: any, liked?: Set<string>): TrackView {
+export function toView(row: any, liked?: Set<string>): TrackView {
   return {
     id: row.id, title: row.title, artist: row.artist, artistId: row.artist_id,
     album: row.album, albumId: row.album_id, albumArtist: row.album_artist,
@@ -76,6 +76,27 @@ export function getTrack(userId: string, id: string): TrackView | null {
 /** Raw path/size for streaming; kept off the public view shape on purpose. */
 export function getTrackFile(id: string): { path: string; size: number; mime: string | null; playable: number } | null {
   return db.prepare("SELECT path, size, mime, playable FROM music_tracks WHERE id = ?").get(id) as any ?? null;
+}
+
+/**
+ * Remove a track from the index. Playlist entries, plays and likes go with it
+ * (foreign keys cascade) and an album or artist left with nothing is dropped,
+ * exactly as the scanner does when a file disappears. Returns the file path so
+ * the caller can delete it from disk; null if the track did not exist.
+ */
+export function deleteTrack(id: string): { path: string } | null {
+  const row = db.prepare("SELECT path FROM music_tracks WHERE id = ?").get(id) as { path: string } | undefined;
+  if (!row) return null;
+  db.transaction(() => {
+    db.prepare("DELETE FROM music_tracks WHERE id = ?").run(id);
+    db.exec(`
+      DELETE FROM music_albums WHERE id NOT IN (SELECT DISTINCT album_id FROM music_tracks);
+      DELETE FROM music_artists WHERE id NOT IN (SELECT DISTINCT artist_id FROM music_tracks)
+        AND id NOT IN (SELECT DISTINCT artist_id FROM music_albums);
+    `);
+  })();
+  invalidateHome();
+  return { path: row.path };
 }
 
 export function listTracks(userId: string, opts: { limit: number; offset: number; sort?: "title" | "added" | "artist" }) {
@@ -181,8 +202,8 @@ export function search(userId: string, q: string) {
 function buildHome(userId: string) {
   const recent = withLikes(userId, db.prepare(`
     ${TRACK_SELECT}
-    JOIN (SELECT track_id, MAX(played_at) AS last FROM music_plays WHERE user_id = ? GROUP BY track_id ORDER BY last DESC LIMIT 12) p ON p.track_id = t.id
-    ORDER BY p.last DESC
+    JOIN (SELECT track_id, MAX(played_at) AS last, MAX(id) AS last_id FROM music_plays WHERE user_id = ? GROUP BY track_id ORDER BY last DESC, last_id DESC LIMIT 12) p ON p.track_id = t.id
+    ORDER BY p.last DESC, p.last_id DESC
   `).all(userId));
   const onRepeat = withLikes(userId, db.prepare(`
     ${TRACK_SELECT}
