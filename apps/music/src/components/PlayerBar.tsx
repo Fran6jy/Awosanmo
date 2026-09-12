@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, ListMusic, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
+import { Heart, ListMusic, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, SlidersHorizontal, Volume1, Volume2, VolumeX } from "lucide-react";
 import { fmtTime } from "../lib/api";
-import { cycleRepeat, next, prev, seek, setVolume, takeOver, toggle, toggleMute, toggleShuffle, useCurrent, usePlayer } from "../lib/player";
+import { crossfadeSupported, cycleRepeat, next, prev, seek, setCrossfade, setGaplessAlbums, setVolume, takeOver, toggle, toggleMute, toggleShuffle, useCurrent, usePlayer } from "../lib/player";
 import { useRemotePlayback } from "../lib/session";
 import { MonitorSpeaker } from "lucide-react";
 import { Art } from "./Art";
@@ -25,6 +25,7 @@ export function PlayerBar() {
   const track = useCurrent();
   const like = useLike();
   const [queueOpen, setQueueOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const remote = useRemotePlayback();
   const [switching, setSwitching] = useState(false);
   const VolIcon = s.muted || s.volume === 0 ? VolumeX : s.volume < 0.5 ? Volume1 : Volume2;
@@ -34,6 +35,7 @@ export function PlayerBar() {
   return (
     <>
       {queueOpen && <QueuePanel onClose={() => setQueueOpen(false)} />}
+      {settingsOpen && <PlaybackSettings onClose={() => setSettingsOpen(false)} />}
       <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         {/* Spotify Connect-style banner: the session is live on another device. */}
         {elsewhere && (
@@ -106,11 +108,47 @@ export function PlayerBar() {
             <button type="button" aria-label="Next" onClick={() => void next()} className="text-muted sm:hidden"><SkipForward className="h-5 w-5 fill-current" /></button>
             {/* desktop extras */}
             <button type="button" aria-label="Queue" onClick={() => setQueueOpen((o) => !o)} className={`hidden sm:block ${queueOpen ? "text-accent2" : "text-dim hover:text-cream"}`}><ListMusic className="h-4 w-4" /></button>
+            <button type="button" aria-label="Playback settings" title="Crossfade & playback" onClick={() => setSettingsOpen((o) => !o)}
+              className={`${settingsOpen || s.crossfade ? "text-accent2" : "text-dim hover:text-cream"}`}><SlidersHorizontal className="h-4 w-4" /></button>
             <button type="button" aria-label="Mute" onClick={toggleMute} className="hidden text-dim hover:text-cream sm:block"><VolIcon className="h-4 w-4" /></button>
             <Slider value={s.muted ? 0 : s.volume} max={1} onChange={setVolume} className="hidden w-24 sm:block" />
           </div>
         </div>
       </footer>
+    </>
+  );
+}
+
+const CROSSFADE_STEPS = [0, 3, 6, 9, 12];
+
+/** Small popover above the bar: crossfade length and the gapless-album exception. */
+function PlaybackSettings({ onClose }: { onClose: () => void }) {
+  const s = usePlayer();
+  const supported = crossfadeSupported();
+  return (
+    <>
+      <div className="fixed inset-0 z-30" onClick={onClose} />
+      <div className="fixed bottom-[80px] right-3 z-40 w-72 rounded-xl border border-line bg-raised p-4 shadow-card sm:bottom-[96px]" role="dialog" aria-label="Playback settings">
+        <p className="text-xs font-semibold uppercase tracking-wider text-dim">Crossfade</p>
+        <div className="mt-2 flex gap-1.5">
+          {CROSSFADE_STEPS.map((n) => (
+            <button key={n} type="button" disabled={!supported && n > 0} onClick={() => setCrossfade(n)}
+              className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition disabled:opacity-40 ${s.crossfade === n ? "bg-cream text-ink" : "bg-surface2 text-cream hover:bg-panel"}`}>
+              {n === 0 ? "Off" : `${n}s`}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          {supported ? "The next song fades in under the end of the current one." : "Not available in this browser — iPhone and iPad browsers do not let web apps change playback volume."}
+        </p>
+        <label className={`mt-4 flex cursor-pointer items-start justify-between gap-3 ${s.crossfade ? "" : "opacity-50"}`}>
+          <span>
+            <span className="block text-sm font-semibold text-cream">Keep albums gapless</span>
+            <span className="block text-xs text-muted">Consecutive tracks of an album run straight through, so live sets and mixes stay intact.</span>
+          </span>
+          <input type="checkbox" checked={s.gaplessAlbums} disabled={!s.crossfade} onChange={(e) => setGaplessAlbums(e.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-accent" />
+        </label>
+      </div>
     </>
   );
 }

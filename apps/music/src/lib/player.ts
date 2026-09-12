@@ -23,19 +23,40 @@ export type PlayerState = {
   duration: number;
   volume: number;
   muted: boolean;
+  /** Seconds the next song overlaps the end of the current one; 0 = off. */
+  crossfade: number;
+  /** Let consecutive tracks of one album run straight into each other instead of crossfading. */
+  gaplessAlbums: boolean;
   /** Where the queue came from, for "playing from Album X" in the bar. */
   context: { kind: "album" | "artist" | "playlist" | "liked" | "genre" | "search" | "home" | "tracks"; name: string } | null;
 };
 
-const audio = new Audio();
-audio.preload = "auto";
+// Two decks: the one playing, and a standby that the next track is preloaded
+// into so it can start under the current one for a crossfade (or instantly on
+// "next"). `audio` always points at the deck the listener hears.
+const decks = [new Audio(), new Audio()];
+for (const d of decks) d.preload = "auto";
+let audio = decks[0];
+const standby = () => (audio === decks[0] ? decks[1] : decks[0]);
 
 let state: PlayerState = {
   queue: [], order: [], cursor: -1, playing: false, shuffle: false, repeat: "off",
   progress: 0, duration: 0,
-  volume: Number(localStorage.getItem("jy.volume") ?? 0.9), muted: false, context: null,
+  volume: Number(localStorage.getItem("jy.volume") ?? 0.9), muted: false,
+  crossfade: Number(localStorage.getItem("jy.crossfade") ?? 0),
+  gaplessAlbums: localStorage.getItem("jy.gapless") !== "0",
+  context: null,
 };
 audio.volume = state.volume;
+
+/** iOS browsers ignore element volume, which makes a fade impossible there. */
+export function crossfadeSupported(): boolean {
+  const probe = decks[1];
+  probe.volume = 0.5;
+  const ok = probe.volume === 0.5;
+  probe.volume = state.volume;
+  return ok;
+}
 
 const listeners = new Set<() => void>();
 function emit() { for (const l of listeners) l(); }
@@ -127,27 +148,132 @@ export async function takeOver(r: RemotePlayback = currentRemote()!) {
 }
 
 // ---------- audio element wiring ----------
-audio.addEventListener("timeupdate", () => {
-  const dt = audio.currentTime - lastTick;
-  if (dt > 0 && dt < 2) listenedSeconds += dt;
-  lastTick = audio.currentTime;
-  set({ progress: audio.currentTime, duration: audio.duration || state.duration });
-  countPlayIfDue();
-  updatePositionState();
-  report();
-});
-audio.addEventListener("durationchange", () => set({ duration: audio.duration || 0 }));
-audio.addEventListener("play", () => { set({ playing: true }); claim(); report(true); });
-audio.addEventListener("pause", () => { set({ playing: false }); if (!yielding) report(true); });
-audio.addEventListener("ended", () => { countPlayIfDue(true); next(true); });
-audio.addEventListener("error", () => {
-  // A broken file should not stall the whole queue: move on after a beat.
-  setTimeout(() => next(true), 800);
-});
+// Both decks are wired; events from the standby deck (a preload finishing, the
+// old song ending under a crossfade) are ignored.
+for (const el of decks) {
+  el.addEventListener("timeupdate", () => {
+    if (el !== audio) return;
+    const dt = audio.currentTime - lastTick;
+    if (dt > 0 && dt < 2) listenedSeconds += dt;
+    lastTick = audio.currentTime;
+    set({ progress: audio.currentTime, duration: audio.duration || state.duration });
+    countPlayIfDue();
+    updatePositionState();
+    report();
+    maybeCrossfade();
+  });
+  el.addEventListener("durationchange", () => { if (el === audio) set({ duration: audio.duration || 0 }); });
+  el.addEventListener("play", () => { if (el !== audio) return; set({ playing: true }); claim(); report(true); });
+  el.addEventListener("pause", () => { if (el !== audio) return; set({ playing: false }); if (!yielding) report(true); });
+  el.addEventListener("ended", () => { if (el !== audio) return; countPlayIfDue(true); next(true); });
+  el.addEventListener("error", () => {
+    if (el !== audio) { preloadedFor = null; return; }
+    // A broken file should not stall the whole queue: move on after a beat.
+    setTimeout(() => next(true), 800);
+  });
+}
+
+// ---------- crossfade ----------
+let preloadedFor: string | null = null;           // track id sitting in the standby deck
+let fade: { from: HTMLAudioElement; timer: number } | null = null;
+
+/** The track that will play after the current one under the current repeat/shuffle rules. */
+function upcoming(): { cursor: number; track: Track } | null {
+  if (!state.order.length || state.repeat === "one") return null;
+  let cursor = state.cursor + 1;
+  if (cursor >= state.order.length) {
+    if (state.repeat !== "all") return null;
+    cursor = 0;
+  }
+  return { cursor, track: state.queue[state.order[cursor]] };
+}
+
+/** Consecutive tracks of one album (a live set, a mix) are meant to run together. */
+function albumNeighbours(a: Track | null, b: Track): boolean {
+  return !!a && a.albumId === b.albumId && (a.discNo ?? 1) === (b.discNo ?? 1)
+    && a.trackNo !== null && b.trackNo !== null && b.trackNo === a.trackNo + 1;
+}
+
+async function preload(track: Track) {
+  if (preloadedFor === track.id) return;
+  preloadedFor = track.id;
+  const el = standby();
+  el.pause();
+  el.src = streamUrl(track.id, await getMusicToken());
+  el.load();
+}
+
+function stopFade() {
+  if (!fade) return;
+  clearInterval(fade.timer);
+  fade.from.pause();
+  fade = null;
+  audio.volume = state.volume;
+}
+
+function maybeCrossfade() {
+  if (!state.crossfade || fade || audio.paused) return;
+  const remaining = audio.duration - audio.currentTime;
+  if (!Number.isFinite(remaining)) return;
+  const nxt = upcoming();
+  if (!nxt || !nxt.track.playable) return;
+  if (state.gaplessAlbums && albumNeighbours(current(), nxt.track)) return;
+  if (remaining <= state.crossfade + 15) void preload(nxt.track);
+  if (remaining <= state.crossfade && preloadedFor === nxt.track.id && standby().readyState >= 2) void startCrossfade(nxt);
+}
+
+async function startCrossfade(nxt: { cursor: number; track: Track }) {
+  const from = audio;
+  const to = standby();
+  to.currentTime = 0;
+  to.volume = 0;
+  to.muted = from.muted;
+  try { await to.play(); } catch { return; } // if the browser refuses, the song simply ends normally
+  countPlayIfDue(true);
+  // Hand over: from here on the incoming deck is "the player".
+  audio = to;
+  preloadedFor = null;
+  set({ cursor: nxt.cursor, progress: 0, duration: nxt.track.duration ?? 0 });
+  resetPlayAccounting();
+  updateMediaSession(nxt.track);
+  claim();
+  report(true);
+  // Equal-power curve: the mix stays at constant loudness through the overlap.
+  const ms = state.crossfade * 1000;
+  const started = performance.now();
+  const timer = window.setInterval(() => {
+    const p = Math.min(1, (performance.now() - started) / ms);
+    from.volume = state.volume * Math.cos(p * Math.PI / 2);
+    to.volume = state.volume * Math.sin(p * Math.PI / 2);
+    if (p >= 1 && fade?.timer === timer) { clearInterval(timer); from.pause(); fade = null; }
+  }, 40);
+  fade = { from, timer };
+}
+
+export function setCrossfade(seconds: number) {
+  const crossfade = Math.max(0, Math.min(12, Math.round(seconds)));
+  localStorage.setItem("jy.crossfade", String(crossfade));
+  set({ crossfade });
+}
+export function setGaplessAlbums(on: boolean) {
+  localStorage.setItem("jy.gapless", on ? "1" : "0");
+  set({ gaplessAlbums: on });
+}
 
 async function load(track: Track, autoplay: boolean) {
-  const mt = await getMusicToken();
-  audio.src = streamUrl(track.id, mt);
+  stopFade();
+  if (preloadedFor === track.id && standby().readyState >= 1) {
+    // Already buffered in the standby deck (it was up next): switch decks instead of refetching.
+    const old = audio;
+    audio = standby();
+    old.pause();
+    audio.currentTime = 0;
+  } else {
+    audio.src = streamUrl(track.id, await getMusicToken());
+  }
+  preloadedFor = null;
+  audio.volume = state.volume;
+  audio.muted = state.muted;
   resetPlayAccounting();
   set({ progress: 0, duration: track.duration ?? 0 });
   updateMediaSession(track);
@@ -212,9 +338,9 @@ export function playNext(tracks: Track[]) {
 
 export async function toggle() {
   if (!current()) return;
-  if (audio.paused) { try { await audio.play(); } catch { /* ignore */ } } else audio.pause();
+  if (audio.paused) { try { await audio.play(); } catch { /* ignore */ } } else { stopFade(); audio.pause(); }
 }
-export function pause() { audio.pause(); }
+export function pause() { stopFade(); audio.pause(); }
 
 export async function next(auto = false) {
   if (!state.order.length) return;
@@ -222,7 +348,7 @@ export async function next(auto = false) {
   let cursor = state.cursor + 1;
   if (cursor >= state.order.length) {
     if (state.repeat === "all") cursor = 0;
-    else { audio.pause(); set({ cursor: state.order.length - 1, progress: 0 }); audio.currentTime = 0; return; }
+    else { stopFade(); audio.pause(); set({ cursor: state.order.length - 1, progress: 0 }); audio.currentTime = 0; return; }
   }
   set({ cursor });
   await load(state.queue[state.order[cursor]], true);
@@ -252,12 +378,12 @@ export function seek(seconds: number) {
 
 export function setVolume(v: number) {
   const volume = Math.max(0, Math.min(1, v));
-  audio.volume = volume;
-  audio.muted = false;
+  if (!fade) audio.volume = volume; // during a fade the ramp applies the new level itself
+  for (const d of decks) d.muted = false;
   localStorage.setItem("jy.volume", String(volume));
   set({ volume, muted: false });
 }
-export function toggleMute() { audio.muted = !audio.muted; set({ muted: audio.muted }); }
+export function toggleMute() { const muted = !audio.muted; for (const d of decks) d.muted = muted; set({ muted }); }
 
 export function toggleShuffle() {
   const shuffle = !state.shuffle;
@@ -284,7 +410,8 @@ export function removeFromQueue(orderIndex: number) {
 export function dropTrack(trackId: string) {
   if (!state.queue.some((t) => t.id === trackId)) return;
   const current = state.queue[state.order[state.cursor]];
-  if (current?.id === trackId) { audio.pause(); audio.removeAttribute("src"); }
+  if (current?.id === trackId) { stopFade(); audio.pause(); audio.removeAttribute("src"); }
+  if (preloadedFor === trackId) { standby().removeAttribute("src"); preloadedFor = null; }
   const keep = state.queue.map((t, i) => (t.id === trackId ? -1 : i));
   const remap = new Map<number, number>();
   keep.filter((i) => i >= 0).forEach((old, fresh) => remap.set(old, fresh));
@@ -297,8 +424,9 @@ export function dropTrack(trackId: string) {
 
 export function clearQueue() {
   if (active) { active = false; api(`/api/music/playback?deviceId=${encodeURIComponent(deviceId)}`, { method: "DELETE" }).catch(() => undefined); }
-  audio.pause();
-  audio.removeAttribute("src");
+  stopFade();
+  for (const d of decks) { d.pause(); d.removeAttribute("src"); }
+  preloadedFor = null;
   set({ queue: [], order: [], cursor: -1, playing: false, progress: 0, duration: 0, context: null });
   if ("mediaSession" in navigator) navigator.mediaSession.metadata = null;
 }
