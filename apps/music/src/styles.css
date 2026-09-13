@@ -18,3 +18,9 @@ body { overscroll-behavior-y: none; }
 .slider:hover { --slider-fill: #C43A4E; }
 .slider:hover::-webkit-slider-thumb, .slider:focus-visible::-webkit-slider-thumb { opacity: 1; }
 .slider:hover::-moz-range-thumb, .slider:focus-visible::-moz-range-thumb { opacity: 1; }
+
+/* Now Playing scrub bar: always-visible thumb sized for a finger. */
+.slider-lg { height: 6px; }
+.slider-lg::-webkit-slider-thumb { width: 16px; height: 16px; opacity: 1; }
+.slider-lg::-moz-range-thumb { width: 16px; height: 16px; opacity: 1; }
+input[type="search"]::-webkit-search-decoration, input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }

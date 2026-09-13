@@ -3,14 +3,15 @@ import { Trash2, X } from "lucide-react";
 import { clearQueue, jumpTo, removeFromQueue, useCurrent, usePlayer } from "../lib/player";
 import { Art } from "./Art";
 
-export function QueuePanel({ onClose }: { onClose: () => void }) {
+export function QueuePanel({ onClose, overlay = false }: { onClose: () => void; /** Full-height and above everything: used from the Now Playing sheet. */ overlay?: boolean }) {
   const s = usePlayer();
   const now = useCurrent();
   const upcoming = s.order.map((q, i) => ({ track: s.queue[q], orderIndex: i })).slice(s.cursor + 1);
 
   return (
     <motion.aside initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
-      className="fixed bottom-[88px] right-0 top-0 z-30 w-full max-w-sm overflow-y-auto border-l border-line bg-panel/95 p-4 backdrop-blur-xl">
+      className={`fixed right-0 top-0 w-full overflow-y-auto border-l border-line bg-panel/95 p-4 backdrop-blur-xl ${overlay ? "bottom-0 z-[60] max-w-md" : "bottom-[88px] z-30 max-w-sm"}`}
+      style={overlay ? { paddingTop: "calc(env(safe-area-inset-top) + 1rem)", paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" } : undefined}>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-cream">Queue</h2>
         <div className="flex gap-2">

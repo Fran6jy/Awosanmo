@@ -13,6 +13,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const qc = useQueryClient();
   const [q, setQ] = useState(new URLSearchParams(location.search).get("q") ?? "");
   const searchRef = useRef<HTMLInputElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  // The shell is fixed-height and only <main> scrolls (so the iOS keyboard cannot
+  // scroll the header away); that means we reset the scroll position ourselves on navigation.
+  useEffect(() => { mainRef.current?.scrollTo({ top: 0 }); }, [location.pathname]);
   const playlists = useQuery({ queryKey: ["music", "playlists"], queryFn: () => api<Playlist[]>("/api/music/playlists") });
   const create = useMutation({
     mutationFn: () => api<Playlist>("/api/music/playlists", { method: "POST", body: JSON.stringify({ name: `My Playlist #${(playlists.data?.length ?? 0) + 1}` }) }),
@@ -42,9 +46,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const active = ({ isActive }: { isActive: boolean }) => `${navItem} ${isActive ? "text-cream" : ""}`;
 
   return (
-    <div className="flex min-h-screen bg-ink text-cream">
+    <div className="flex h-[100dvh] overflow-hidden bg-ink text-cream">
       {/* sidebar (desktop) */}
-      <aside className="hidden w-64 shrink-0 flex-col gap-2 p-2 md:flex" style={{ height: "calc(100vh - 88px)", position: "sticky", top: 0 }}>
+      <aside className="hidden w-64 shrink-0 flex-col gap-2 p-2 pb-[96px] md:flex">
         <nav className="rounded-lg bg-panel p-3">
           <Link to="/" className="mb-4 flex items-center gap-2 px-3 pt-1">
             <img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" />
@@ -76,16 +80,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* main */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center gap-3 bg-ink/80 px-4 py-3 backdrop-blur-xl md:px-6">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="z-20 flex shrink-0 items-center gap-3 bg-ink/80 px-4 py-3 backdrop-blur-xl md:px-6" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
           <Link to="/" className="flex items-center gap-2 md:hidden"><img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" /></Link>
           <label className="relative flex-1 md:max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dim" />
-            <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="What do you want to play?"
+            <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="What do you want to play?" type="search" enterKeyHint="search" autoCorrect="off" autoCapitalize="none"
+              onFocus={() => { if (location.pathname !== "/search") nav("/search"); }}
               className="h-11 w-full rounded-full border border-transparent bg-surface2 pl-10 pr-4 text-sm text-cream placeholder:text-dim focus:border-line focus:outline-none focus:ring-2 focus:ring-accent/50" />
           </label>
         </header>
-        <main className="flex-1 px-4 pb-32 md:px-6">{children}</main>
+        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-40 md:px-6 md:pb-32" style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}>{children}</main>
       </div>
 
       {/* bottom nav (mobile) */}

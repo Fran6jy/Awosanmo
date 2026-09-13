@@ -38,10 +38,10 @@ export function LibraryPage() {
           <RefreshCw className={`h-4 w-4 ${st?.scanning ? "animate-spin" : ""}`} /> {st?.scanning ? "Scanning…" : "Rescan library"}
         </button>
       </div>
-      <div className="mt-4 flex gap-2">
+      <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0" style={{ scrollbarWidth: "none" }}>
         {TABS.map((t) => (
           <button key={t} type="button" onClick={() => setParams({ tab: t })}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold capitalize transition ${tab === t ? "bg-cream text-ink" : "bg-raised/70 text-cream hover:bg-raised"}`}>{t}</button>
+            className={`shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold capitalize transition ${tab === t ? "bg-cream text-ink" : "bg-raised/70 text-cream hover:bg-raised"}`}>{t}</button>
         ))}
       </div>
 
