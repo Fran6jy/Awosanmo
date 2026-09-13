@@ -17,31 +17,49 @@ export type MoodDef = {
   blurb: string;
   /** Tailwind-free colours so the client can paint the tile without knowing the rules. */
   colors: [string, string];
-  /** SQL over music_features f; keep it cheap. */
-  where: string;
+  /** SQL over music_features f, built from the library's own percentiles so "chill" means the calmest third of what you own. */
+  where: (p: Percentiles) => string;
   /** How to order within the mood so the best fits come first. */
   fit: string;
 };
 
+/** Percentile cut-offs of the analysed library: loud masters make absolute thresholds meaningless. */
+export type Percentiles = { e30: number; e50: number; e70: number; t35: number; t50: number; t65: number; b35: number; b65: number; d50: number; d75: number; dyn40: number };
+
+function percentiles(): Percentiles {
+  const col = (name: string, q: number) => {
+    const n = (db.prepare("SELECT COUNT(*) AS n FROM music_features WHERE tempo IS NOT NULL").get() as any).n as number;
+    if (!n) return 0;
+    const off = Math.max(0, Math.min(n - 1, Math.floor(q * (n - 1))));
+    return (db.prepare(`SELECT ${name} AS v FROM music_features WHERE tempo IS NOT NULL ORDER BY ${name} LIMIT 1 OFFSET ?`).get(off) as any).v as number;
+  };
+  return {
+    e30: col("energy", 0.3), e50: col("energy", 0.5), e70: col("energy", 0.7),
+    t35: col("tempo", 0.35), t50: col("tempo", 0.5), t65: col("tempo", 0.65),
+    b35: col("brightness", 0.35), b65: col("brightness", 0.65),
+    d50: col("dance", 0.5), d75: col("dance", 0.75), dyn40: col("dynamics", 0.4),
+  };
+}
+
 export const MOODS: MoodDef[] = [
   { id: "hype", name: "Hype", blurb: "Loud, fast and made to move", colors: ["#A32638", "#5C1420"],
-    where: "f.energy >= 0.6 AND f.tempo >= 116 AND f.dance >= 0.55", fit: "f.energy * f.dance DESC" },
+    where: (p) => `f.energy >= ${p.e70} AND f.tempo >= ${p.t65} AND f.dance >= ${p.d50}`, fit: "f.energy * f.dance DESC" },
   { id: "party", name: "Party", blurb: "The groove never lets go", colors: ["#B8471F", "#5A2410"],
-    where: "f.dance >= 0.8 AND f.energy >= 0.5 AND f.tempo BETWEEN 96 AND 135", fit: "f.dance DESC, f.energy DESC" },
+    where: (p) => `f.dance >= ${p.d75} AND f.energy >= ${p.e50} AND f.tempo BETWEEN ${p.t35} AND ${p.t65}`, fit: "f.dance DESC, f.energy DESC" },
   { id: "feelgood", name: "Feel good", blurb: "Bright, warm and easy", colors: ["#D4A056", "#7A5520"],
-    where: "f.brightness >= 0.28 AND f.energy BETWEEN 0.42 AND 0.78 AND f.tempo BETWEEN 92 AND 132", fit: "f.brightness DESC" },
+    where: (p) => `f.brightness >= ${p.b65} AND f.energy BETWEEN ${p.e30} AND ${p.e70} AND f.tempo BETWEEN ${p.t35} AND ${p.t65}`, fit: "f.brightness DESC" },
   { id: "workout", name: "Workout", blurb: "Tempo up, no excuses", colors: ["#8A2C5B", "#3F1230"],
-    where: "f.tempo >= 122 AND f.energy >= 0.58", fit: "f.tempo DESC" },
+    where: (p) => `f.tempo >= ${p.t65} AND f.energy >= ${p.e50}`, fit: "f.tempo DESC" },
   { id: "chill", name: "Chill", blurb: "Unhurried, soft around the edges", colors: ["#2F5C6E", "#122A33"],
-    where: "f.energy <= 0.5 AND f.tempo <= 112", fit: "f.energy ASC" },
+    where: (p) => `f.energy <= ${p.e30} AND f.tempo <= ${p.t50}`, fit: "f.energy ASC" },
   { id: "latenight", name: "Late night", blurb: "Low light, low key", colors: ["#3B2F6E", "#171233"],
-    where: "f.energy <= 0.45 AND f.brightness <= 0.3", fit: "f.brightness ASC, f.energy ASC" },
+    where: (p) => `f.energy <= ${p.e30} AND f.brightness <= ${p.b35}`, fit: "f.brightness ASC, f.energy ASC" },
   { id: "slowjams", name: "Slow jams", blurb: "Take it slow", colors: ["#7A2E4A", "#361220"],
-    where: "f.tempo <= 92 AND f.energy BETWEEN 0.28 AND 0.62", fit: "f.tempo ASC" },
+    where: (p) => `f.tempo <= ${p.t35} AND f.energy BETWEEN ${p.e30} AND ${p.e70}`, fit: "f.tempo ASC" },
   { id: "focus", name: "Focus", blurb: "Steady, unobtrusive, keeps you in it", colors: ["#3C5A3E", "#16251A"],
-    where: "f.dynamics <= 11 AND f.energy BETWEEN 0.18 AND 0.55 AND f.dance <= 0.7", fit: "f.dynamics ASC" },
+    where: (p) => `f.dynamics <= ${p.dyn40} AND f.energy <= ${p.e50} AND f.dance <= ${p.d50}`, fit: "f.dynamics ASC" },
   { id: "calm", name: "Calm & classical", blurb: "Quiet rooms and open space", colors: ["#5B5F74", "#232634"],
-    where: "f.energy <= 0.25", fit: "f.energy ASC" },
+    where: () => "f.energy <= 0.25", fit: "f.energy ASC" },
 ];
 
 export type MoodView = { id: string; name: string; blurb: string; colors: [string, string]; trackCount: number; art: string | null };
@@ -58,11 +76,18 @@ export function listMoods(): MoodView[] {
   return moodCache.data;
 }
 
+let pct: { at: number; p: Percentiles } | null = null;
+function cutoffs(): Percentiles {
+  if (!pct || Date.now() - pct.at > CACHE_MS) pct = { at: Date.now(), p: percentiles() };
+  return pct.p;
+}
+
 function computeMoods(): MoodView[] {
+  const p = cutoffs();
   return MOODS.map((m) => {
-    const row = db.prepare(`SELECT COUNT(*) AS n FROM music_features f JOIN music_tracks t ON t.id = f.track_id WHERE t.playable = 1 AND f.tempo IS NOT NULL AND ${m.where}`).get() as any;
+    const row = db.prepare(`SELECT COUNT(*) AS n FROM music_features f JOIN music_tracks t ON t.id = f.track_id WHERE t.playable = 1 AND f.tempo IS NOT NULL AND ${m.where(p)}`).get() as any;
     const art = db.prepare(`SELECT COALESCE(t.art_path, al.art_path) AS art FROM music_features f JOIN music_tracks t ON t.id = f.track_id JOIN music_albums al ON al.id = t.album_id
-      WHERE t.playable = 1 AND f.tempo IS NOT NULL AND ${m.where} AND COALESCE(t.art_path, al.art_path) IS NOT NULL ORDER BY ${m.fit} LIMIT 1`).get() as any;
+      WHERE t.playable = 1 AND f.tempo IS NOT NULL AND ${m.where(p)} AND COALESCE(t.art_path, al.art_path) IS NOT NULL ORDER BY ${m.fit} LIMIT 1`).get() as any;
     return { id: m.id, name: m.name, blurb: m.blurb, colors: m.colors, trackCount: row.n, art: art?.art ?? null };
   }).filter((m) => m.trackCount >= 5);
 }
@@ -72,7 +97,7 @@ export function moodTracks(userId: string, id: string, limit = 60): { mood: Mood
   const m = MOODS.find((x) => x.id === id);
   if (!m) return null;
   const view = listMoods().find((x) => x.id === id) ?? { id: m.id, name: m.name, blurb: m.blurb, colors: m.colors, trackCount: 0, art: null };
-  const pool = db.prepare(`${TRACK_SELECT} JOIN music_features f ON f.track_id = t.id WHERE t.playable = 1 AND f.tempo IS NOT NULL AND ${m.where} ORDER BY ${m.fit} LIMIT ?`).all(limit * 3) as any[];
+  const pool = db.prepare(`${TRACK_SELECT} JOIN music_features f ON f.track_id = t.id WHERE t.playable = 1 AND f.tempo IS NOT NULL AND ${m.where(cutoffs())} ORDER BY ${m.fit} LIMIT ?`).all(limit * 3) as any[];
   const tracks = seededShuffle(pool, `${userId}:${id}:${dayKey()}`).slice(0, limit);
   return { mood: view, tracks: withLikesFor(userId, tracks) };
 }
