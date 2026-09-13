@@ -24,7 +24,7 @@ export function MixPage({ kind }: { kind: "mix" | "mood" }) {
   if (q.isError) return <div className="py-20 text-center text-muted">This {kind} isn't available right now.</div>;
   if (!d) return <div className="py-20 text-center text-muted">Loading…</div>;
   const head = d.head;
-  const context = { kind: "home" as const, name: head.name };
+  const context = { kind, name: head.name };
   const isThis = s.context?.name === head.name && s.queue.length > 0;
   const total = d.tracks.reduce((a, t) => a + (t.duration ?? 0), 0);
   const label = kind === "mood" ? "Mood" : d.mixKind === "daily" ? "Daily mix" : d.mixKind === "discover" ? "Discover" : "For right now";

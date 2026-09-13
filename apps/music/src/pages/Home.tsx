@@ -39,8 +39,8 @@ function TrackTile({ track, tracks, context }: { track: Track; tracks: Track[]; 
   );
 }
 
-const playMix = (m: Mix) => api<{ tracks: Track[] }>(`/api/music/mixes/${encodeURIComponent(m.id)}`).then((r) => playQueue(r.tracks, 0, { kind: "home", name: m.name }));
-const playMood = (m: Mood) => api<{ tracks: Track[] }>(`/api/music/moods/${m.id}`).then((r) => playQueue(r.tracks, 0, { kind: "home", name: m.name }));
+const playMix = (m: Mix) => api<{ tracks: Track[] }>(`/api/music/mixes/${encodeURIComponent(m.id)}`).then((r) => playQueue(r.tracks, 0, { kind: "mix", name: m.name }));
+const playMood = (m: Mood) => api<{ tracks: Track[] }>(`/api/music/moods/${m.id}`).then((r) => playQueue(r.tracks, 0, { kind: "mood", name: m.name }));
 
 export function Home() {
   const home = useQuery({ queryKey: ["music", "home"], queryFn: () => api<HomeData>("/api/music/home"), staleTime: 30_000 });

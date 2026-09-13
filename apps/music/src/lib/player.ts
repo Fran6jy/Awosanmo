@@ -28,7 +28,7 @@ export type PlayerState = {
   /** Let consecutive tracks of one album run straight into each other instead of crossfading. */
   gaplessAlbums: boolean;
   /** Where the queue came from, for "playing from Album X" in the bar. */
-  context: { kind: "album" | "artist" | "playlist" | "liked" | "genre" | "search" | "home" | "tracks"; name: string } | null;
+  context: { kind: "album" | "artist" | "playlist" | "liked" | "genre" | "search" | "home" | "tracks" | "mix" | "mood"; name: string } | null;
 };
 
 // Two decks: the one playing, and a standby that the next track is preloaded
