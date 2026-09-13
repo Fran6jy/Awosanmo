@@ -74,20 +74,23 @@ export function parseFilename(file: string): { trackNo: number | null; artist: s
 const GENRE_SHELVES: [RegExp, string][] = [
   [/hip[- ]?hop|\brap\b|funk r n b/, "Hip-Hop & R&B"],
   [/^r ?& ?b$|^rnb$|^r n b$|soul/, "Hip-Hop & R&B"],
-  [/afro|latin|reggaeton|dancehall|amapiano/, "Afro & Latin"],
+  [/afro|latin|reggaeton|dancehall|amapiano|naija|nigeria|highlife|bongo|kwaito|zouk|coup[eé]|african/, "Afro & Latin"],
   [/^pop\b|pop blues/, "Pop"],
   [/country/, "Country"],
-  [/edm|electronic|dance|house|techno|trance|dubstep/, "Electronic"],
+  [/edm|electro|dance|house|techno|trance|dubstep/, "Electronic"],
   [/christian|gospel|worship/, "Christian & Gospel"],
   [/rock|punk|metal|alternative|grunge|indie/, "Rock"],
-  [/soundtrack|classical|score|orchestra|film/, "Soundtrack & Classical"],
+  [/soundtrack|classi(?:cal|que|c)|score|orchestra|film|opera|symphon/, "Soundtrack & Classical"],
   [/christmas|holiday|xmas/, "Christmas"],
   [/blues|jazz/, "Blues & Jazz"],
 ];
 
+/** Genre tags that say nothing: placeholders, and the download sites that stamp their name into every field. */
+const JUNK_GENRE = /^(other|unknown|genre|none|misc|default|various|blues\/other|\d+)$|(?:^|[^a-z])(?:[a-z0-9-]+\.)+(?:com|net|org|cc|ng|me|to|io)\b/i;
+
 export function normalizeGenre(raw: string | null | undefined): string | null {
   const cleaned = clean(raw);
-  if (!cleaned) return null;
+  if (!cleaned || JUNK_GENRE.test(cleaned)) return null;
   const key = cleaned.toLowerCase();
   for (const [pattern, shelf] of GENRE_SHELVES) if (pattern.test(key)) return shelf;
   return cleaned;

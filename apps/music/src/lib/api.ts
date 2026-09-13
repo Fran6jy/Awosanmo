@@ -83,6 +83,18 @@ export function artUrl(name: string | null | undefined) {
   return name ? `${API_URL}/api/music/art/${name}` : null;
 }
 
+// ---------- recent searches (per browser) ----------
+
+const RECENT_KEY = "jy.recentSearches";
+export function recentSearches(): string[] {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]"); } catch { return []; }
+}
+export function rememberSearch(q: string) {
+  const t = q.trim(); if (t.length < 2) return;
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify([t, ...recentSearches().filter((x) => x.toLowerCase() !== t.toLowerCase())].slice(0, 8))); } catch { /* ignore */ }
+}
+export function forgetSearches() { try { localStorage.removeItem(RECENT_KEY); } catch { /* ignore */ } }
+
 // ---------- share links ----------
 
 export type ShareKind = "track" | "album" | "playlist";
@@ -114,9 +126,12 @@ export type Track = {
   art: string | null; playable: boolean; liked?: boolean; position?: number;
 };
 export type Album = { id: string; title: string; artist: string; artistId: string; year: number | null; art: string | null; trackCount: number; duration: number };
-export type Artist = { id: string; name: string; albumCount: number; trackCount: number; art: string | null };
+export type Artist = { id: string; name: string; albumCount: number; trackCount: number; art: string | null; image: string | null };
 export type Playlist = { id: string; name: string; trackCount: number; duration: number; art: string | null; customArt: boolean; updatedAt: string };
-export type Genre = { name: string; trackCount: number; art: string | null };
+export type Genre = { name: string; trackCount: number; art: string | null; colors?: [string, string] };
+export type Mood = { id: string; name: string; blurb: string; colors: [string, string]; trackCount: number; art: string | null };
+export type Mix = { id: string; kind: "daily" | "discover" | "timeofday" | "artist"; name: string; blurb: string; colors: [string, string]; art: string | null; trackCount: number };
+export type Lyrics = { synced: { t: number; line: string }[] | null; plain: string | null };
 
 export const fmtTime = (s: number | null | undefined) => {
   if (!s || !Number.isFinite(s)) return "0:00";

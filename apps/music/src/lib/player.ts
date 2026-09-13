@@ -284,17 +284,40 @@ async function load(track: Track, autoplay: boolean) {
   report(true);
 }
 
-function buildOrder(length: number, shuffle: boolean, keepFirst: number | null): number[] {
+/**
+ * Smart shuffle. A fair shuffle plays the same artist three times in a row
+ * often enough to annoy; this one draws each next song with a weight that
+ * drops sharply for an artist heard in the last few picks (and a little for
+ * the same album), and rises a little for liked songs. The playing track is
+ * pinned to the front so toggling shuffle never changes what is on now.
+ */
+function buildOrder(length: number, shuffle: boolean, keepFirst: number | null, tracks: Track[] = state.queue): number[] {
   const idx = Array.from({ length }, (_, i) => i);
   if (!shuffle) return idx;
-  // Fisher-Yates, then pin the currently playing track to the front so
-  // toggling shuffle never changes what is playing right now.
-  for (let i = idx.length - 1; i > 0; i -= 1) { const j = Math.floor(Math.random() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
-  if (keepFirst !== null) {
-    const at = idx.indexOf(keepFirst);
-    if (at > 0) { idx.splice(at, 1); idx.unshift(keepFirst); }
+  const order: number[] = [];
+  const remaining = new Set(idx);
+  if (keepFirst !== null && remaining.has(keepFirst)) { order.push(keepFirst); remaining.delete(keepFirst); }
+  const recentArtists: string[] = [];
+  const recentAlbums: string[] = [];
+  const window = Math.max(2, Math.min(6, Math.floor(length / 4)));
+  while (remaining.size) {
+    let total = 0;
+    const weights: [number, number][] = [];
+    for (const i of remaining) {
+      const t = tracks[i];
+      let w = 1 + (t?.liked ? 0.35 : 0);
+      if (t && recentArtists.includes(t.artistId)) w *= 0.08;
+      if (t && recentAlbums.includes(t.albumId)) w *= 0.5;
+      total += w; weights.push([i, w]);
+    }
+    let r = Math.random() * total;
+    let pick = weights[weights.length - 1][0];
+    for (const [i, w] of weights) { r -= w; if (r <= 0) { pick = i; break; } }
+    order.push(pick); remaining.delete(pick);
+    const t = tracks[pick];
+    if (t) { recentArtists.push(t.artistId); recentAlbums.push(t.albumId); if (recentArtists.length > window) { recentArtists.shift(); recentAlbums.shift(); } }
   }
-  return idx;
+  return order;
 }
 
 // ---------- public controls ----------
@@ -304,7 +327,7 @@ export async function playQueue(tracks: Track[], startIndex = 0, context: Player
   const playable = tracks.filter((t) => t.playable);
   if (!playable.length) return;
   const start = Math.max(0, playable.findIndex((t) => t.id === tracks[startIndex]?.id));
-  const order = buildOrder(playable.length, state.shuffle, state.shuffle ? start : null);
+  const order = buildOrder(playable.length, state.shuffle, state.shuffle ? start : null, playable);
   const cursor = state.shuffle ? 0 : start;
   set({ queue: playable, order, cursor, context });
   await load(playable[order[cursor]], true);

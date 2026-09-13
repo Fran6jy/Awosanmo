@@ -31,7 +31,7 @@ export function ArtistPage() {
 
   return (
     <div>
-      <CollectionHeader kind="Artist" title={a.name} art={a.art} seed={a.id} round contextName={a.name}
+      <CollectionHeader kind="Artist" title={a.name} art={a.image ?? a.art} seed={a.id} round contextName={a.name}
         subtitle={`${a.trackCount} song${a.trackCount === 1 ? "" : "s"} · ${a.albumCount} release${a.albumCount === 1 ? "" : "s"}`}
         onPlay={() => (isThis ? void toggle() : playAll().then((t) => playQueue(t, 0, context)))}
         onShuffle={() => { if (!s.shuffle) toggleShuffle(); playAll().then((t) => playQueue(t, 0, context)); }} />

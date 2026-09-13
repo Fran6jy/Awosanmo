@@ -5,8 +5,11 @@ import { parseFile } from "music-metadata";
 import { config } from "../../config.js";
 import { db } from "../../db/schema.js";
 import { logger } from "../../logger.js";
-import { sortKey, toTrackRecord, type CommonTags } from "./normalize.js";
+import { normalizeGenre, sortKey, toTrackRecord, type CommonTags } from "./normalize.js";
 import { invalidateHome } from "./service.js";
+import { enrichInProgress, enrichLibrary } from "./enrich.js";
+import { analyseLibrary, analysisInProgress } from "./analysis.js";
+import { storeArt } from "./art.js";
 
 const AUDIO_EXT = new Set([".mp3", ".m4a", ".aac", ".flac", ".ogg", ".oga", ".opus", ".wav", ".wma", ".weba"]);
 const FOLDER_ART = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "album.jpg"];
@@ -28,19 +31,6 @@ function* walk(dir: string): Generator<string> {
     if (entry.isDirectory()) yield* walk(full);
     else if (entry.isFile() && AUDIO_EXT.has(path.extname(entry.name).toLowerCase())) yield full;
   }
-}
-
-/**
- * Persist album art once per distinct image. Content-addressed so a hundred
- * tracks sharing one embedded cover write a single file, and re-scans are free.
- */
-function storeArt(data: Uint8Array, mime: string | undefined): string {
-  fs.mkdirSync(config.musicArtDir, { recursive: true });
-  const ext = mime?.includes("png") ? ".png" : ".jpg";
-  const name = crypto.createHash("sha1").update(data).digest("hex") + ext;
-  const target = path.join(config.musicArtDir, name);
-  if (!fs.existsSync(target)) fs.writeFileSync(target, data);
-  return name;
 }
 
 /** Folder art beside the file, for tracks with nothing embedded. */
@@ -188,9 +178,21 @@ export async function scanLibrary(): Promise<ScanSummary> {
       .run(JSON.stringify({ at: new Date().toISOString(), ...summary }));
     invalidateHome();
     logger.info(summary, "Music library scan complete");
+    // Anything new or changed now gets its metadata repaired and its audio measured, in the background.
+    if (summary.added || summary.updated) void backgroundJobs();
     return summary;
   } finally {
     running = false;
+  }
+}
+
+/** Repair, then analyse — one heavy job at a time so a single-core host stays responsive. */
+async function backgroundJobs() {
+  if (config.musicEnrich && !enrichInProgress()) {
+    try { await enrichLibrary(); } catch (error) { logger.error({ error }, "Metadata repair failed"); }
+  }
+  if (config.musicAnalyse && !analysisInProgress()) {
+    try { await analyseLibrary(); } catch (error) { logger.error({ error }, "Audio analysis failed"); }
   }
 }
 
@@ -203,14 +205,32 @@ export function lastScan(): (ScanSummary & { at: string }) | null {
   return row ? JSON.parse(row.value) : null;
 }
 
+/**
+ * The genre rules improve over time but only changed files get re-indexed;
+ * bring every stored genre in line with the current rules at boot.
+ */
+export function renormalizeGenres() {
+  const rows = db.prepare("SELECT DISTINCT genre FROM music_tracks WHERE genre IS NOT NULL").all() as { genre: string }[];
+  const set = db.prepare("UPDATE music_tracks SET genre = ? WHERE genre = ?");
+  let changed = 0;
+  for (const { genre } of rows) {
+    const next = normalizeGenre(genre);
+    if (next !== genre) { set.run(next, genre); changed += 1; }
+  }
+  if (changed) { invalidateHome(); logger.info({ changed }, "Genre shelves re-normalised"); }
+}
+
 /** Scan on boot and then on the configured interval. */
 export function startMusicScanner() {
   if (!musicEnabled()) {
     logger.info("Music module disabled (MUSIC_DIR not set)");
     return;
   }
+  try { renormalizeGenres(); } catch (error) { logger.warn({ error }, "Genre re-normalisation failed"); }
   const run = () => scanLibrary().catch((error) => logger.error({ error }, "Music scan failed"));
   setTimeout(run, 5_000).unref();
+  // Catch up on tracks indexed before repair/analysis existed (or interrupted runs) once, a little after boot.
+  setTimeout(() => void backgroundJobs(), 60_000).unref();
   if (config.musicScanIntervalMinutes > 0) {
     setInterval(run, config.musicScanIntervalMinutes * 60_000).unref();
   }

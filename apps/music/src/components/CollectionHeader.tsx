@@ -6,17 +6,20 @@ import { usePlayer } from "../lib/player";
  * The big hero at the top of album / artist / playlist pages: large art on a
  * tinted background, a type label, the title, and a maroon play button.
  */
-export function CollectionHeader({ kind, title, subtitle, art, seed, round, onPlay, onShuffle, contextName, children, onChangeArt }: {
+export function CollectionHeader({ kind, title, subtitle, art, seed, round, onPlay, onShuffle, contextName, children, onChangeArt, colors }: {
   kind: string; title: string; subtitle: React.ReactNode; art: string | null; seed: string; round?: boolean;
   onPlay: () => void; onShuffle?: () => void; contextName: string; children?: React.ReactNode;
   /** When set, the cover becomes clickable and opens an image picker (playlists). */
   onChangeArt?: (file: File) => void;
+  /** Hero wash colour; defaults to the maroon accent. */
+  colors?: [string, string];
 }) {
   const s = usePlayer();
   const isThis = s.context?.name === contextName && s.playing;
   return (
     <>
-      <div className="-mx-4 -mt-3 bg-gradient-to-b from-accent/40 via-surface2/60 to-transparent px-4 pb-6 pt-6 md:-mx-6 md:px-6 md:pt-10">
+      <div className="-mx-4 -mt-3 px-4 pb-6 pt-6 md:-mx-6 md:px-6 md:pt-10"
+        style={{ background: colors ? `linear-gradient(to bottom, ${colors[0]}66, ${colors[1]}55 60%, transparent)` : "linear-gradient(to bottom, rgba(163,38,56,.4), rgba(31,22,22,.6) 60%, transparent)" }}>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
           {onChangeArt ? (
             <label className="group relative h-44 w-44 shrink-0 cursor-pointer sm:h-56 sm:w-56" title="Choose a cover image">

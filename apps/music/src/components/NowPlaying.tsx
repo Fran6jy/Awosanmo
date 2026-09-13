@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
-import { ChevronDown, Heart, ListMusic, MoreHorizontal, Pause, Play, Repeat, Repeat1, Share2, Shuffle, SkipBack, SkipForward } from "lucide-react";
-import { artUrl, fmtTime } from "../lib/api";
+import { ChevronDown, Heart, ListMusic, MicVocal, MoreHorizontal, Pause, Play, Repeat, Repeat1, Share2, Shuffle, SkipBack, SkipForward } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api, artUrl, fmtTime, type Lyrics } from "../lib/api";
 import { cycleRepeat, next, prev, seek, toggle, toggleShuffle, useCurrent, usePlayer } from "../lib/player";
 import { Art } from "./Art";
 import { QueuePanel } from "./QueuePanel";
@@ -23,6 +24,8 @@ export function NowPlaying({ open, onClose }: { open: boolean; onClose: () => vo
   const [queueOpen, setQueueOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [lyricsOpen, setLyricsOpen] = useState(false);
+  const lyrics = useQuery({ queryKey: ["music", "lyrics", track?.id], queryFn: () => api<Lyrics>(`/api/music/tracks/${track!.id}/lyrics`), enabled: open && lyricsOpen && Boolean(track), staleTime: Infinity });
   // While dragging the scrub bar, show the finger position rather than the live one.
   const [scrub, setScrub] = useState<number | null>(null);
 
@@ -116,6 +119,7 @@ export function NowPlaying({ open, onClose }: { open: boolean; onClose: () => vo
 
           <footer className="mx-auto flex w-full max-w-md items-center justify-between px-8 pb-4 pt-2">
             <button type="button" onClick={() => setSharing(true)} aria-label="Share" className="grid h-11 w-11 place-items-center text-muted hover:text-cream"><Share2 className="h-5 w-5" /></button>
+            <button type="button" onClick={() => setLyricsOpen((o) => !o)} aria-label="Lyrics" className={`grid h-11 w-11 place-items-center ${lyricsOpen ? "text-accent2" : "text-muted hover:text-cream"}`}><MicVocal className="h-5 w-5" /></button>
             <p className="text-xs text-dim">{s.crossfade ? `Crossfade ${s.crossfade}s` : ""}</p>
             <button type="button" onClick={() => setQueueOpen(true)} aria-label="Queue" className="grid h-11 w-11 place-items-center text-muted hover:text-cream"><ListMusic className="h-5 w-5" /></button>
           </footer>
@@ -133,10 +137,41 @@ export function NowPlaying({ open, onClose }: { open: boolean; onClose: () => vo
             )}
           </AnimatePresence>
 
+          {lyricsOpen && <LyricsPanel lyrics={lyrics.data} loading={lyrics.isLoading} position={s.progress} onClose={() => setLyricsOpen(false)} />}
           {queueOpen && <QueuePanel onClose={() => setQueueOpen(false)} overlay />}
           {sharing && <ShareDialog kind="track" id={track.id} name={`${track.title} — ${track.artist}`} onClose={() => setSharing(false)} />}
         </motion.section>
       )}
     </AnimatePresence>
+  );
+}
+
+/** Time-synced lyrics: the current line is bright and centred; tap a line to jump there. */
+function LyricsPanel({ lyrics, loading, position, onClose }: { lyrics: Lyrics | undefined; loading: boolean; position: number; onClose: () => void }) {
+  const synced = lyrics?.synced ?? null;
+  const active = synced ? synced.reduce((idx, l, i) => (l.t <= position + 0.3 ? i : idx), -1) : -1;
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current?.querySelector<HTMLElement>(`[data-line="${active}"]`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [active]);
+  return (
+    <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
+      className="absolute inset-x-0 bottom-0 top-[18%] z-20 flex flex-col rounded-t-3xl border-t border-line bg-panel/95 backdrop-blur-xl">
+      <div className="flex items-center justify-between px-6 pt-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-dim">Lyrics</p>
+        <button type="button" onClick={onClose} aria-label="Close lyrics" className="text-muted hover:text-cream"><ChevronDown className="h-6 w-6" /></button>
+      </div>
+      <div ref={ref} className="min-h-0 flex-1 overflow-y-auto px-6 pb-16 pt-6" style={{ maskImage: "linear-gradient(to bottom, transparent, black 8%, black 88%, transparent)" }}>
+        {loading && <p className="text-center text-muted">Looking up lyrics…</p>}
+        {!loading && !synced && !lyrics?.plain && <p className="text-center text-muted">No lyrics found for this song.</p>}
+        {synced && synced.map((l, i) => (
+          <p key={i} data-line={i} onClick={() => seek(l.t)}
+            className={`cursor-pointer py-1.5 text-2xl font-bold leading-snug transition-colors ${i === active ? "text-cream" : i < active ? "text-muted/60" : "text-muted/40"}`}>{l.line || "…"}</p>
+        ))}
+        {!synced && lyrics?.plain && <pre className="whitespace-pre-wrap font-sans text-lg font-semibold leading-relaxed text-cream/90">{lyrics.plain}</pre>}
+        <p className="mt-10 text-center text-[11px] text-dim">Lyrics from LRCLIB</p>
+      </div>
+    </motion.div>
   );
 }

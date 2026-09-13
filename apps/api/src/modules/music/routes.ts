@@ -12,6 +12,10 @@ import { parseByteRange, STREAM_CHUNK_BYTES } from "../streaming/byteRange.js";
 import { lastScan, musicEnabled, scanInProgress, scanLibrary } from "./scanner.js";
 import * as music from "./service.js";
 import * as shares from "./shares.js";
+import { enrichInProgress, enrichLibrary, enrichProgress, enrichStats, lastEnrich, resetEnrichment } from "./enrich.js";
+import { analyseLibrary, analysisInProgress, analysisProgress, analysisStats } from "./analysis.js";
+import * as mixes from "./mixes.js";
+import { lyricsFor } from "./lyrics.js";
 
 export const musicRoutes = Router();
 
@@ -23,7 +27,28 @@ const page = (req: any, max = 200) => ({
 // ---------- status / scanning ----------
 
 musicRoutes.get("/status", (_req, res) => {
-  res.json({ enabled: musicEnabled(), scanning: scanInProgress(), lastScan: lastScan(), ...music.libraryStats() });
+  res.json({
+    enabled: musicEnabled(), scanning: scanInProgress(), lastScan: lastScan(), ...music.libraryStats(),
+    repair: { running: enrichInProgress(), progress: enrichProgress(), last: lastEnrich(), ...enrichStats() },
+    analysis: { running: analysisInProgress(), progress: analysisProgress(), ...analysisStats() },
+  });
+});
+
+/** Audio analysis on demand (admin); normally it follows a scan by itself. */
+musicRoutes.post("/analyse", (req: any, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ error: "Admin only" });
+  if (analysisInProgress()) return res.status(409).json({ error: "Analysis is already running" });
+  analyseLibrary().catch(() => undefined);
+  res.status(202).json({ started: true });
+});
+
+/** Metadata repair on demand (admin). `?all=1` forgets earlier decisions and redoes the whole library. */
+musicRoutes.post("/repair", (req: any, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ error: "Admin only" });
+  if (enrichInProgress()) return res.status(409).json({ error: "Repair is already running" });
+  if (req.query.all === "1") resetEnrichment();
+  enrichLibrary().catch(() => undefined);
+  res.status(202).json({ started: true });
 });
 
 musicRoutes.post("/scan", (req: any, res) => {
@@ -62,7 +87,22 @@ musicRoutes.post("/token", (req: any, res) => {
 
 // ---------- browse ----------
 
-musicRoutes.get("/home", (req: any, res) => res.json(music.home(req.user.id)));
+musicRoutes.get("/home", (req: any, res) => res.json({ ...music.home(req.user.id), mixes: mixes.listMixes(req.user.id), moods: mixes.listMoods() }));
+
+// ---------- moods & mixes ----------
+
+musicRoutes.get("/moods", (_req, res) => res.json(mixes.listMoods()));
+musicRoutes.get("/moods/:id", (req: any, res) => {
+  const r = mixes.moodTracks(req.user.id, req.params.id);
+  if (!r) return res.status(404).json({ error: "Mood not found" });
+  res.json(r);
+});
+musicRoutes.get("/mixes", (req: any, res) => res.json(mixes.listMixes(req.user.id)));
+musicRoutes.get("/mixes/:id", (req: any, res) => {
+  const r = mixes.mixTracks(req.user.id, req.params.id);
+  if (!r) return res.status(404).json({ error: "Mix not found" });
+  res.json(r);
+});
 
 musicRoutes.get("/search", (req: any, res) => {
   const q = String(req.query.q ?? "").trim();
@@ -78,6 +118,13 @@ musicRoutes.get("/tracks/:id", (req: any, res) => {
   const track = music.getTrack(req.user.id, req.params.id);
   if (!track) return res.status(404).json({ error: "Track not found" });
   res.json(track);
+});
+
+musicRoutes.get("/tracks/:id/lyrics", async (req: any, res) => {
+  const r = await lyricsFor(req.params.id);
+  if (!r) return res.status(404).json({ error: "Track not found" });
+  res.setHeader("Cache-Control", "private, max-age=3600");
+  res.json(r);
 });
 
 /** Delete a song for good: index row and the file on disk. Admin only — it is the library owner's data. */

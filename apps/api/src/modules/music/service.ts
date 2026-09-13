@@ -137,10 +137,10 @@ export function getAlbum(userId: string, id: string) {
 
 // ---------- artists ----------
 
-export type ArtistView = { id: string; name: string; albumCount: number; trackCount: number; art: string | null };
+export type ArtistView = { id: string; name: string; albumCount: number; trackCount: number; art: string | null; image: string | null };
 
 const ARTIST_SELECT = `
-  SELECT a.id, a.name,
+  SELECT a.id, a.name, a.image_path AS image,
          (SELECT COUNT(*) FROM music_albums al WHERE al.artist_id = a.id) AS album_count,
          (SELECT COUNT(*) FROM music_tracks t WHERE t.artist_id = a.id) AS track_count,
          (SELECT COALESCE(t.art_path, al.art_path) FROM music_tracks t JOIN music_albums al ON al.id = t.album_id
@@ -150,7 +150,7 @@ const ARTIST_SELECT = `
 
 export function listArtists(opts: { limit: number; offset: number }) {
   const rows = db.prepare(`${ARTIST_SELECT} WHERE track_count > 0 ORDER BY a.sort_name LIMIT ? OFFSET ?`).all(opts.limit, opts.offset) as any[];
-  return rows.map((r) => ({ id: r.id, name: r.name, albumCount: r.album_count, trackCount: r.track_count, art: r.art }) as ArtistView);
+  return rows.map((r) => ({ id: r.id, name: r.name, albumCount: r.album_count, trackCount: r.track_count, art: r.art, image: r.image ?? null }) as ArtistView);
 }
 
 export function getArtist(userId: string, id: string) {
@@ -170,14 +170,27 @@ export function getArtist(userId: string, id: string) {
 
 // ---------- genres ----------
 
+/** Fixed colours for the shelves the normaliser produces; anything else gets a hue from its name. */
+const GENRE_COLORS: Record<string, [string, string]> = {
+  "Pop": ["#C2416B", "#4A1428"], "Hip-Hop & R&B": ["#5B3FA8", "#1E1340"], "Country": ["#B8741F", "#4A2E0C"], "Electronic": ["#1F7A8C", "#0B2C33"],
+  "Afro & Latin": ["#C9642B", "#4D2410"], "Christian & Gospel": ["#B08A2E", "#453410"], "Rock": ["#9A2A2A", "#3A0F0F"], "Soundtrack & Classical": ["#4E5A78", "#1B2030"],
+  "Christmas": ["#2E7A48", "#0F2E1B"], "Blues & Jazz": ["#3A4FA6", "#141D40"],
+};
+export function genreColors(name: string): [string, string] {
+  if (GENRE_COLORS[name]) return GENRE_COLORS[name];
+  let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return [`hsl(${h % 360} 45% 32%)`, `hsl(${h % 360} 40% 14%)`];
+}
+
 export function listGenres() {
   return (db.prepare(`
     SELECT t.genre AS name, COUNT(*) AS track_count,
-           (SELECT COALESCE(t2.art_path, al2.art_path) FROM music_tracks t2 JOIN music_albums al2 ON al2.id = t2.album_id
-              WHERE t2.genre = t.genre AND COALESCE(t2.art_path, al2.art_path) IS NOT NULL LIMIT 1) AS art
+           -- The cover of the album with the most songs in this genre: a representative picture, not a random one.
+           (SELECT al2.art_path FROM music_tracks t2 JOIN music_albums al2 ON al2.id = t2.album_id
+              WHERE t2.genre = t.genre AND al2.art_path IS NOT NULL GROUP BY al2.id ORDER BY COUNT(*) DESC LIMIT 1) AS art
     FROM music_tracks t WHERE t.genre IS NOT NULL
     GROUP BY t.genre ORDER BY track_count DESC
-  `).all() as any[]).map((r) => ({ name: r.name, trackCount: r.track_count, art: r.art }));
+  `).all() as any[]).map((r) => ({ name: r.name, trackCount: r.track_count, art: r.art, colors: genreColors(r.name) }));
 }
 
 export function getGenre(userId: string, name: string, opts: { limit: number; offset: number }) {
@@ -193,7 +206,7 @@ export function search(userId: string, q: string) {
   const like = `%${q.replace(/[%_]/g, (c) => `\\${c}`)}%`;
   const tracks = withLikes(userId, db.prepare(`${TRACK_SELECT} WHERE t.title LIKE ? ESCAPE '\\' OR a.name LIKE ? ESCAPE '\\' OR al.title LIKE ? ESCAPE '\\' ORDER BY (t.title LIKE ? ESCAPE '\\') DESC, t.title COLLATE NOCASE LIMIT 30`).all(like, like, like, `${q}%`));
   const albums = (db.prepare(`${ALBUM_SELECT} WHERE al.title LIKE ? ESCAPE '\\' OR a.name LIKE ? ESCAPE '\\' GROUP BY al.id ORDER BY al.title COLLATE NOCASE LIMIT 12`).all(like, like)).map(toAlbum);
-  const artists = (db.prepare(`${ARTIST_SELECT} WHERE a.name LIKE ? ESCAPE '\\' ORDER BY a.sort_name LIMIT 12`).all(like) as any[]).map((r) => ({ id: r.id, name: r.name, albumCount: r.album_count, trackCount: r.track_count, art: r.art }));
+  const artists = (db.prepare(`${ARTIST_SELECT} WHERE a.name LIKE ? ESCAPE '\\' ORDER BY a.sort_name LIMIT 12`).all(like) as any[]).map((r) => ({ id: r.id, name: r.name, albumCount: r.album_count, trackCount: r.track_count, art: r.art, image: r.image ?? null }));
   return { tracks, albums, artists };
 }
 

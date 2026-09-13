@@ -165,6 +165,39 @@ export function migrate() {
       PRIMARY KEY(user_id, track_id)
     );
     CREATE INDEX IF NOT EXISTS idx_music_likes_user_time ON music_likes(user_id, liked_at DESC);
+    -- Metadata repair bookkeeping: one row per track the catalogue lookup has
+    -- decided on, with the file fingerprint it decided on, so a changed file
+    -- is looked at again and an unchanged one never is.
+    CREATE TABLE IF NOT EXISTS music_enrich (
+      track_id TEXT PRIMARY KEY REFERENCES music_tracks(id) ON DELETE CASCADE,
+      status TEXT NOT NULL,
+      provider_id TEXT,
+      size INTEGER NOT NULL,
+      mtime INTEGER NOT NULL,
+      checked_at INTEGER NOT NULL
+    );
+    -- Audio analysis per track (see analysis.ts). A row with NULL tempo means
+    -- the file was looked at and could not be analysed; size/mtime say which
+    -- version of the file the numbers describe.
+    CREATE TABLE IF NOT EXISTS music_features (
+      track_id TEXT PRIMARY KEY REFERENCES music_tracks(id) ON DELETE CASCADE,
+      tempo INTEGER,
+      energy REAL,
+      brightness REAL,
+      dance REAL,
+      loudness REAL,
+      dynamics REAL,
+      size INTEGER NOT NULL,
+      mtime INTEGER NOT NULL,
+      analysed_at INTEGER NOT NULL
+    );
+    -- Lyrics cache (LRCLIB). NULL synced and plain with a recent fetched_at is a remembered miss.
+    CREATE TABLE IF NOT EXISTS music_lyrics (
+      track_id TEXT PRIMARY KEY REFERENCES music_tracks(id) ON DELETE CASCADE,
+      synced TEXT,
+      plain TEXT,
+      fetched_at INTEGER NOT NULL
+    );
     -- Public share links: a short slug that lets anyone play (and optionally
     -- download) one track, album or playlist without an account.
     CREATE TABLE IF NOT EXISTS music_shares (
@@ -199,6 +232,7 @@ export function migrate() {
   db.prepare("DELETE FROM quota_reservations WHERE expires_at < ?").run(Date.now());
   // Virtual folder a file belongs to (NULL = library root).
   addColumn("files", "folder_id", "TEXT");
+  addColumn("music_artists", "image_path", "TEXT");
   // Per-user ownership for isolation (NULL rows predate multi-user).
   addColumn("torrents", "user_id", "TEXT");
   addColumn("files", "user_id", "TEXT");

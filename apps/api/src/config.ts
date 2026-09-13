@@ -48,6 +48,10 @@ export const config = {
   // Music library: where the audio files live and where extracted album art is cached.
   // Leave MUSIC_DIR unset to disable the music module entirely.
   musicDir: process.env.MUSIC_DIR ?? "",
+  /** Look tracks up in Deezer's public catalogue to fix names and fetch artwork. */
+  musicEnrich: (process.env.MUSIC_ENRICH ?? "true") !== "false",
+  /** Measure tempo/energy/brightness per track with ffmpeg for moods and mixes. */
+  musicAnalyse: (process.env.MUSIC_ANALYSE ?? "true") !== "false",
   musicArtDir: process.env.MUSIC_ART_DIR ?? path.join(process.env.DATA_DIR ?? "./data", "music-art"),
   // Rescan the library on this interval (0 = only on startup / manual trigger).
   musicScanIntervalMinutes: Number(process.env.MUSIC_SCAN_INTERVAL_MINUTES ?? 30)

@@ -19,6 +19,7 @@ const PlaylistPage = lazy(() => import("./pages/PlaylistPage").then((m) => ({ de
 const LikedPage = lazy(() => import("./pages/PlaylistPage").then((m) => ({ default: m.LikedPage })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const SharePage = lazy(() => import("./pages/SharePage").then((m) => ({ default: m.SharePage })));
+const MixPage = lazy(() => import("./pages/MixPage").then((m) => ({ default: m.MixPage })));
 
 const fallback = <div className="grid min-h-[50vh] place-items-center text-muted">Loading…</div>;
 
@@ -43,6 +44,8 @@ const router = createBrowserRouter([
       { path: "/artist/:id", element: <ArtistPage /> },
       { path: "/genre/:name", element: <GenrePage /> },
       { path: "/playlist/:id", element: <PlaylistPage /> },
+      { path: "/mix/:id", element: <MixPage kind="mix" /> },
+      { path: "/mood/:id", element: <MixPage kind="mood" /> },
       { path: "*", element: <Navigate to="/" replace /> },
     ],
   },

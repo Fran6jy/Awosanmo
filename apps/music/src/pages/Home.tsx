@@ -1,16 +1,16 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Play } from "lucide-react";
-import { api, type Album, type Genre, type Track } from "../lib/api";
+import { api, type Album, type Genre, type Mix, type Mood, type Track } from "../lib/api";
 import { playQueue } from "../lib/player";
 import { Art } from "../components/Art";
-import { AlbumCard, GenreCard, Shelf } from "../components/Cards";
+import { AlbumCard, GenreCard, MixCard, MoodCard, Shelf } from "../components/Cards";
 
-type HomeData = { recent: Track[]; onRepeat: Track[]; recentAlbums: Album[]; genres: Genre[]; discover: Track[] };
+type HomeData = { recent: Track[]; onRepeat: Track[]; recentAlbums: Album[]; genres: Genre[]; discover: Track[]; mixes: Mix[]; moods: Mood[] };
 
 function greeting() {
   const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  return h < 5 ? "Still up?" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
 /** Small wide tile: the "jump back in" row at the top of Spotify's home. */
@@ -39,11 +39,16 @@ function TrackTile({ track, tracks, context }: { track: Track; tracks: Track[]; 
   );
 }
 
+const playMix = (m: Mix) => api<{ tracks: Track[] }>(`/api/music/mixes/${encodeURIComponent(m.id)}`).then((r) => playQueue(r.tracks, 0, { kind: "home", name: m.name }));
+const playMood = (m: Mood) => api<{ tracks: Track[] }>(`/api/music/moods/${m.id}`).then((r) => playQueue(r.tracks, 0, { kind: "home", name: m.name }));
+
 export function Home() {
   const home = useQuery({ queryKey: ["music", "home"], queryFn: () => api<HomeData>("/api/music/home"), staleTime: 30_000 });
   const d = home.data;
   if (!d) return <div className="py-20 text-center text-muted">Loading your library…</div>;
   const empty = !d.recent.length && !d.recentAlbums.length && !d.discover.length;
+  const mixes = d.mixes ?? [];
+  const moods = d.moods ?? [];
 
   return (
     <div className="py-4">
@@ -59,6 +64,17 @@ export function Home() {
           {d.recent.slice(0, 6).map((t) => <QuickTile key={t.id} track={t} tracks={d.recent} />)}
         </div>
       )}
+      {mixes.length > 0 && (
+        <Shelf title="Made for you" subtitle="Built from what you play — fresh every day">
+          {mixes.map((m) => <MixCard key={m.id} mix={m} onPlay={() => void playMix(m)} />)}
+        </Shelf>
+      )}
+      {moods.length > 0 && (
+        <section className="mt-8">
+          <div className="mb-3 px-1"><h2 className="text-2xl font-extrabold tracking-tight">How are you feeling?</h2><p className="text-sm text-muted">Moods measured from the music itself — tempo, energy, brightness</p></div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{moods.slice(0, 5).map((m) => <MoodCard key={m.id} mood={m} onPlay={() => void playMood(m)} />)}</div>
+        </section>
+      )}
       {d.onRepeat.length > 0 && (
         <Shelf title="On repeat" subtitle="What you keep coming back to">
           {d.onRepeat.map((t) => <TrackTile key={t.id} track={t} tracks={d.onRepeat} context="On repeat" />)}
@@ -69,9 +85,9 @@ export function Home() {
           {d.recentAlbums.map((a) => <AlbumCard key={a.id} album={a} onPlay={() => api<{ tracks: Track[] }>(`/api/music/albums/${a.id}`).then((al) => playQueue(al.tracks, 0, { kind: "album", name: a.title }))} />)}
         </Shelf>
       )}
-      {d.discover.length > 0 && (
-        <Shelf title="Shuffle the shelves" subtitle="A fresh dozen from across your library, every visit">
-          {d.discover.map((t) => <TrackTile key={t.id} track={t} tracks={d.discover} context="Shuffle the shelves" />)}
+      {mixes.length === 0 && d.discover.length > 0 && (
+        <Shelf title="Something different" subtitle="A dozen from across your library">
+          {d.discover.map((t) => <TrackTile key={t.id} track={t} tracks={d.discover} context="Something different" />)}
         </Shelf>
       )}
       {d.genres.length > 0 && (
