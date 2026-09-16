@@ -53,6 +53,16 @@ export function Home() {
   return (
     <div className="py-4">
       <h1 className="text-3xl font-extrabold tracking-tight">{greeting()}</h1>
+      {d.recent.length > 0 && (
+        <Link to="/wrapped" className="mt-4 flex items-center gap-4 overflow-hidden rounded-xl p-4 transition hover:brightness-110" style={{ background: "linear-gradient(120deg, #A32638, #3A0F16)" }}>
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-cream/15"><BarChart3 className="h-6 w-6 text-cream" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-extrabold text-cream">Your week in music</span>
+            <span className="block truncate text-sm text-cream/75">Song, album and artist of the week — and a card to share</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-cream px-3 py-1.5 text-xs font-bold text-ink">Open</span>
+        </Link>
+      )}
       {empty && (
         <div className="mt-8 rounded-xl bg-surface p-8 text-center">
           <p className="text-lg font-semibold">Your library is empty</p>
@@ -61,11 +71,7 @@ export function Home() {
       )}
       {d.recent.length > 0 && (
         <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {d.recent.slice(0, 5).map((t) => <QuickTile key={t.id} track={t} tracks={d.recent} />)}
-          <Link to="/wrapped" className="group flex items-center gap-3 overflow-hidden rounded-md pr-3 text-left transition hover:brightness-110" style={{ background: "linear-gradient(135deg, #A32638, #3A0F16)" }}>
-            <span className="grid h-14 w-14 shrink-0 place-items-center"><BarChart3 className="h-6 w-6 text-cream" /></span>
-            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-cream">Your week in music</span><span className="block text-xs text-cream/70">Song, album and artist of the week</span></span>
-          </Link>
+          {d.recent.slice(0, 6).map((t) => <QuickTile key={t.id} track={t} tracks={d.recent} />)}
         </div>
       )}
       {mixes.length > 0 && (

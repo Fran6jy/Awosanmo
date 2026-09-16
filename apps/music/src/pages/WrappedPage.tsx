@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Flame, Play, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flame, Play, Share2, Sparkles } from "lucide-react";
+import { renderWrappedCard, shareCard } from "../lib/wrappedCard";
+import { pushToast } from "../components/Toast";
 import { api, type Track } from "../lib/api";
 import { playQueue } from "../lib/player";
 import { Art } from "../components/Art";
@@ -80,7 +82,24 @@ export function WrappedPage() {
   const week = Math.max(0, Number(params.get("week") ?? 0) || 0);
   const q = useQuery({ queryKey: ["music", "wrapped", week], queryFn: () => api<Wrapped>(`/api/music/wrapped?week=${week}`), staleTime: 60_000 });
   const [showAll, setShowAll] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const w = q.data;
+  async function share() {
+    if (!w || sharing) return;
+    setSharing(true);
+    try {
+      const blob = await renderWrappedCard({
+        rangeLabel: `${fmtDate(w.from)} – ${fmtDate(w.to - 1)}`, minutes: w.minutes, plays: w.plays, streakDays: w.streakDays,
+        song: w.songOfWeek ? { title: w.songOfWeek.title, artist: w.songOfWeek.artist, art: w.songOfWeek.art, plays: w.songOfWeek.plays } : null,
+        album: w.albumOfWeek ? { title: w.albumOfWeek.title, artist: w.albumOfWeek.artist, art: w.albumOfWeek.art } : null,
+        artist: w.artistOfWeek ? { name: w.artistOfWeek.name, image: w.artistOfWeek.image ?? w.artistOfWeek.art } : null,
+        mood: w.mood, topGenre: w.topGenre?.name ?? null, topSongs: w.topSongs,
+      });
+      const how = await shareCard(blob, `jymusic-week-${fmtDate(w.from).replace(/\s/g, "")}.png`);
+      if (how === "saved") pushToast("Saved as an image — post it anywhere");
+    } catch { pushToast("Could not make the image"); }
+    finally { setSharing(false); }
+  }
   if (!w) return <div className="py-20 text-center text-muted">Adding it all up…</div>;
 
   const pct = (now: number, then: number) => (then ? Math.round(((now - then) / then) * 100) : 0);
@@ -98,6 +117,12 @@ export function WrappedPage() {
           <p className="text-sm text-muted">{fmtDate(w.from)} – {fmtDate(w.to - 1)}{w.streakDays > 1 && week === 0 && <span className="ml-2 inline-flex items-center gap-1 text-gold"><Flame className="h-3.5 w-3.5" />{w.streakDays}-day streak</span>}</p>
         </div>
         <div className="flex gap-2">
+          {!empty && (
+            <button type="button" onClick={() => void share()} disabled={sharing}
+              className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-bold text-cream transition hover:bg-accent2 disabled:opacity-60">
+              <Share2 className="h-4 w-4" /> {sharing ? "Making…" : "Share"}
+            </button>
+          )}
           <button type="button" disabled={!canGoBack} onClick={() => setParams({ week: String(week + 1) })} aria-label="Previous week" className="grid h-9 w-9 place-items-center rounded-full border border-line text-muted hover:text-cream disabled:opacity-30"><ChevronLeft className="h-5 w-5" /></button>
           <button type="button" disabled={week === 0} onClick={() => setParams({ week: String(week - 1) })} aria-label="Next week" className="grid h-9 w-9 place-items-center rounded-full border border-line text-muted hover:text-cream disabled:opacity-30"><ChevronRight className="h-5 w-5" /></button>
         </div>

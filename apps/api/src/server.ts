@@ -205,8 +205,10 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // bundle to JYMusic while the API surface stays identical.
 const webDist = path.resolve(here, process.env.APP === "music" ? "../../music/dist" : "../../web/dist");
 if (process.env.NODE_ENV === "production" && fs.existsSync(webDist)) {
-  app.use(express.static(webDist, { index: false, etag: true, maxAge: "1h" }));
-  app.get(/.*/, (_req, res) => res.sendFile(path.join(webDist, "index.html")));
+  // Hashed assets can be cached hard; the HTML that points at them must not be,
+  // or a browser keeps loading last week's bundle for an hour after a deploy.
+  app.use(express.static(webDist, { index: false, etag: true, maxAge: "1h", immutable: true, setHeaders: (res, file) => { if (/\.(html|webmanifest|json)$/.test(file) || /sw\.js$|registerSW\.js$/.test(file)) res.setHeader("Cache-Control", "no-cache"); } }));
+  app.get(/.*/, (_req, res) => res.sendFile(path.join(webDist, "index.html"), { headers: { "Cache-Control": "no-cache" } }));
 }
 
 // Authenticate every socket so torrent updates are delivered per-user only.
