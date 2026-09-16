@@ -16,6 +16,7 @@ import { enrichInProgress, enrichLibrary, enrichProgress, enrichStats, lastEnric
 import { analyseLibrary, analysisInProgress, analysisProgress, analysisStats } from "./analysis.js";
 import * as mixes from "./mixes.js";
 import { lyricsFor } from "./lyrics.js";
+import * as stats from "./stats.js";
 
 export const musicRoutes = Router();
 
@@ -87,7 +88,10 @@ musicRoutes.post("/token", (req: any, res) => {
 
 // ---------- browse ----------
 
-musicRoutes.get("/home", (req: any, res) => res.json({ ...music.home(req.user.id), mixes: mixes.listMixes(req.user.id), moods: mixes.listMoods() }));
+musicRoutes.get("/home", (req: any, res) => res.json({
+  ...music.home(req.user.id), mixes: mixes.listMixes(req.user.id), moods: mixes.listMoods(),
+  forgotten: stats.forgottenFavourites(req.user.id, 12), onThisDay: stats.onThisDay(req.user.id, 12),
+}));
 
 // ---------- moods & mixes ----------
 
@@ -118,6 +122,28 @@ musicRoutes.get("/tracks/:id", (req: any, res) => {
   const track = music.getTrack(req.user.id, req.params.id);
   if (!track) return res.status(404).json({ error: "Track not found" });
   res.json(track);
+});
+
+// ---------- settings, wrapped, radio ----------
+
+musicRoutes.get("/settings", (req: any, res) => res.json(stats.getSettings(req.user.id)));
+musicRoutes.put("/settings", (req: any, res) => {
+  const body = z.record(z.string().max(40), z.any()).parse(req.body ?? {});
+  if (JSON.stringify(body).length > 8_000) return res.status(413).json({ error: "Settings too large" });
+  res.json(stats.updateSettings(req.user.id, body));
+});
+
+musicRoutes.get("/wrapped", (req: any, res) => {
+  const offset = Math.max(0, Math.min(520, Number(req.query.week ?? 0) || 0));
+  res.json(stats.wrapped(req.user.id, offset));
+});
+musicRoutes.get("/forgotten", (req: any, res) => res.json(stats.forgottenFavourites(req.user.id)));
+musicRoutes.get("/on-this-day", (req: any, res) => res.json(stats.onThisDay(req.user.id)));
+
+musicRoutes.get("/tracks/:id/similar", (req: any, res) => {
+  const tracks = stats.similarTracks(req.user.id, req.params.id);
+  if (!tracks.length && !music.getTrack(req.user.id, req.params.id)) return res.status(404).json({ error: "Track not found" });
+  res.json(tracks);
 });
 
 musicRoutes.get("/tracks/:id/lyrics", async (req: any, res) => {

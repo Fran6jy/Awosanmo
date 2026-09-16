@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api, forgetSearches, recentSearches, rememberSearch, type Album, type Artist, type Genre, type Mood, type Track } from "../lib/api";
+import { syncRecentSearches } from "../lib/settings";
 import { playQueue } from "../lib/player";
 import { AlbumCard, ArtistCard, GenreCard, MoodCard, Shelf } from "../components/Cards";
 import { TrackList } from "../components/TrackList";
@@ -18,14 +19,14 @@ export function SearchPage() {
   const [recent, setRecent] = useState(recentSearches);
   const r = results.data;
   // A search that found something is worth remembering for next time.
-  useEffect(() => { if (q && r && (r.tracks.length || r.albums.length || r.artists.length)) { rememberSearch(q); setRecent(recentSearches()); } }, [q, r]);
+  useEffect(() => { if (q && r && (r.tracks.length || r.albums.length || r.artists.length)) { rememberSearch(q); setRecent(recentSearches()); syncRecentSearches(); } }, [q, r]);
 
   if (!q) {
     return (
       <div className="py-4">
         {recent.length > 0 && (
           <section className="mb-6">
-            <div className="flex items-center justify-between px-1"><h2 className="text-lg font-bold">Recent searches</h2><button type="button" onClick={() => { forgetSearches(); setRecent([]); }} className="text-xs text-dim hover:text-cream">Clear</button></div>
+            <div className="flex items-center justify-between px-1"><h2 className="text-lg font-bold">Recent searches</h2><button type="button" onClick={() => { forgetSearches(); setRecent([]); syncRecentSearches(); }} className="text-xs text-dim hover:text-cream">Clear</button></div>
             <div className="mt-2 flex flex-wrap gap-2">
               {recent.map((t) => <Link key={t} to={`/search?q=${encodeURIComponent(t)}`} className="flex items-center gap-1.5 rounded-full bg-raised/70 px-3 py-1.5 text-sm text-cream hover:bg-raised"><Clock className="h-3.5 w-3.5 text-dim" />{t}</Link>)}
             </div>

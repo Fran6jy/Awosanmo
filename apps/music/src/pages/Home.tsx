@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Play } from "lucide-react";
+import { BarChart3, Play } from "lucide-react";
 import { api, type Album, type Genre, type Mix, type Mood, type Track } from "../lib/api";
 import { playQueue } from "../lib/player";
 import { Art } from "../components/Art";
 import { AlbumCard, GenreCard, MixCard, MoodCard, Shelf } from "../components/Cards";
 
-type HomeData = { recent: Track[]; onRepeat: Track[]; recentAlbums: Album[]; genres: Genre[]; discover: Track[]; mixes: Mix[]; moods: Mood[] };
+type HomeData = { recent: Track[]; onRepeat: Track[]; recentAlbums: Album[]; genres: Genre[]; discover: Track[]; mixes: Mix[]; moods: Mood[]; forgotten?: Track[]; onThisDay?: { yearsAgo: number; tracks: Track[] } | null };
 
 function greeting() {
   const h = new Date().getHours();
@@ -61,7 +61,11 @@ export function Home() {
       )}
       {d.recent.length > 0 && (
         <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {d.recent.slice(0, 6).map((t) => <QuickTile key={t.id} track={t} tracks={d.recent} />)}
+          {d.recent.slice(0, 5).map((t) => <QuickTile key={t.id} track={t} tracks={d.recent} />)}
+          <Link to="/wrapped" className="group flex items-center gap-3 overflow-hidden rounded-md pr-3 text-left transition hover:brightness-110" style={{ background: "linear-gradient(135deg, #A32638, #3A0F16)" }}>
+            <span className="grid h-14 w-14 shrink-0 place-items-center"><BarChart3 className="h-6 w-6 text-cream" /></span>
+            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-cream">Your week in music</span><span className="block text-xs text-cream/70">Song, album and artist of the week</span></span>
+          </Link>
         </div>
       )}
       {mixes.length > 0 && (
@@ -74,6 +78,16 @@ export function Home() {
           <div className="mb-3 px-1"><h2 className="text-2xl font-extrabold tracking-tight">How are you feeling?</h2><p className="text-sm text-muted">Moods measured from the music itself — tempo, energy, brightness</p></div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{moods.slice(0, 5).map((m) => <MoodCard key={m.id} mood={m} onPlay={() => void playMood(m)} />)}</div>
         </section>
+      )}
+      {(d.forgotten?.length ?? 0) >= 4 && (
+        <Shelf title="Forgotten favourites" subtitle="You loved these a few months ago — then stopped">
+          {d.forgotten!.map((t) => <TrackTile key={t.id} track={t} tracks={d.forgotten!} context="Forgotten favourites" />)}
+        </Shelf>
+      )}
+      {d.onThisDay && (
+        <Shelf title={`On this day, ${d.onThisDay.yearsAgo === 1 ? "a year" : `${d.onThisDay.yearsAgo} years`} ago`} subtitle="What you were playing this week back then">
+          {d.onThisDay.tracks.map((t) => <TrackTile key={t.id} track={t} tracks={d.onThisDay!.tracks} context="On this day" />)}
+        </Shelf>
       )}
       {d.onRepeat.length > 0 && (
         <Shelf title="On repeat" subtitle="What you keep coming back to">

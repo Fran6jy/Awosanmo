@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
-import { ChevronDown, Heart, ListMusic, MicVocal, MoreHorizontal, Pause, Play, Repeat, Repeat1, Share2, Shuffle, SkipBack, SkipForward } from "lucide-react";
+import { ChevronDown, Heart, ListMusic, MicVocal, MoreHorizontal, Pause, Play, Radio, Repeat, Repeat1, Share2, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api, artUrl, fmtTime, type Lyrics } from "../lib/api";
-import { cycleRepeat, next, prev, seek, toggle, toggleShuffle, useCurrent, usePlayer } from "../lib/player";
+import { cycleRepeat, next, playQueue, prev, seek, setSleepTimer, toggle, toggleShuffle, useCurrent, usePlayer } from "../lib/player";
+import { pushToast } from "./Toast";
+import { type Track } from "../lib/api";
 import { Art } from "./Art";
 import { QueuePanel } from "./QueuePanel";
 import { ShareDialog } from "./ShareDialog";
@@ -120,7 +122,7 @@ export function NowPlaying({ open, onClose }: { open: boolean; onClose: () => vo
           <footer className="mx-auto flex w-full max-w-md items-center justify-between px-8 pb-4 pt-2">
             <button type="button" onClick={() => setSharing(true)} aria-label="Share" className="grid h-11 w-11 place-items-center text-muted hover:text-cream"><Share2 className="h-5 w-5" /></button>
             <button type="button" onClick={() => setLyricsOpen((o) => !o)} aria-label="Lyrics" className={`grid h-11 w-11 place-items-center ${lyricsOpen ? "text-accent2" : "text-muted hover:text-cream"}`}><MicVocal className="h-5 w-5" /></button>
-            <p className="text-xs text-dim">{s.crossfade ? `Crossfade ${s.crossfade}s` : ""}</p>
+            <p className="text-xs text-dim">{s.sleepAt ? `Sleep ${new Date(s.sleepAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : s.crossfade ? `Crossfade ${s.crossfade}s` : ""}</p>
             <button type="button" onClick={() => setQueueOpen(true)} aria-label="Queue" className="grid h-11 w-11 place-items-center text-muted hover:text-cream"><ListMusic className="h-5 w-5" /></button>
           </footer>
 
@@ -130,7 +132,24 @@ export function NowPlaying({ open, onClose }: { open: boolean; onClose: () => vo
               <>
                 <div className="absolute inset-0 z-10 bg-black/40" onClick={() => setMoreOpen(false)} />
                 <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-                  className="absolute inset-x-0 bottom-0 z-20 rounded-t-2xl border-t border-line bg-raised p-5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.25rem)" }}>
+                  className="absolute inset-x-0 bottom-0 z-20 max-h-[80%] overflow-y-auto rounded-t-2xl border-t border-line bg-raised p-5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.25rem)" }}>
+                  <button type="button" onClick={() => { setMoreOpen(false); api<Track[]>(`/api/music/tracks/${track.id}/similar`).then((r) => { if (r.length) { void playQueue([track, ...r], 0, { kind: "radio", name: `${track.title} radio` }); pushToast(`Radio from “${track.title}”`); } else pushToast("Not enough analysed songs yet"); }); }}
+                    className="mb-4 flex w-full items-center justify-between rounded-xl bg-surface2 px-4 py-3 text-left hover:bg-panel">
+                    <span><span className="block text-sm font-semibold text-cream">Go to song radio</span><span className="block text-xs text-muted">Songs that sound like this one</span></span>
+                    <Radio className="h-5 w-5 text-muted" />
+                  </button>
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-dim">Sleep timer</p>
+                    <div className="mt-2 flex gap-1.5">
+                      {[0, 15, 30, 45, 60].map((m) => (
+                        <button key={m} type="button" onClick={() => { setSleepTimer(m); pushToast(m ? `Stopping in ${m} min` : "Sleep timer off"); }}
+                          className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition ${(m === 0 && !s.sleepAt) || (m > 0 && s.sleepAt && Math.abs(s.sleepAt - Date.now() - m * 60_000) < 90_000) ? "bg-cream text-ink" : "bg-surface2 text-cream hover:bg-panel"}`}>
+                          {m === 0 ? "Off" : `${m}m`}
+                        </button>
+                      ))}
+                    </div>
+                    {s.sleepAt && <p className="mt-2 text-xs text-muted">Fades out at {new Date(s.sleepAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>}
+                  </div>
                   <CrossfadeControls />
                 </motion.div>
               </>

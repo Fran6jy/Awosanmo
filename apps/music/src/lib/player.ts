@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { api, artUrl, getMusicToken, streamUrl, type Track } from "./api";
 import { deviceId, deviceName } from "./device";
 import { currentRemote, setSupersededHandler, type RemotePlayback } from "./session";
+import { onSettingsApply, saveSetting } from "./settings";
 
 /**
  * The player engine: one <audio> element, a queue, and a tiny external store
@@ -27,8 +28,12 @@ export type PlayerState = {
   crossfade: number;
   /** Let consecutive tracks of one album run straight into each other instead of crossfading. */
   gaplessAlbums: boolean;
+  /** Level songs against each other using their measured loudness. */
+  normalize: boolean;
+  /** Sleep timer: when playback stops (epoch ms), or null. */
+  sleepAt: number | null;
   /** Where the queue came from, for "playing from Album X" in the bar. */
-  context: { kind: "album" | "artist" | "playlist" | "liked" | "genre" | "search" | "home" | "tracks" | "mix" | "mood"; name: string } | null;
+  context: { kind: "album" | "artist" | "playlist" | "liked" | "genre" | "search" | "home" | "tracks" | "mix" | "mood" | "radio"; name: string } | null;
 };
 
 // Two decks: the one playing, and a standby that the next track is preloaded
@@ -45,9 +50,26 @@ let state: PlayerState = {
   volume: Number(localStorage.getItem("jy.volume") ?? 0.9), muted: false,
   crossfade: Number(localStorage.getItem("jy.crossfade") ?? 0),
   gaplessAlbums: localStorage.getItem("jy.gapless") !== "0",
+  normalize: localStorage.getItem("jy.normalize") === "1",
+  sleepAt: null,
   context: null,
 };
 audio.volume = state.volume;
+
+// ---------- volume normalisation ----------
+// Every analysed track carries its RMS loudness. We aim loud masters down to a
+// common level and lift quiet recordings as far as the element allows, so a
+// 90s ballad after a modern master does not need the volume knob.
+const TARGET_DBFS = -16;
+function trackGain(track: Track | null): number {
+  if (!state.normalize || !track || track.loudness === null || track.loudness === undefined) return 1;
+  const db = Math.max(-12, Math.min(9, TARGET_DBFS - track.loudness));
+  return Math.pow(10, db / 20);
+}
+/** The element volume for a given track at the user's chosen level. */
+function levelFor(track: Track | null): number {
+  return Math.max(0, Math.min(1, state.volume * trackGain(track)));
+}
 
 /** iOS browsers ignore element volume, which makes a fade impossible there. */
 export function crossfadeSupported(): boolean {
@@ -208,7 +230,7 @@ function stopFade() {
   clearInterval(fade.timer);
   fade.from.pause();
   fade = null;
-  audio.volume = state.volume;
+  audio.volume = levelFor(current());
 }
 
 function maybeCrossfade() {
@@ -225,6 +247,7 @@ function maybeCrossfade() {
 async function startCrossfade(nxt: { cursor: number; track: Track }) {
   const from = audio;
   const to = standby();
+  const outgoing = current();
   to.currentTime = 0;
   to.volume = 0;
   to.muted = from.muted;
@@ -241,10 +264,12 @@ async function startCrossfade(nxt: { cursor: number; track: Track }) {
   // Equal-power curve: the mix stays at constant loudness through the overlap.
   const ms = state.crossfade * 1000;
   const started = performance.now();
+  const fromLevel = levelFor(outgoing);
+  const toLevel = levelFor(nxt.track);
   const timer = window.setInterval(() => {
     const p = Math.min(1, (performance.now() - started) / ms);
-    from.volume = state.volume * Math.cos(p * Math.PI / 2);
-    to.volume = state.volume * Math.sin(p * Math.PI / 2);
+    from.volume = fromLevel * Math.cos(p * Math.PI / 2);
+    to.volume = toLevel * Math.sin(p * Math.PI / 2);
     if (p >= 1 && fade?.timer === timer) { clearInterval(timer); from.pause(); fade = null; }
   }, 40);
   fade = { from, timer };
@@ -254,11 +279,21 @@ export function setCrossfade(seconds: number) {
   const crossfade = Math.max(0, Math.min(12, Math.round(seconds)));
   localStorage.setItem("jy.crossfade", String(crossfade));
   set({ crossfade });
+  saveSetting({ crossfade });
 }
 export function setGaplessAlbums(on: boolean) {
   localStorage.setItem("jy.gapless", on ? "1" : "0");
   set({ gaplessAlbums: on });
+  saveSetting({ gaplessAlbums: on });
 }
+
+// Incoming account settings (after login / on another device's change) land here without being echoed back.
+onSettingsApply((s) => {
+  if (typeof s.volume === "number") setVolume(s.volume);
+  if (typeof s.crossfade === "number") setCrossfade(s.crossfade);
+  if (typeof s.gaplessAlbums === "boolean") setGaplessAlbums(s.gaplessAlbums);
+  if (typeof s.normalize === "boolean") setNormalize(s.normalize);
+});
 
 async function load(track: Track, autoplay: boolean) {
   stopFade();
@@ -272,7 +307,7 @@ async function load(track: Track, autoplay: boolean) {
     audio.src = streamUrl(track.id, await getMusicToken());
   }
   preloadedFor = null;
-  audio.volume = state.volume;
+  audio.volume = levelFor(track);
   audio.muted = state.muted;
   resetPlayAccounting();
   set({ progress: 0, duration: track.duration ?? 0 });
@@ -401,10 +436,38 @@ export function seek(seconds: number) {
 
 export function setVolume(v: number) {
   const volume = Math.max(0, Math.min(1, v));
-  if (!fade) audio.volume = volume; // during a fade the ramp applies the new level itself
+  set({ volume, muted: false });
+  if (!fade) audio.volume = levelFor(current()); // during a fade the ramp applies the new level itself
   for (const d of decks) d.muted = false;
   localStorage.setItem("jy.volume", String(volume));
-  set({ volume, muted: false });
+  saveSetting({ volume });
+}
+export function setNormalize(on: boolean) {
+  localStorage.setItem("jy.normalize", on ? "1" : "0");
+  set({ normalize: on });
+  if (!fade) audio.volume = levelFor(current());
+  saveSetting({ normalize: on });
+}
+
+// ---------- sleep timer ----------
+let sleepTimer: number | null = null;
+let sleepFade: number | null = null;
+/** Stop after `minutes` (0 clears). The last 10 seconds fade out so it never cuts mid-note. */
+export function setSleepTimer(minutes: number) {
+  if (sleepTimer) { window.clearTimeout(sleepTimer); sleepTimer = null; }
+  if (sleepFade) { window.clearInterval(sleepFade); sleepFade = null; if (!fade) audio.volume = levelFor(current()); }
+  if (!minutes) { set({ sleepAt: null }); return; }
+  const at = Date.now() + minutes * 60_000;
+  set({ sleepAt: at });
+  sleepTimer = window.setTimeout(() => {
+    const started = performance.now();
+    const base = audio.volume;
+    sleepFade = window.setInterval(() => {
+      const p = Math.min(1, (performance.now() - started) / 10_000);
+      audio.volume = base * (1 - p);
+      if (p >= 1) { window.clearInterval(sleepFade!); sleepFade = null; pause(); audio.volume = levelFor(current()); set({ sleepAt: null }); }
+    }, 200);
+  }, Math.max(0, minutes * 60_000 - 10_000));
 }
 export function toggleMute() { const muted = !audio.muted; for (const d of decks) d.muted = muted; set({ muted }); }
 

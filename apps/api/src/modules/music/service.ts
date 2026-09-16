@@ -17,6 +17,8 @@ export type TrackView = {
   year: number | null;
   art: string | null;
   playable: boolean;
+  /** Measured RMS loudness in dBFS (null until analysed); lets the player level songs against each other. */
+  loudness: number | null;
   liked?: boolean;
 };
 
@@ -25,11 +27,13 @@ export const TRACK_SELECT = `
          COALESCE(t.art_path, al.art_path) AS art,
          a.name AS artist, a.id AS artist_id,
          al.title AS album, al.id AS album_id,
-         aa.name AS album_artist
+         aa.name AS album_artist,
+         fx.loudness AS loudness
   FROM music_tracks t
   JOIN music_artists a ON a.id = t.artist_id
   JOIN music_albums al ON al.id = t.album_id
   JOIN music_artists aa ON aa.id = al.artist_id
+  LEFT JOIN music_features fx ON fx.track_id = t.id
 `;
 
 export function toView(row: any, liked?: Set<string>): TrackView {
@@ -37,7 +41,7 @@ export function toView(row: any, liked?: Set<string>): TrackView {
     id: row.id, title: row.title, artist: row.artist, artistId: row.artist_id,
     album: row.album, albumId: row.album_id, albumArtist: row.album_artist,
     trackNo: row.track_no, discNo: row.disc_no, duration: row.duration, genre: row.genre, year: row.year,
-    art: row.art, playable: Boolean(row.playable),
+    art: row.art, playable: Boolean(row.playable), loudness: row.loudness ?? null,
     ...(liked ? { liked: liked.has(row.id) } : {}),
   };
 }

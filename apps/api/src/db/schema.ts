@@ -191,6 +191,12 @@ export function migrate() {
       mtime INTEGER NOT NULL,
       analysed_at INTEGER NOT NULL
     );
+    -- Per-user app settings (volume, crossfade, ...) so every device behaves the same.
+    CREATE TABLE IF NOT EXISTS music_settings (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      data TEXT NOT NULL DEFAULT '{}',
+      updated_at INTEGER NOT NULL
+    );
     -- Lyrics cache (LRCLIB). NULL synced and plain with a recent fetched_at is a remembered miss.
     CREATE TABLE IF NOT EXISTS music_lyrics (
       track_id TEXT PRIMARY KEY REFERENCES music_tracks(id) ON DELETE CASCADE,

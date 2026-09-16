@@ -8,6 +8,7 @@ import { Toaster } from "./components/Toast";
 import { restoreSession, token } from "./lib/api";
 import { installKeyboardShortcuts } from "./lib/player";
 import { startSession } from "./lib/session";
+import { loadAccountSettings } from "./lib/settings";
 
 const Home = lazy(() => import("./pages/Home").then((m) => ({ default: m.Home })));
 const SearchPage = lazy(() => import("./pages/SearchPage").then((m) => ({ default: m.SearchPage })));
@@ -20,6 +21,7 @@ const LikedPage = lazy(() => import("./pages/PlaylistPage").then((m) => ({ defau
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const SharePage = lazy(() => import("./pages/SharePage").then((m) => ({ default: m.SharePage })));
 const MixPage = lazy(() => import("./pages/MixPage").then((m) => ({ default: m.MixPage })));
+const WrappedPage = lazy(() => import("./pages/WrappedPage").then((m) => ({ default: m.WrappedPage })));
 
 const fallback = <div className="grid min-h-[50vh] place-items-center text-muted">Loading…</div>;
 
@@ -46,6 +48,7 @@ const router = createBrowserRouter([
       { path: "/playlist/:id", element: <PlaylistPage /> },
       { path: "/mix/:id", element: <MixPage kind="mix" /> },
       { path: "/mood/:id", element: <MixPage kind="mood" /> },
+      { path: "/wrapped", element: <WrappedPage /> },
       { path: "*", element: <Navigate to="/" replace /> },
     ],
   },
@@ -57,7 +60,7 @@ async function start() {
   const authed = await restoreSession();
   installKeyboardShortcuts();
   // Learn what (if anything) is playing on the account's other devices.
-  if (authed) void startSession();
+  if (authed) { void startSession(); void loadAccountSettings(); }
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>

@@ -1,4 +1,4 @@
-import { crossfadeSupported, setCrossfade, setGaplessAlbums, usePlayer } from "../lib/player";
+import { crossfadeSupported, setCrossfade, setGaplessAlbums, setNormalize, usePlayer } from "../lib/player";
 
 const CROSSFADE_STEPS = [0, 3, 6, 9, 12];
 
@@ -28,6 +28,14 @@ export function CrossfadeControls() {
           </span>
           <input type="checkbox" checked={s.gaplessAlbums} disabled={!s.crossfade} onChange={(e) => setGaplessAlbums(e.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-accent" />
         </label>
+        <label className="mt-4 flex cursor-pointer items-start justify-between gap-3">
+          <span>
+            <span className="block text-sm font-semibold text-cream">Normalise volume</span>
+            <span className="block text-xs text-muted">Level songs against each other using their measured loudness, so quiet recordings and loud masters sit together.</span>
+          </span>
+          <input type="checkbox" checked={s.normalize} onChange={(e) => setNormalize(e.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-accent" />
+        </label>
+        <p className="mt-3 text-[11px] text-dim">These settings follow your account to every device.</p>
       </div>
     </>
   );

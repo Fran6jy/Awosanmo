@@ -1,6 +1,6 @@
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Link2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { BarChart3, Copy, Link2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { api, fmtLong, shareLink, type Album, type Artist, type Playlist, type Share, type Track } from "../lib/api";
 import { playQueue } from "../lib/player";
 import { AlbumCard, ArtistCard, PlaylistCard } from "../components/Cards";
@@ -45,6 +45,7 @@ export function LibraryPage() {
           {st && <p className="mt-1 text-sm text-muted">{st.tracks.toLocaleString()} songs · {st.albums.toLocaleString()} albums · {st.artists.toLocaleString()} artists · {fmtLong(st.durationSeconds)}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link to="/wrapped" className="flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-semibold text-muted transition hover:border-cream hover:text-cream"><BarChart3 className="h-4 w-4" /> Your week</Link>
           <button type="button" onClick={() => scan.mutate()} disabled={st?.scanning || scan.isPending}
             className="flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-semibold text-muted transition hover:border-cream hover:text-cream disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 ${st?.scanning ? "animate-spin" : ""}`} /> {st?.scanning ? "Scanning…" : "Rescan library"}

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, Heart, ListPlus, MoreHorizontal, Play, Share2, Trash2, Volume2 } from "lucide-react";
+import { Clock, Heart, ListPlus, MoreHorizontal, Play, Radio, Share2, Trash2, Volume2 } from "lucide-react";
 import { api, fmtTime, sessionRole, type Playlist, type Track } from "../lib/api";
-import { addToQueue, dropTrack, markLiked, playNext, playTrack, useCurrent, usePlayer, type PlayerState } from "../lib/player";
+import { addToQueue, dropTrack, markLiked, playNext, playQueue, playTrack, useCurrent, usePlayer, type PlayerState } from "../lib/player";
 import { Art } from "./Art";
 import { pushToast } from "./Toast";
 import { ShareDialog } from "./ShareDialog";
@@ -119,6 +119,7 @@ function TrackMenu({ track, onClose, onRemove, onShare }: { track: Track; onClos
         <MenuItem onClick={() => { playNext([track]); onClose(); }}>Play next</MenuItem>
         <MenuItem onClick={() => { addToQueue([track]); pushToast("Added to queue"); onClose(); }}>Add to queue</MenuItem>
         <MenuItem onClick={onShare}><Share2 className="mr-2 h-4 w-4 text-dim" />Share</MenuItem>
+        <MenuItem onClick={() => { onClose(); api<Track[]>(`/api/music/tracks/${track.id}/similar`).then((r) => { if (r.length) { void playQueue([track, ...r], 0, { kind: "radio", name: `${track.title} radio` }); pushToast(`Radio from “${track.title}”`); } else pushToast("Not enough analysed songs yet"); }).catch(() => pushToast("Could not start radio")); }}><Radio className="mr-2 h-4 w-4 text-dim" />Go to song radio</MenuItem>
         <div className="my-1 border-t border-line" />
         <p className="px-3 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-dim">Add to playlist</p>
         <div className="max-h-40 overflow-y-auto">

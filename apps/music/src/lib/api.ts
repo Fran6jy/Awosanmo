@@ -123,7 +123,7 @@ export async function fetchShared(id: string): Promise<SharedContent | null> {
 export type Track = {
   id: string; title: string; artist: string; artistId: string; album: string; albumId: string; albumArtist: string;
   trackNo: number | null; discNo: number | null; duration: number | null; genre: string | null; year: number | null;
-  art: string | null; playable: boolean; liked?: boolean; position?: number;
+  art: string | null; playable: boolean; loudness?: number | null; liked?: boolean; position?: number;
 };
 export type Album = { id: string; title: string; artist: string; artistId: string; year: number | null; art: string | null; trackCount: number; duration: number };
 export type Artist = { id: string; name: string; albumCount: number; trackCount: number; art: string | null; image: string | null };
