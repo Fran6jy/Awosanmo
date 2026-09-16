@@ -92,13 +92,52 @@ function computeMoods(): MoodView[] {
   }).filter((m) => m.trackCount >= 5);
 }
 
+// ---------- per-user mix state: re-deals and skips ----------
+
+const SKIP_TTL_MS = 14 * 86_400_000;
+
+type MixState = { salt: number; skipped: Record<string, number> };
+function mixState(userId: string, mixId: string): MixState {
+  const row = db.prepare("SELECT salt, skipped FROM music_mix_state WHERE user_id = ? AND mix_id = ?").get(userId, mixId) as any;
+  let skipped: Record<string, number> = {};
+  try { skipped = row ? JSON.parse(row.skipped) : {}; } catch { /* corrupt row: start clean */ }
+  return { salt: row?.salt ?? 0, skipped };
+}
+function saveMixState(userId: string, mixId: string, s: MixState) {
+  db.prepare(`INSERT INTO music_mix_state (user_id, mix_id, salt, skipped, updated_at) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, mix_id) DO UPDATE SET salt = excluded.salt, skipped = excluded.skipped, updated_at = excluded.updated_at`)
+    .run(userId, mixId, s.salt, JSON.stringify(s.skipped), Date.now());
+}
+
+/** Deal a fresh hand of this mix or mood right now instead of waiting for tomorrow. */
+export function refreshMix(userId: string, mixId: string) {
+  const s = mixState(userId, mixId);
+  saveMixState(userId, mixId, { ...s, salt: s.salt + 1 });
+}
+
+/** A song skipped early out of a mix stays out of that mix for two weeks. */
+export function skipInMix(userId: string, mixId: string, trackId: string) {
+  const s = mixState(userId, mixId);
+  const now = Date.now();
+  for (const [id, at] of Object.entries(s.skipped)) if (now - at > SKIP_TTL_MS) delete s.skipped[id];
+  s.skipped[trackId] = now;
+  saveMixState(userId, mixId, s);
+}
+
+function seedFor(userId: string, mixId: string, state: MixState) { return `${userId}:${mixId}:${dayKey()}:${state.salt}`; }
+function notSkipped(rows: any[], state: MixState) {
+  const now = Date.now();
+  return rows.filter((r) => !(state.skipped[r.id] && now - state.skipped[r.id] < SKIP_TTL_MS));
+}
+
 /** Up to `limit` tracks for a mood: the best 3× pool, then a day-seeded shuffle so the mix is stable for a day and fresh the next. */
 export function moodTracks(userId: string, id: string, limit = 60): { mood: MoodView; tracks: TrackView[] } | null {
   const m = MOODS.find((x) => x.id === id);
   if (!m) return null;
   const view = listMoods().find((x) => x.id === id) ?? { id: m.id, name: m.name, blurb: m.blurb, colors: m.colors, trackCount: 0, art: null };
-  const pool = db.prepare(`${TRACK_SELECT} JOIN music_features f ON f.track_id = t.id WHERE t.playable = 1 AND f.tempo IS NOT NULL AND ${m.where(cutoffs())} ORDER BY ${m.fit} LIMIT ?`).all(limit * 3) as any[];
-  const tracks = seededShuffle(pool, `${userId}:${id}:${dayKey()}`).slice(0, limit);
+  const state = mixState(userId, id);
+  const pool = notSkipped(db.prepare(`${TRACK_SELECT} JOIN music_features f ON f.track_id = t.id WHERE t.playable = 1 AND f.tempo IS NOT NULL AND ${m.where(cutoffs())} ORDER BY ${m.fit} LIMIT ?`).all(limit * 3) as any[], state);
+  const tracks = seededShuffle(pool, seedFor(userId, id, state)).slice(0, limit);
   return { mood: view, tracks: withLikesFor(userId, tracks) };
 }
 
@@ -139,8 +178,8 @@ function topGenres(userId: string, limit: number): { genre: string; plays: numbe
  * A daily mix for one genre: half songs from artists you play in it, half
  * songs in it you have not played (or not lately), liked songs weighted in.
  */
-function dailyMixTracks(userId: string, genre: string, limit: number): any[] {
-  const day = dayKey();
+function dailyMixTracks(userId: string, genre: string, limit: number, salt = 0): any[] {
+  const day = `${dayKey()}:${salt}`;
   const familiar = db.prepare(`${TRACK_SELECT}
     WHERE t.playable = 1 AND t.genre = ? AND t.artist_id IN (
       SELECT t2.artist_id FROM music_plays p JOIN music_tracks t2 ON t2.id = p.track_id WHERE p.user_id = ? GROUP BY t2.artist_id ORDER BY COUNT(*) DESC LIMIT 25)`).all(genre, userId) as any[];
@@ -162,8 +201,8 @@ function interleave(a: any[], b: any[], limit: number) {
 }
 
 /** Songs you have never played, by artists you do play, plus songs whose sound sits near what you like. */
-function discoverTracks(userId: string, limit: number): any[] {
-  const day = dayKey();
+function discoverTracks(userId: string, limit: number, salt = 0): any[] {
+  const day = `${dayKey()}:${salt}`;
   const byArtists = db.prepare(`${TRACK_SELECT}
     WHERE t.playable = 1 AND t.id NOT IN (SELECT track_id FROM music_plays WHERE user_id = ?)
       AND t.artist_id IN (SELECT t2.artist_id FROM music_plays p JOIN music_tracks t2 ON t2.id = p.track_id WHERE p.user_id = ? GROUP BY t2.artist_id ORDER BY COUNT(*) DESC LIMIT 40)`).all(userId, userId) as any[];
@@ -214,9 +253,11 @@ export function mixTracks(userId: string, id: string, limit = 50): { mix: MixVie
   const mixes = listMixes(userId);
   const mix = mixes.find((m) => m.id === id);
   if (!mix) return null;
+  const state = mixState(userId, id);
   let rows: any[] = [];
-  if (mix.kind === "daily") rows = dailyMixTracks(userId, id.slice("daily:".length), limit);
-  else if (mix.kind === "discover") rows = discoverTracks(userId, limit);
+  // Over-fetch so that skipped songs can be dropped without shortening the mix.
+  if (mix.kind === "daily") rows = dailyMixTracks(userId, id.slice("daily:".length), limit + 20, state.salt);
+  else if (mix.kind === "discover") rows = discoverTracks(userId, limit + 20, state.salt);
   else if (mix.kind === "timeofday") return { mix, tracks: moodTracks(userId, id.slice("timeofday:".length), limit)?.tracks ?? [] };
-  return { mix, tracks: withLikesFor(userId, seededShuffle(rows, `${userId}:${id}:${dayKey()}`)) };
+  return { mix, tracks: withLikesFor(userId, seededShuffle(notSkipped(rows, state), seedFor(userId, id, state)).slice(0, limit)) };
 }

@@ -22,7 +22,7 @@ function seed(opts: { artist: string; album: string; title: string; genre?: stri
 
 beforeAll(() => migrate());
 beforeEach(async () => {
-  for (const t of ["music_features", "music_likes", "music_plays", "music_tracks", "music_albums", "music_artists", "refresh_tokens", "users"]) db.prepare(`DELETE FROM ${t}`).run();
+  for (const t of ["music_mix_state", "music_features", "music_likes", "music_plays", "music_tracks", "music_albums", "music_artists", "refresh_tokens", "users"]) db.prepare(`DELETE FROM ${t}`).run();
   await register("me@x.com", "password123");
   user = (db.prepare("SELECT id FROM users WHERE email = ?").get("me@x.com") as any).id;
 });
@@ -76,5 +76,19 @@ describe("mixes", () => {
     expect(timeOfDayMood(8).moodId).toBe("feelgood");
     expect(timeOfDayMood(21).moodId).toBe("chill");
     expect(timeOfDayMood(2).moodId).toBe("latenight");
+  });
+});
+
+describe("re-deal and skips", () => {
+  it("changes the hand on refresh and keeps a skipped song out", async () => {
+    const { refreshMix, skipInMix } = await import("../modules/music/mixes.js");
+    for (let i = 0; i < 30; i += 1) seed({ artist: `H${i}`, album: "X", title: `Banger ${i}`, f: { tempo: 128, energy: 0.8, brightness: 0.4, dance: 0.9 } });
+    const before = moodTracks(user, "hype", 10)!.tracks.map((t) => t.id);
+    expect(moodTracks(user, "hype", 10)!.tracks.map((t) => t.id)).toEqual(before); // stable within the day
+    refreshMix(user, "hype");
+    const after = moodTracks(user, "hype", 10)!.tracks.map((t) => t.id);
+    expect(after).not.toEqual(before);
+    skipInMix(user, "hype", after[0]);
+    expect(moodTracks(user, "hype", 10)!.tracks.map((t) => t.id)).not.toContain(after[0]);
   });
 });

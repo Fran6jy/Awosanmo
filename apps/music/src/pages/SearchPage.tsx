@@ -36,7 +36,7 @@ export function SearchPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-extrabold tracking-tight">Browse by mood</h2>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {moods.data!.map((m) => <MoodCard key={m.id} mood={m} onPlay={() => api<{ tracks: Track[] }>(`/api/music/moods/${m.id}`).then((x) => playQueue(x.tracks, 0, { kind: "mood", name: m.name }))} />)}
+              {moods.data!.map((m) => <MoodCard key={m.id} mood={m} onPlay={() => api<{ tracks: Track[] }>(`/api/music/moods/${m.id}`).then((x) => playQueue(x.tracks, 0, { kind: "mood", name: m.name, id: m.id }))} />)}
             </div>
           </section>
         )}

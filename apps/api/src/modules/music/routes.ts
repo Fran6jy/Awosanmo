@@ -102,6 +102,13 @@ musicRoutes.get("/moods/:id", (req: any, res) => {
   res.json(r);
 });
 musicRoutes.get("/mixes", (req: any, res) => res.json(mixes.listMixes(req.user.id)));
+// Deal a fresh hand now, or take a skipped song out of a mix or mood for a fortnight.
+musicRoutes.post("/mixes/:id/refresh", (req: any, res) => { mixes.refreshMix(req.user.id, req.params.id); res.sendStatus(204); });
+musicRoutes.post("/mixes/:id/skip", (req: any, res) => {
+  const body = z.object({ trackId: z.string().uuid() }).parse(req.body);
+  mixes.skipInMix(req.user.id, req.params.id, body.trackId);
+  res.sendStatus(204);
+});
 musicRoutes.get("/mixes/:id", (req: any, res) => {
   const r = mixes.mixTracks(req.user.id, req.params.id);
   if (!r) return res.status(404).json({ error: "Mix not found" });
@@ -215,7 +222,7 @@ const playbackSchema = z.object({
   repeat: z.enum(["off", "all", "one"]),
   position: z.number().min(0),
   playing: z.boolean(),
-  context: z.object({ kind: z.string().max(20), name: z.string().max(200) }).nullable(),
+  context: z.object({ kind: z.string().max(20), name: z.string().max(200), id: z.string().max(120).optional() }).nullable(),
 });
 
 musicRoutes.get("/playback", (req: any, res) => res.json(music.getPlayback(req.user.id)));

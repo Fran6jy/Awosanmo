@@ -197,6 +197,16 @@ export function migrate() {
       data TEXT NOT NULL DEFAULT '{}',
       updated_at INTEGER NOT NULL
     );
+    -- Per-user state of a mix or mood: how many times it has been re-dealt
+    -- today (changes the shuffle seed) and songs skipped out of it.
+    CREATE TABLE IF NOT EXISTS music_mix_state (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mix_id TEXT NOT NULL,
+      salt INTEGER NOT NULL DEFAULT 0,
+      skipped TEXT NOT NULL DEFAULT '{}',
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, mix_id)
+    );
     -- Lyrics cache (LRCLIB). NULL synced and plain with a recent fetched_at is a remembered miss.
     CREATE TABLE IF NOT EXISTS music_lyrics (
       track_id TEXT PRIMARY KEY REFERENCES music_tracks(id) ON DELETE CASCADE,

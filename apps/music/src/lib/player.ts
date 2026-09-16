@@ -33,7 +33,8 @@ export type PlayerState = {
   /** Sleep timer: when playback stops (epoch ms), or null. */
   sleepAt: number | null;
   /** Where the queue came from, for "playing from Album X" in the bar. */
-  context: { kind: "album" | "artist" | "playlist" | "liked" | "genre" | "search" | "home" | "tracks" | "mix" | "mood" | "radio"; name: string } | null;
+  /** Where the queue came from; `id` is set for mixes and moods so an early skip can be reported back. */
+  context: { kind: "album" | "artist" | "playlist" | "liked" | "genre" | "search" | "home" | "tracks" | "mix" | "mood" | "radio"; name: string; id?: string } | null;
 };
 
 // Two decks: the one playing, and a standby that the next track is preloaded
@@ -403,6 +404,12 @@ export function pause() { stopFade(); audio.pause(); }
 export async function next(auto = false) {
   if (!state.order.length) return;
   if (state.repeat === "one" && auto) { audio.currentTime = 0; resetPlayAccounting(); void audio.play(); return; }
+  // Skipping a mix song inside its first 20 seconds is a verdict: keep it out of that mix for a while.
+  const ctx = state.context;
+  const t = current();
+  if (!auto && t && ctx?.id && (ctx.kind === "mix" || ctx.kind === "mood") && audio.currentTime < 20) {
+    api(`/api/music/mixes/${encodeURIComponent(ctx.id)}/skip`, { method: "POST", body: JSON.stringify({ trackId: t.id }) }).catch(() => undefined);
+  }
   let cursor = state.cursor + 1;
   if (cursor >= state.order.length) {
     if (state.repeat === "all") cursor = 0;
