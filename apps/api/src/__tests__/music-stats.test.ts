@@ -31,9 +31,10 @@ describe("weekly wrapped", () => {
     const a2 = seed({ artist: "Eminem", album: "Recovery", title: "Love the Way You Lie", genre: "Hip-Hop & R&B", duration: 240 });
     seed({ artist: "Eminem", album: "Recovery", title: "Cinderella Man", genre: "Hip-Hop & R&B" });
     const b = seed({ artist: "Adele", album: "25", title: "Hello", genre: "Pop", duration: 300 });
-    for (let i = 0; i < 4; i += 1) playAt(a1.id, now - i * 3600_000);
-    playAt(a2.id, now - 3600_000);
-    playAt(b.id, now - 7200_000);
+    // Seconds apart, not hours: the test must pass just after midnight on a Monday too.
+    for (let i = 0; i < 4; i += 1) playAt(a1.id, now - i * 1000);
+    playAt(a2.id, now - 5000);
+    playAt(b.id, now - 6000);
     playAt(b.id, now - 20 * DAY); // last week or earlier: not this week
     const w = wrapped(user, 0);
     expect(w.plays).toBe(6);
@@ -55,6 +56,12 @@ describe("weekly wrapped", () => {
     expect(weekStart(1, monday)).toBe(weekStart(0, monday) - 7 * DAY);
     const sunday = new Date(2026, 8, 20, 3, 0);
     expect(weekStart(0, sunday)).toBe(weekStart(0, monday));
+    // A listener an hour ahead of UTC (BST, offset -60) starts the week an hour earlier in UTC terms.
+    const utcMonday = new Date(Date.UTC(2026, 8, 21, 0, 30)); // 00:30 UTC Mon = 01:30 BST Mon
+    expect(weekStart(0, utcMonday, -60)).toBe(Date.UTC(2026, 8, 20, 23, 0));
+    // …and 00:30 BST on Monday (23:30 UTC Sunday) already belongs to the new week for them.
+    expect(weekStart(0, new Date(Date.UTC(2026, 8, 20, 23, 30)), -60)).toBe(Date.UTC(2026, 8, 20, 23, 0));
+    expect(weekStart(0, new Date(Date.UTC(2026, 8, 20, 22, 30)), -60)).toBe(Date.UTC(2026, 8, 13, 23, 0));
   });
 });
 

@@ -10,13 +10,20 @@ import { toView, TRACK_SELECT, type TrackView } from "./service.js";
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
 
-/** Monday 00:00 local time of the week `offset` weeks ago (0 = this week). */
-export function weekStart(offset = 0, now = new Date()): number {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  const dow = (d.getDay() + 6) % 7; // Monday = 0
-  d.setDate(d.getDate() - dow - offset * 7);
-  return d.getTime();
+/**
+ * Monday 00:00 of the week `offset` weeks ago (0 = this week), in the
+ * listener's timezone. `tzOffsetMin` is what the browser's
+ * Date#getTimezoneOffset returns (minutes *behind* UTC, so BST is -60);
+ * the server runs in UTC, so without it weeks would roll over an hour late
+ * for someone in London and the card would say "14 Sep – 21 Sep".
+ */
+export function weekStart(offset = 0, now = new Date(), tzOffsetMin = new Date().getTimezoneOffset()): number {
+  const shift = -tzOffsetMin * 60_000;
+  const d = new Date(now.getTime() + shift); // wall-clock time, read with UTC getters
+  d.setUTCHours(0, 0, 0, 0);
+  const dow = (d.getUTCDay() + 6) % 7; // Monday = 0
+  d.setUTCDate(d.getUTCDate() - dow - offset * 7);
+  return d.getTime() - shift;
 }
 
 function likedSet(userId: string, ids: string[]): Set<string> {
@@ -56,8 +63,9 @@ function moodLabel(tempo: number, energy: number, dance: number, brightness: num
   return { label: "Balanced", blurb: "A bit of everything" };
 }
 
-export function wrapped(userId: string, weekOffset = 0): WrappedView {
-  const from = weekStart(weekOffset);
+export function wrapped(userId: string, weekOffset = 0, tzOffsetMin = new Date().getTimezoneOffset()): WrappedView {
+  const from = weekStart(weekOffset, new Date(), tzOffsetMin);
+  const shift = -tzOffsetMin * 60_000;
   const to = from + WEEK;
   const prevFrom = from - WEEK;
   const one = (sql: string, ...args: any[]) => db.prepare(sql).get(...args) as any;
@@ -93,9 +101,9 @@ export function wrapped(userId: string, weekOffset = 0): WrappedView {
 
   const byHour = new Array(24).fill(0), byDay = new Array(7).fill(0);
   for (const r of db.prepare("SELECT played_at FROM music_plays WHERE user_id = ? AND played_at >= ? AND played_at < ?").all(userId, from, to) as any[]) {
-    const d = new Date(r.played_at);
-    byHour[d.getHours()] += 1;
-    byDay[(d.getDay() + 6) % 7] += 1;
+    const d = new Date(r.played_at + shift);
+    byHour[d.getUTCHours()] += 1;
+    byDay[(d.getUTCDay() + 6) % 7] += 1;
   }
 
   const discRows = db.prepare(`${TRACK_SELECT}
@@ -104,8 +112,8 @@ export function wrapped(userId: string, weekOffset = 0): WrappedView {
 
   // Streak: consecutive days with at least one play, ending today (or yesterday).
   const days = new Set((db.prepare("SELECT DISTINCT CAST((played_at + ?) / ? AS INTEGER) AS d FROM music_plays WHERE user_id = ? AND played_at > ?")
-    .all(-new Date().getTimezoneOffset() * 60_000, DAY, userId, Date.now() - 400 * DAY) as any[]).map((r) => r.d as number));
-  const today = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60_000) / DAY);
+    .all(shift, DAY, userId, Date.now() - 400 * DAY) as any[]).map((r) => r.d as number));
+  const today = Math.floor((Date.now() + shift) / DAY);
   let streak = 0, cursor = days.has(today) ? today : today - 1;
   while (days.has(cursor)) { streak += 1; cursor -= 1; }
 
@@ -125,7 +133,7 @@ export function wrapped(userId: string, weekOffset = 0): WrappedView {
     byHour, byDay,
     discoveries: views(userId, discRows),
     streakDays: streak,
-    firstWeekWithPlays: first?.t ? weekStart(0, new Date(first.t)) : null,
+    firstWeekWithPlays: first?.t ? weekStart(0, new Date(first.t), tzOffsetMin) : null,
   };
 }
 

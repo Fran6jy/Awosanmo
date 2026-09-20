@@ -142,7 +142,9 @@ musicRoutes.put("/settings", (req: any, res) => {
 
 musicRoutes.get("/wrapped", (req: any, res) => {
   const offset = Math.max(0, Math.min(520, Number(req.query.week ?? 0) || 0));
-  res.json(stats.wrapped(req.user.id, offset));
+  // Browser's Date#getTimezoneOffset, so weeks start at the listener's midnight.
+  const tz = Math.max(-840, Math.min(840, Number(req.query.tz) || 0));
+  res.json(stats.wrapped(req.user.id, offset, req.query.tz === undefined ? undefined : tz));
 });
 musicRoutes.get("/forgotten", (req: any, res) => res.json(stats.forgottenFavourites(req.user.id)));
 musicRoutes.get("/on-this-day", (req: any, res) => res.json(stats.onThisDay(req.user.id)));

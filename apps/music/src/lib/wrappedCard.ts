@@ -10,7 +10,7 @@ export type CardData = {
   minutes: number; plays: number; streakDays: number;
   song: { title: string; artist: string; art: string | null; plays: number } | null;
   album: { title: string; artist: string; art: string | null } | null;
-  artist: { name: string; image: string | null } | null;
+  artist: { name: string; image: string | null; plays: number; minutes: number } | null;
   mood: { label: string } | null;
   topGenre: string | null;
   topSongs: { title: string; artist: string }[];
@@ -130,21 +130,23 @@ export async function renderWrappedCard(d: CardData): Promise<Blob> {
   // No album of the week (singles only)? Use the slot for the mood instead of an empty dash.
   if (d.album) cell(90, "ALBUM", d.album.title, d.album.artist, albumImg, d.album.title, false);
   else cell(90, "MOOD", d.mood?.label ?? "—", d.topGenre ?? "", null, "mood", false);
-  cell(555, "ARTIST", d.artist?.name ?? "—", d.album ? (d.mood?.label ?? d.topGenre ?? "") : (d.topGenre ?? ""), artistImg, d.artist?.name ?? "b", true);
+  cell(555, "ARTIST", d.artist?.name ?? "—", d.artist ? `${d.artist.plays} plays · ${d.artist.minutes} min` : "", artistImg, d.artist?.name ?? "b", true);
 
   // Top 5 list.
-  ctx.fillStyle = "#C43A4E"; ctx.font = `800 24px ${FONT}`; ctx.letterSpacing = "5px"; ctx.fillText("TOP SONGS", 90, 1520); ctx.letterSpacing = "0px";
+  ctx.fillStyle = "#C43A4E"; ctx.font = `800 24px ${FONT}`; ctx.letterSpacing = "6px"; ctx.fillText("TOP SONGS", 90, 1516); ctx.letterSpacing = "0px";
   d.topSongs.slice(0, 5).forEach((t, i) => {
-    const y = 1566 + i * 54;
+    const y = 1560 + i * 52;
     ctx.fillStyle = "#7A6C67"; ctx.font = `800 30px ${FONT}`; ctx.fillText(String(i + 1), 90, y);
     ctx.fillStyle = "#F5EDE8"; ctx.font = `700 30px ${FONT}`; ctx.fillText(fitText(ctx, t.title, 560), 140, y);
     ctx.fillStyle = "#B8A9A3"; ctx.font = `500 26px ${FONT}`; ctx.textAlign = "right"; ctx.fillText(fitText(ctx, t.artist, 260), W - 90, y + 3); ctx.textAlign = "left";
   });
 
-  // Wordmark: the tuning-fork mark stands in for "JY".
-  drawMark(ctx, 84, 1836, 56, "#C43A4E");
-  ctx.fillStyle = "#F5EDE8"; ctx.font = `800 28px ${FONT}`; ctx.fillText("Music", 146, 1857);
-  ctx.fillStyle = "#7A6C67"; ctx.font = `500 22px ${FONT}`; ctx.textAlign = "right"; ctx.fillText("your music, your server", W - 90, 1861); ctx.textAlign = "left";
+  // Wordmark: the tuning-fork mark stands in for "JY". Mark and text share a centre line at y = 1862.
+  drawMark(ctx, 89, 1834, 56, "#C43A4E"); // outer arc lands on the 90 px margin, in line with the list numbers
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#F5EDE8"; ctx.font = `800 28px ${FONT}`; ctx.fillText("Music", 146, 1862);
+  ctx.fillStyle = "#7A6C67"; ctx.font = `500 22px ${FONT}`; ctx.textAlign = "right"; ctx.fillText("your music, your server", W - 90, 1863); ctx.textAlign = "left";
+  ctx.textBaseline = "top";
 
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("render failed"))), "image/png"));
 }

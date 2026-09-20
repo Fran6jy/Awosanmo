@@ -80,7 +80,7 @@ function Bars({ values, labels, title, highlight }: { values: number[]; labels: 
 export function WrappedPage() {
   const [params, setParams] = useSearchParams();
   const week = Math.max(0, Number(params.get("week") ?? 0) || 0);
-  const q = useQuery({ queryKey: ["music", "wrapped", week], queryFn: () => api<Wrapped>(`/api/music/wrapped?week=${week}`), staleTime: 60_000 });
+  const q = useQuery({ queryKey: ["music", "wrapped", week], queryFn: () => api<Wrapped>(`/api/music/wrapped?week=${week}&tz=${new Date().getTimezoneOffset()}`), staleTime: 60_000 });
   const [showAll, setShowAll] = useState(false);
   const [sharing, setSharing] = useState(false);
   const w = q.data;
@@ -92,7 +92,7 @@ export function WrappedPage() {
         rangeLabel: `${fmtDate(w.from)} – ${fmtDate(w.to - 1)}`, minutes: w.minutes, plays: w.plays, streakDays: w.streakDays,
         song: w.songOfWeek ? { title: w.songOfWeek.title, artist: w.songOfWeek.artist, art: w.songOfWeek.art, plays: w.songOfWeek.plays } : null,
         album: w.albumOfWeek ? { title: w.albumOfWeek.title, artist: w.albumOfWeek.artist, art: w.albumOfWeek.art } : null,
-        artist: w.artistOfWeek ? { name: w.artistOfWeek.name, image: w.artistOfWeek.image ?? w.artistOfWeek.art } : null,
+        artist: w.artistOfWeek ? { name: w.artistOfWeek.name, image: w.artistOfWeek.image ?? w.artistOfWeek.art, plays: w.artistOfWeek.plays, minutes: w.artistOfWeek.minutes } : null,
         mood: w.mood, topGenre: w.topGenre?.name ?? null, topSongs: w.topSongs,
       });
       const how = await shareCard(blob, `jymusic-week-${fmtDate(w.from).replace(/\s/g, "")}.png`);
