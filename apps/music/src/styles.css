@@ -24,3 +24,15 @@ body { overscroll-behavior-y: none; }
 .slider-lg::-webkit-slider-thumb { width: 16px; height: 16px; opacity: 1; }
 .slider-lg::-moz-range-thumb { width: 16px; height: 16px; opacity: 1; }
 input[type="search"]::-webkit-search-decoration, input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+/* The mark, ringing: arcs drift outward from the tines and fade, inner pair first. */
+.mark-live .arc { transform-box: fill-box; transform-origin: center; animation: ring 2.6s ease-out infinite; }
+.mark-live .arc-2 { animation-delay: 0.45s; }
+.mark-live .arc-l { --dir: -1; }
+.mark-live .arc-r { --dir: 1; }
+@keyframes ring {
+  0% { opacity: 0; transform: translateX(calc(var(--dir) * -4px)); }
+  25% { opacity: 0.9; }
+  100% { opacity: 0; transform: translateX(calc(var(--dir) * 5px)); }
+}
+@media (prefers-reduced-motion: reduce) { .mark-live .arc { animation: none; } }

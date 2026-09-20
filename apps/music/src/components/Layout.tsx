@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Heart, Home, Library, LogOut, Plus, Search } from "lucide-react";
 import { api, logout, type Playlist } from "../lib/api";
+import { Mark, Wordmark } from "./Logo";
 import { PlayerBar } from "./PlayerBar";
 import { Art } from "./Art";
 import { pushToast } from "./Toast";
@@ -50,9 +51,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* sidebar (desktop) */}
       <aside className="hidden w-64 shrink-0 flex-col gap-2 p-2 pb-[96px] md:flex">
         <nav className="rounded-lg bg-panel p-3">
-          <Link to="/" className="mb-4 flex items-center gap-2 px-3 pt-1">
-            <img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" />
-            <span className="text-xl font-extrabold tracking-tight">JYMusic</span>
+          <Link to="/" className="mb-4 flex items-center px-3 pt-1" aria-label="JYMusic home">
+            <Wordmark />
           </Link>
           <NavLink to="/" end className={active}><Home className="h-6 w-6" /> Home</NavLink>
           <NavLink to="/search" className={active}><Search className="h-6 w-6" /> Search</NavLink>
@@ -82,7 +82,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* main */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="z-20 flex shrink-0 items-center gap-3 bg-ink/80 px-4 py-3 backdrop-blur-xl md:px-6" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
-          <Link to="/" className="flex items-center gap-2 md:hidden"><img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" /></Link>
+          <Link to="/" className="flex items-center md:hidden" aria-label="JYMusic home"><Mark className="h-8 text-accent2" /></Link>
           <label className="relative flex-1 md:max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dim" />
             <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="What do you want to play?" type="search" enterKeyHint="search" autoCorrect="off" autoCapitalize="none"

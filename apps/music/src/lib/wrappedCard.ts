@@ -52,6 +52,22 @@ function drawArt(ctx: CanvasRenderingContext2D, img: HTMLImageElement | null, x:
   ctx.restore();
 }
 
+/** The tuning-fork mark (see components/Logo.tsx), drawn at `size` px with its top-left at (x, y). */
+function drawMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(size / 104, size / 104); ctx.translate(-12, -14);
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.lineWidth = 10;
+  ctx.stroke(new Path2D("M47 25 55 51a9 9 0 0 0 18 0l8-26"));
+  ctx.stroke(new Path2D("M64 60v24c0 8-6 12-12 12"));
+  ctx.beginPath(); ctx.ellipse(49, 97, 12.5, 9, (-22 * Math.PI) / 180, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 6; ctx.globalAlpha = 0.85;
+  ctx.stroke(new Path2D("M35 24q-7 10 0 20")); ctx.stroke(new Path2D("M93 24q7 10 0 20"));
+  ctx.lineWidth = 5; ctx.globalAlpha = 0.55;
+  ctx.stroke(new Path2D("M22 20q-11 14 0 28")); ctx.stroke(new Path2D("M106 20q11 14 0 28"));
+  ctx.restore();
+}
+
 function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
   if (ctx.measureText(text).width <= maxWidth) return text;
   let t = text;
@@ -125,9 +141,9 @@ export async function renderWrappedCard(d: CardData): Promise<Blob> {
     ctx.fillStyle = "#B8A9A3"; ctx.font = `500 26px ${FONT}`; ctx.textAlign = "right"; ctx.fillText(fitText(ctx, t.artist, 260), W - 90, y + 3); ctx.textAlign = "left";
   });
 
-  // Wordmark.
-  ctx.fillStyle = "#A32638"; roundRect(ctx, 90, 1852, 40, 40, 11); ctx.fill();
-  ctx.fillStyle = "#F5EDE8"; ctx.font = `800 28px ${FONT}`; ctx.fillText("JYMusic", 146, 1857);
+  // Wordmark: the tuning-fork mark stands in for "JY".
+  drawMark(ctx, 84, 1836, 56, "#C43A4E");
+  ctx.fillStyle = "#F5EDE8"; ctx.font = `800 28px ${FONT}`; ctx.fillText("Music", 146, 1857);
   ctx.fillStyle = "#7A6C67"; ctx.font = `500 22px ${FONT}`; ctx.textAlign = "right"; ctx.fillText("your music, your server", W - 90, 1861); ctx.textAlign = "left";
 
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("render failed"))), "image/png"));

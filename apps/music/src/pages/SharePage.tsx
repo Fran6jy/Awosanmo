@@ -1,3 +1,4 @@
+import { Wordmark } from "../components/Logo";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Download, Pause, Play, SkipBack, SkipForward, Volume2 } from "lucide-react";
@@ -144,7 +145,7 @@ function Frame({ children, sharedBy }: { children: React.ReactNode; sharedBy?: s
   return (
     <div className="min-h-screen bg-ink pb-28 text-cream">
       <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2"><img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" /><span className="text-lg font-extrabold tracking-tight">JYMusic</span></Link>
+        <Link to="/" className="flex items-center" aria-label="JYMusic"><Wordmark size="sm" /></Link>
         {sharedBy && <p className="text-xs text-dim">Shared by <span className="text-muted">{sharedBy}</span></p>}
       </header>
       <main className="mx-auto max-w-3xl px-4 sm:px-6">{children}</main>
