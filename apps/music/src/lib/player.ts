@@ -105,10 +105,13 @@ let playCounted = false;
 let listenedSeconds = 0;
 let lastTick = 0;
 function resetPlayAccounting() { playCounted = false; listenedSeconds = 0; lastTick = audio.currentTime; }
-function countPlayIfDue(force = false) {
+function countPlayIfDue(ended = false) {
   const t = current();
   if (!t || playCounted) return;
-  if (force || listenedSeconds >= 20) {
+  // Reaching the end counts too, but only if it was actually heard: scrubbing
+  // straight to the last second is not a listen. Very short tracks need half.
+  const need = Math.min(20, (audio.duration || t.duration || 40) / 2);
+  if (listenedSeconds >= 20 || (ended && listenedSeconds >= need)) {
     playCounted = true;
     api("/api/music/plays", { method: "POST", body: JSON.stringify({ trackId: t.id }) }).catch(() => undefined);
   }
