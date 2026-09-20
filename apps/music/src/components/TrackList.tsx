@@ -1,12 +1,12 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, Heart, ListPlus, MoreHorizontal, Play, Radio, Share2, Trash2, Volume2 } from "lucide-react";
-import { api, fmtTime, sessionRole, type Playlist, type Track } from "../lib/api";
-import { addToQueue, dropTrack, markLiked, playNext, playQueue, playTrack, useCurrent, usePlayer, type PlayerState } from "../lib/player";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Clock, Heart, MoreHorizontal, Play, Volume2 } from "lucide-react";
+import { api, fmtTime, type Track } from "../lib/api";
+import { markLiked, playTrack, useCurrent, usePlayer, type PlayerState } from "../lib/player";
+import { useTrackMenu } from "../lib/menus";
 import { Art } from "./Art";
+import { anchorTo, pressProps } from "./ContextMenu";
 import { pushToast } from "./Toast";
-import { ShareDialog } from "./ShareDialog";
 
 /** Shared "like" mutation so every heart in the app stays in sync. */
 export function useLike() {
@@ -34,8 +34,7 @@ export function TrackList({ tracks, context, showAlbum = true, showArt = true, n
   const now = useCurrent();
   const { playing } = usePlayer();
   const like = useLike();
-  const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [shareFor, setShareFor] = useState<Track | null>(null);
+  const openMenu = useTrackMenu();
 
   return (
     <div className="mt-2">
@@ -53,6 +52,7 @@ export function TrackList({ tracks, context, showAlbum = true, showArt = true, n
           return (
             <li key={`${t.id}-${t.position ?? i}`}
               onDoubleClick={() => t.playable && playTrack(t, tracks, context)}
+              {...pressProps((at) => openMenu(t, at, { within: tracks, context, onRemove: onRemove ? () => onRemove(t) : undefined }))}
               className={`group relative grid grid-cols-[2rem_1fr_3rem_2.5rem] items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors sm:grid-cols-[2rem_1fr_1fr_3rem_2.5rem] ${isNow ? "bg-raised/70" : "hover:bg-raised/50"} ${!t.playable ? "opacity-50" : ""}`}
               style={!showAlbum ? { gridTemplateColumns: "2rem 1fr 3rem 2.5rem" } : undefined}>
               {/* number / play / now-playing indicator */}
@@ -81,66 +81,16 @@ export function TrackList({ tracks, context, showAlbum = true, showArt = true, n
                   className={`grid h-8 w-8 place-items-center rounded-full transition ${liked ? "text-accent2" : "text-dim opacity-0 group-hover:opacity-100 hover:text-cream"}`}>
                   <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
                 </button>
-                <button type="button" aria-label="More" onClick={() => setMenuFor(menuFor === t.id ? null : t.id)}
-                  className="grid h-8 w-8 place-items-center rounded-full text-dim opacity-0 transition group-hover:opacity-100 hover:text-cream sm:opacity-0">
+                <button type="button" aria-label="More" onClick={(e) => openMenu(t, anchorTo(e.currentTarget), { within: tracks, context, onRemove: onRemove ? () => onRemove(t) : undefined })}
+                  className="grid h-8 w-8 place-items-center rounded-full text-dim transition hover:text-cream sm:opacity-0 sm:group-hover:opacity-100">
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
               </div>
-              {menuFor === t.id && (
-                <TrackMenu track={t} onClose={() => setMenuFor(null)} onRemove={onRemove ? () => onRemove(t) : undefined} onShare={() => { setMenuFor(null); setShareFor(t); }} />
-              )}
             </li>
           );
         })}
       </ul>
-      {shareFor && <ShareDialog kind="track" id={shareFor.id} name={`${shareFor.title} — ${shareFor.artist}`} onClose={() => setShareFor(null)} />}
     </div>
   );
 }
 
-function TrackMenu({ track, onClose, onRemove, onShare }: { track: Track; onClose: () => void; onRemove?: () => void; onShare: () => void }) {
-  const qc = useQueryClient();
-  const playlists = useQuery({ queryKey: ["music", "playlists"], queryFn: () => api<Playlist[]>("/api/music/playlists") });
-  const add = useMutation({
-    mutationFn: (playlistId: string) => api(`/api/music/playlists/${playlistId}/tracks`, { method: "POST", body: JSON.stringify({ trackId: track.id }) }),
-    onSuccess: (_r, id) => { qc.invalidateQueries({ queryKey: ["music", "playlists"] }); qc.invalidateQueries({ queryKey: ["music", "playlist", id] }); pushToast("Added to playlist"); onClose(); },
-  });
-  // Deleting removes the file from the server, so it is admin-only and asks twice (once here, once via confirm).
-  const destroy = useMutation({
-    mutationFn: () => api(`/api/music/tracks/${track.id}`, { method: "DELETE" }),
-    onSuccess: () => { dropTrack(track.id); qc.invalidateQueries({ queryKey: ["music"] }); pushToast(`Deleted “${track.title}”`); onClose(); },
-    onError: () => pushToast("Could not delete the song"),
-  });
-  const isAdmin = sessionRole() === "admin";
-  return (
-    <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div className="absolute right-2 top-10 z-40 w-56 rounded-lg border border-line bg-raised p-1 shadow-card">
-        <MenuItem onClick={() => { playNext([track]); onClose(); }}>Play next</MenuItem>
-        <MenuItem onClick={() => { addToQueue([track]); pushToast("Added to queue"); onClose(); }}>Add to queue</MenuItem>
-        <MenuItem onClick={onShare}><Share2 className="mr-2 h-4 w-4 text-dim" />Share</MenuItem>
-        <MenuItem onClick={() => { onClose(); api<Track[]>(`/api/music/tracks/${track.id}/similar`).then((r) => { if (r.length) { void playQueue([track, ...r], 0, { kind: "radio", name: `${track.title} radio` }); pushToast(`Radio from “${track.title}”`); } else pushToast("Not enough analysed songs yet"); }).catch(() => pushToast("Could not start radio")); }}><Radio className="mr-2 h-4 w-4 text-dim" />Go to song radio</MenuItem>
-        <div className="my-1 border-t border-line" />
-        <p className="px-3 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-dim">Add to playlist</p>
-        <div className="max-h-40 overflow-y-auto">
-          {(playlists.data ?? []).map((p) => <MenuItem key={p.id} onClick={() => add.mutate(p.id)}><ListPlus className="mr-2 h-4 w-4 text-dim" />{p.name}</MenuItem>)}
-          {playlists.data && !playlists.data.length && <p className="px-3 py-2 text-xs text-dim">No playlists yet</p>}
-        </div>
-        {onRemove && <><div className="my-1 border-t border-line" /><MenuItem onClick={() => { onRemove(); onClose(); }} danger>Remove from this playlist</MenuItem></>}
-        <div className="my-1 border-t border-line" />
-        <Link to={`/album/${track.albumId}`} onClick={onClose} className="block rounded px-3 py-2 text-sm text-cream hover:bg-surface2">Go to album</Link>
-        <Link to={`/artist/${track.artistId}`} onClick={onClose} className="block rounded px-3 py-2 text-sm text-cream hover:bg-surface2">Go to artist</Link>
-        {isAdmin && <><div className="my-1 border-t border-line" />
-          <MenuItem danger onClick={() => { if (confirm(`Delete “${track.title}” from the library?
-
-This removes the file from the server. It cannot be undone.`)) destroy.mutate(); }}>
-            <Trash2 className="mr-2 h-4 w-4" />Delete from library
-          </MenuItem></>}
-      </div>
-    </>
-  );
-}
-
-function MenuItem({ children, onClick, danger }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) {
-  return <button type="button" onClick={onClick} className={`flex w-full items-center rounded px-3 py-2 text-left text-sm hover:bg-surface2 ${danger ? "text-accent2" : "text-cream"}`}>{children}</button>;
-}

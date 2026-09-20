@@ -1,3 +1,4 @@
+import { useCollectionMenu } from "../lib/menus";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
@@ -22,6 +23,7 @@ export function MixPage({ kind }: { kind: "mix" | "mood" }) {
   const { id = "" } = useParams();
   const s = usePlayer();
   const qc = useQueryClient();
+  const menu = useCollectionMenu();
   const q = useQuery({ queryKey: ["music", kind, id], queryFn: () => load(kind, id), enabled: Boolean(id), staleTime: 5 * 60_000 });
   const refresh = useMutation({
     mutationFn: () => api(`/api/music/mixes/${encodeURIComponent(id)}/refresh`, { method: "POST" }),
@@ -39,6 +41,7 @@ export function MixPage({ kind }: { kind: "mix" | "mood" }) {
   return (
     <div>
       <CollectionHeader kind={label} title={head.name} art={head.art} seed={head.id} contextName={head.name} colors={head.colors}
+        onMenu={(at) => menu({ kind, id, name: head.name, subtitle: head.blurb, art: head.art }, at)}
         subtitle={<>{head.blurb} · {d.tracks.length} songs, {Math.round(total / 60)} min{kind === "mix" ? " · changes daily" : ""}</>}
         onPlay={() => (isThis ? void toggle() : void playQueue(d.tracks, 0, context))}
         onShuffle={() => { if (!s.shuffle) toggleShuffle(); void playQueue(d.tracks, 0, context); }}>

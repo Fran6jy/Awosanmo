@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Heart, Home, Library, LogOut, Plus, Search } from "lucide-react";
 import { api, logout, type Playlist } from "../lib/api";
 import { Mark, Wordmark } from "./Logo";
+import { ContextMenuHost } from "./ContextMenu";
 import { PlayerBar } from "./PlayerBar";
 import { Art } from "./Art";
 import { pushToast } from "./Toast";
@@ -102,6 +103,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         ))}
       </nav>
       <PlayerBar />
+      <ContextMenuHost />
     </div>
   );
 }

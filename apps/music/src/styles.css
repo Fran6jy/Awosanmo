@@ -36,3 +36,7 @@ input[type="search"]::-webkit-search-decoration, input[type="search"]::-webkit-s
   100% { opacity: 0; transform: translateX(calc(var(--dir) * 5px)); }
 }
 @media (prefers-reduced-motion: reduce) { .mark-live .arc { animation: none; } }
+
+/* Context-menu bottom sheet on touch devices. */
+.sheet-in { animation: sheet-in 220ms cubic-bezier(.2,.8,.2,1); }
+@keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }

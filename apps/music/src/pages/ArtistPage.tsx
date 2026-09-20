@@ -1,3 +1,4 @@
+import { useCollectionMenu } from "../lib/menus";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Album, type Artist, type Track } from "../lib/api";
@@ -11,6 +12,7 @@ type ArtistFull = Artist & { albums: Album[]; topTracks: Track[] };
 export function ArtistPage() {
   const { id } = useParams();
   const s = usePlayer();
+  const menu = useCollectionMenu();
   const artist = useQuery({ queryKey: ["music", "artist", id], queryFn: () => api<ArtistFull>(`/api/music/artists/${id}`), enabled: Boolean(id) });
   const a = artist.data;
   if (!a) return <div className="py-20 text-center text-muted">Loading…</div>;
@@ -32,6 +34,7 @@ export function ArtistPage() {
   return (
     <div>
       <CollectionHeader kind="Artist" title={a.name} art={a.image ?? a.art} seed={a.id} round contextName={a.name}
+        onMenu={(at) => menu({ kind: "artist", id: a.id, name: a.name, subtitle: "Artist", art: a.image ?? a.art }, at)}
         subtitle={`${a.trackCount} song${a.trackCount === 1 ? "" : "s"} · ${a.albumCount} release${a.albumCount === 1 ? "" : "s"}`}
         onPlay={() => (isThis ? void toggle() : playAll().then((t) => playQueue(t, 0, context)))}
         onShuffle={() => { if (!s.shuffle) toggleShuffle(); playAll().then((t) => playQueue(t, 0, context)); }} />

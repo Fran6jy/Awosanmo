@@ -1,3 +1,4 @@
+import { useCollectionMenu } from "../lib/menus";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +17,7 @@ export function PlaylistPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const s = usePlayer();
+  const menu = useCollectionMenu();
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState("");
   const [sharing, setSharing] = useState(false);
@@ -39,6 +41,7 @@ export function PlaylistPage() {
   return (
     <div>
       <CollectionHeader kind="Playlist" title={p.name} art={p.art} seed={p.id} contextName={p.name}
+        onMenu={(at) => menu({ kind: "playlist", id: p.id, name: p.name, subtitle: `${p.trackCount} songs`, art: p.art }, at)}
         subtitle={p.trackCount ? `${p.trackCount} song${p.trackCount === 1 ? "" : "s"}, ${fmtLong(p.duration)}` : "Empty — add songs from the ⋯ menu on any track"}
         onPlay={() => (isThis ? void toggle() : void playQueue(p.tracks, 0, context))}
         onShuffle={() => { if (!s.shuffle) toggleShuffle(); void playQueue(p.tracks, 0, context); }}
@@ -63,6 +66,7 @@ export function PlaylistPage() {
 
 export function LikedPage() {
   const s = usePlayer();
+  const menu = useCollectionMenu();
   const liked = useQuery({ queryKey: ["music", "liked"], queryFn: () => api<{ total: number; tracks: Track[] }>("/api/music/likes?limit=500") });
   const d = liked.data;
   if (!d) return <div className="py-20 text-center text-muted">Loading…</div>;
@@ -71,6 +75,7 @@ export function LikedPage() {
   return (
     <div>
       <CollectionHeader kind="Playlist" title="Liked Songs" art={null} seed="liked-songs" contextName="Liked Songs"
+        onMenu={(at) => menu({ kind: "liked", id: "liked", name: "Liked Songs", subtitle: `${d.total} songs` }, at)}
         subtitle={d.total ? `${d.total} song${d.total === 1 ? "" : "s"}` : "Tap the heart on any song to save it here"}
         onPlay={() => (isThis ? void toggle() : void playQueue(d.tracks, 0, context))}
         onShuffle={() => { if (!s.shuffle) toggleShuffle(); void playQueue(d.tracks, 0, context); }} />

@@ -1,14 +1,17 @@
-import { Camera, Pause, Play, Shuffle } from "lucide-react";
+import { Camera, MoreHorizontal, Pause, Play, Shuffle } from "lucide-react";
 import { Art } from "./Art";
+import { anchorTo, pressProps, type MenuAnchor } from "./ContextMenu";
 import { usePlayer } from "../lib/player";
 
 /**
  * The big hero at the top of album / artist / playlist pages: large art on a
  * tinted background, a type label, the title, and a maroon play button.
  */
-export function CollectionHeader({ kind, title, subtitle, art, seed, round, onPlay, onShuffle, contextName, children, onChangeArt, colors }: {
+export function CollectionHeader({ kind, title, subtitle, art, seed, round, onPlay, onShuffle, contextName, children, onChangeArt, colors, onMenu }: {
   kind: string; title: string; subtitle: React.ReactNode; art: string | null; seed: string; round?: boolean;
   onPlay: () => void; onShuffle?: () => void; contextName: string; children?: React.ReactNode;
+  /** Opens the collection's context menu (also bound to right-click / press-and-hold on the hero). */
+  onMenu?: (at: MenuAnchor) => void;
   /** When set, the cover becomes clickable and opens an image picker (playlists). */
   onChangeArt?: (file: File) => void;
   /** Hero wash colour; defaults to the maroon accent. */
@@ -18,8 +21,8 @@ export function CollectionHeader({ kind, title, subtitle, art, seed, round, onPl
   const isThis = s.context?.name === contextName && s.playing;
   return (
     <>
-      <div className="-mx-4 -mt-3 px-4 pb-6 pt-6 md:-mx-6 md:px-6 md:pt-10"
-        style={{ background: colors ? `linear-gradient(to bottom, ${colors[0]}66, ${colors[1]}55 60%, transparent)` : "linear-gradient(to bottom, rgba(163,38,56,.4), rgba(31,22,22,.6) 60%, transparent)" }}>
+      <div className="-mx-4 -mt-3 px-4 pb-6 pt-6 md:-mx-6 md:px-6 md:pt-10" {...pressProps(onMenu)}
+        style={{ ...(onMenu ? pressProps(onMenu).style : {}), background: colors ? `linear-gradient(to bottom, ${colors[0]}66, ${colors[1]}55 60%, transparent)` : "linear-gradient(to bottom, rgba(163,38,56,.4), rgba(31,22,22,.6) 60%, transparent)" }}>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
           {onChangeArt ? (
             <label className="group relative h-44 w-44 shrink-0 cursor-pointer sm:h-56 sm:w-56" title="Choose a cover image">
@@ -46,6 +49,7 @@ export function CollectionHeader({ kind, title, subtitle, art, seed, round, onPl
           {isThis ? <Pause className="h-6 w-6 fill-current" /> : <Play className="ml-1 h-6 w-6 fill-current" />}
         </button>
         {onShuffle && <button type="button" onClick={onShuffle} aria-label="Shuffle" className="text-muted transition hover:scale-105 hover:text-cream"><Shuffle className="h-7 w-7" /></button>}
+        {onMenu && <button type="button" onClick={(e) => onMenu(anchorTo(e.currentTarget))} aria-label="More options" className="text-muted transition hover:scale-105 hover:text-cream"><MoreHorizontal className="h-7 w-7" /></button>}
         {children}
       </div>
     </>

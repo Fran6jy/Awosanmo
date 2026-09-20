@@ -1,3 +1,4 @@
+import { useCollectionMenu } from "../lib/menus";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Album, type Track } from "../lib/api";
@@ -11,6 +12,7 @@ type GenreFull = { name: string; total: number; albums: Album[]; tracks: Track[]
 export function GenrePage() {
   const { name = "" } = useParams();
   const s = usePlayer();
+  const menu = useCollectionMenu();
   const genre = useQuery({ queryKey: ["music", "genre", name], queryFn: () => api<GenreFull>(`/api/music/genres/${encodeURIComponent(name)}?limit=200`), enabled: Boolean(name) });
   const g = genre.data;
   if (!g) return <div className="py-20 text-center text-muted">Loading…</div>;
@@ -19,6 +21,7 @@ export function GenrePage() {
   return (
     <div>
       <CollectionHeader kind="Genre" title={g.name} art={g.albums.find((a) => a.art)?.art ?? null} seed={g.name} contextName={g.name}
+        onMenu={(at) => menu({ kind: "genre", id: g.name, name: g.name, subtitle: `${g.total} songs`, art: g.albums.find((a) => a.art)?.art ?? null }, at)}
         subtitle={`${g.total} song${g.total === 1 ? "" : "s"} · ${g.albums.length} album${g.albums.length === 1 ? "" : "s"}`}
         onPlay={() => (isThis ? void toggle() : void playQueue(g.tracks, 0, context))}
         onShuffle={() => { if (!s.shuffle) toggleShuffle(); void playQueue(g.tracks, 0, context); }} />

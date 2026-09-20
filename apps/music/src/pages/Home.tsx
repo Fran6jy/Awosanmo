@@ -1,3 +1,5 @@
+import { pressProps } from "../components/ContextMenu";
+import { useTrackMenu } from "../lib/menus";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, Play } from "lucide-react";
@@ -15,8 +17,10 @@ function greeting() {
 
 /** Small wide tile: the "jump back in" row at the top of Spotify's home. */
 function QuickTile({ track, tracks }: { track: Track; tracks: Track[] }) {
+  const menu = useTrackMenu();
+  const context = { kind: "home" as const, name: "Recently played" };
   return (
-    <button type="button" onClick={() => playQueue(tracks, tracks.indexOf(track), { kind: "home", name: "Recently played" })}
+    <button type="button" onClick={() => playQueue(tracks, tracks.indexOf(track), context)} {...pressProps((at) => menu(track, at, { within: tracks, context }))}
       className="group flex items-center gap-3 overflow-hidden rounded-md bg-raised/60 pr-3 text-left transition hover:bg-raised">
       <Art src={track.art} seed={track.albumId} alt="" className="h-14 w-14 shrink-0 rounded-l-md rounded-r-none" iconSize={0.5} />
       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{track.title}</span>
@@ -26,8 +30,10 @@ function QuickTile({ track, tracks }: { track: Track; tracks: Track[] }) {
 }
 
 function TrackTile({ track, tracks, context }: { track: Track; tracks: Track[]; context: string }) {
+  const menu = useTrackMenu();
+  const ctx = { kind: "home" as const, name: context };
   return (
-    <button type="button" onClick={() => playQueue(tracks, tracks.indexOf(track), { kind: "home", name: context })}
+    <button type="button" onClick={() => playQueue(tracks, tracks.indexOf(track), ctx)} {...pressProps((at) => menu(track, at, { within: tracks, context: ctx }))}
       className="group relative rounded-lg bg-surface/60 p-3 text-left transition hover:bg-surface2">
       <div className="relative">
         <Art src={track.art} seed={track.albumId} alt="" className="aspect-square w-full shadow-card" />
