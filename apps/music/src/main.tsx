@@ -22,6 +22,7 @@ const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login
 const SharePage = lazy(() => import("./pages/SharePage").then((m) => ({ default: m.SharePage })));
 const MixPage = lazy(() => import("./pages/MixPage").then((m) => ({ default: m.MixPage })));
 const WrappedPage = lazy(() => import("./pages/WrappedPage").then((m) => ({ default: m.WrappedPage })));
+const YearPage = lazy(() => import("./pages/YearPage").then((m) => ({ default: m.YearPage })));
 
 const fallback = <div className="grid min-h-[50vh] place-items-center text-muted">Loading…</div>;
 
@@ -49,6 +50,7 @@ const router = createBrowserRouter([
       { path: "/mix/:id", element: <MixPage kind="mix" /> },
       { path: "/mood/:id", element: <MixPage kind="mood" /> },
       { path: "/wrapped", element: <WrappedPage /> },
+      { path: "/year", element: <YearPage /> },
       { path: "*", element: <Navigate to="/" replace /> },
     ],
   },

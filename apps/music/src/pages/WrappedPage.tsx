@@ -117,6 +117,7 @@ export function WrappedPage() {
           <p className="text-sm text-muted">{fmtDate(w.from)} – {fmtDate(w.to - 1)}{w.streakDays > 1 && week === 0 && <span className="ml-2 inline-flex items-center gap-1 text-gold"><Flame className="h-3.5 w-3.5" />{w.streakDays}-day streak</span>}</p>
         </div>
         <div className="flex gap-2">
+          <Link to="/year" className="flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-semibold text-muted transition hover:border-cream hover:text-cream">Your year</Link>
           {!empty && (
             <button type="button" onClick={() => void share()} disabled={sharing}
               className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-bold text-cream transition hover:bg-accent2 disabled:opacity-60">

@@ -146,6 +146,11 @@ musicRoutes.get("/wrapped", (req: any, res) => {
   const tz = Math.max(-840, Math.min(840, Number(req.query.tz) || 0));
   res.json(stats.wrapped(req.user.id, offset, req.query.tz === undefined ? undefined : tz));
 });
+musicRoutes.get("/year", (req: any, res) => {
+  const tz = req.query.tz === undefined ? undefined : Math.max(-840, Math.min(840, Number(req.query.tz) || 0));
+  const year = req.query.year === undefined ? undefined : Math.max(1970, Math.min(9999, Number(req.query.year) || 0));
+  res.json(stats.yearInMusic(req.user.id, year, tz));
+});
 musicRoutes.get("/forgotten", (req: any, res) => res.json(stats.forgottenFavourites(req.user.id)));
 musicRoutes.get("/on-this-day", (req: any, res) => res.json(stats.onThisDay(req.user.id)));
 

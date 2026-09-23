@@ -151,6 +151,109 @@ export async function renderWrappedCard(d: CardData): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("render failed"))), "image/png"));
 }
 
+export type YearCardData = {
+  year: number;
+  minutes: number; plays: number; distinctArtists: number; daysListened: number; daysInYear: number;
+  topSongs: { title: string; artist: string; art: string | null; albumId: string; plays: number }[];
+  topArtists: { name: string; image: string | null; art: string | null; plays: number; minutes: number }[];
+  topAlbums: { title: string; artist: string; art: string | null }[];
+  topGenres: { name: string; share: number }[];
+  mood: { label: string } | null;
+};
+
+/** The same story as the weekly card, a year wide: top song hero, totals, top 5s. */
+export async function renderYearCard(d: YearCardData): Promise<Blob> {
+  try { await (document as any).fonts?.load(`800 64px ${FONT}`); await (document as any).fonts?.load(`600 36px ${FONT}`); } catch { /* fallback font */ }
+  const song = d.topSongs[0] ?? null;
+  const artist = d.topArtists[0] ?? null;
+  const album = d.topAlbums[0] ?? null;
+  const [songImg, albumImg, artistImg] = await Promise.all([loadImage(song?.art ?? null), loadImage(album?.art ?? null), loadImage(artist?.image ?? artist?.art ?? null)]);
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.fillStyle = "#0D0909"; ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(540, 560, 60, 540, 560, 900);
+  glow.addColorStop(0, "rgba(163,38,56,.55)"); glow.addColorStop(1, "rgba(163,38,56,0)");
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#C43A4E"; ctx.font = `800 30px ${FONT}`; ctx.letterSpacing = "8px";
+  ctx.fillText("MY YEAR IN MUSIC", 90, 110);
+  ctx.letterSpacing = "0px";
+  ctx.fillStyle = "#F5EDE8"; ctx.font = `800 44px ${FONT}`;
+  ctx.fillText(String(d.year), 90, 152);
+
+  const artSize = 520;
+  drawArt(ctx, songImg, (W - artSize) / 2, 240, artSize, 28, song?.title ?? "x");
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#C43A4E"; ctx.font = `800 26px ${FONT}`; ctx.letterSpacing = "6px";
+  ctx.fillText("SONG OF THE YEAR", W / 2, 800);
+  ctx.letterSpacing = "0px";
+  ctx.fillStyle = "#F5EDE8"; ctx.font = `800 58px ${FONT}`;
+  ctx.fillText(fitText(ctx, song?.title ?? "Nothing played yet", W - 180), W / 2, 842);
+  ctx.fillStyle = "#B8A9A3"; ctx.font = `600 36px ${FONT}`;
+  ctx.fillText(fitText(ctx, song ? `${song.artist} · ${song.plays} plays` : "", W - 180), W / 2, 916);
+  ctx.textAlign = "left";
+
+  const tiles: [string, string][] = [
+    [Math.round(d.minutes / 60).toLocaleString(), "hours"],
+    [d.plays.toLocaleString(), "plays"],
+    [`${d.daysListened}`, `of ${d.daysInYear} days`],
+  ];
+  tiles.forEach(([v, l], i) => {
+    const x = 90 + i * 310, y = 1000;
+    ctx.fillStyle = "rgba(255,255,255,.07)"; roundRect(ctx, x, y, 280, 150, 22); ctx.fill();
+    ctx.fillStyle = "#F5EDE8"; ctx.font = `800 52px ${FONT}`; ctx.fillText(fitText(ctx, v, 224), x + 28, y + 32);
+    ctx.fillStyle = "#B8A9A3"; ctx.font = `600 24px ${FONT}`; ctx.fillText(l, x + 28, y + 102);
+  });
+
+  const rowY = 1190;
+  const cell = (x: number, label: string, title: string, sub: string, img: HTMLImageElement | null, seed: string, round: boolean) => {
+    ctx.fillStyle = "rgba(255,255,255,.07)"; roundRect(ctx, x, rowY, 435, 230, 22); ctx.fill();
+    ctx.save(); if (round) { ctx.beginPath(); ctx.arc(x + 28 + 75, rowY + 40 + 75, 75, 0, Math.PI * 2); ctx.clip(); }
+    drawArt(ctx, img, x + 28, rowY + 40, 150, round ? 75 : 18, seed); ctx.restore();
+    ctx.fillStyle = "#C43A4E"; ctx.font = `800 20px ${FONT}`; ctx.letterSpacing = "4px"; ctx.fillText(label, x + 205, rowY + 44); ctx.letterSpacing = "0px";
+    ctx.fillStyle = "#F5EDE8"; ctx.font = `800 30px ${FONT}`; ctx.fillText(fitText(ctx, title, 205), x + 205, rowY + 84);
+    ctx.fillStyle = "#B8A9A3"; ctx.font = `600 22px ${FONT}`; ctx.fillText(fitText(ctx, sub, 205), x + 205, rowY + 130);
+  };
+  // No album of the year (singles only)? The slot becomes the year's sound.
+  if (album) cell(90, "ALBUM", album.title, album.artist, albumImg, album.title, false);
+  else cell(90, "SOUND", d.mood?.label ?? "—", d.topGenres[0]?.name ?? "", null, "mood", false);
+  cell(555, "ARTIST", artist?.name ?? "—", artist ? `${artist.plays} plays · ${artist.minutes.toLocaleString()} min` : "", artistImg, artist?.name ?? "b", true);
+
+  // Two top-5 columns: songs on the left, artists on the right.
+  const listY = 1450;
+  ctx.fillStyle = "#C43A4E"; ctx.font = `800 22px ${FONT}`; ctx.letterSpacing = "5px";
+  ctx.fillText("TOP SONGS", 90, listY); ctx.fillText("TOP ARTISTS", 620, listY);
+  ctx.letterSpacing = "0px";
+  d.topSongs.slice(0, 5).forEach((t, i) => {
+    const y = listY + 48 + i * 54;
+    ctx.fillStyle = "#7A6C67"; ctx.font = `800 26px ${FONT}`; ctx.fillText(String(i + 1), 90, y);
+    ctx.fillStyle = "#F5EDE8"; ctx.font = `700 27px ${FONT}`; ctx.fillText(fitText(ctx, t.title, 330), 132, y);
+    ctx.fillStyle = "#B8A9A3"; ctx.font = `500 21px ${FONT}`; ctx.fillText(fitText(ctx, t.artist, 330), 132, y + 30);
+  });
+  d.topArtists.slice(0, 5).forEach((a, i) => {
+    const y = listY + 48 + i * 54;
+    ctx.fillStyle = "#7A6C67"; ctx.font = `800 26px ${FONT}`; ctx.fillText(String(i + 1), 620, y);
+    ctx.fillStyle = "#F5EDE8"; ctx.font = `700 27px ${FONT}`; ctx.fillText(fitText(ctx, a.name, 320), 662, y);
+    ctx.fillStyle = "#B8A9A3"; ctx.font = `500 21px ${FONT}`; ctx.fillText(`${a.plays} plays`, 662, y + 30);
+  });
+
+  // A one-line summary of the year's sound.
+  // The mood only belongs here when the album slot is not already showing it.
+  const summary = [album ? d.mood?.label : null, d.topGenres[0] ? `${d.topGenres[0].share}% ${d.topGenres[0].name}` : null, `${d.distinctArtists.toLocaleString()} artists`].filter(Boolean).join("  ·  ");
+  ctx.fillStyle = "#B8A9A3"; ctx.font = `600 24px ${FONT}`; ctx.fillText(fitText(ctx, summary, W - 180), 90, 1776);
+
+  drawMark(ctx, 89, 1834, 56, "#C43A4E");
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#F5EDE8"; ctx.font = `800 28px ${FONT}`; ctx.fillText("Music", 146, 1862);
+  ctx.fillStyle = "#7A6C67"; ctx.font = `500 22px ${FONT}`; ctx.textAlign = "right"; ctx.fillText("your music, your server", W - 90, 1863); ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("render failed"))), "image/png"));
+}
+
 /** Share sheet where there is one (phones), a PNG download elsewhere. Returns how it was delivered. */
 export async function shareCard(blob: Blob, filename: string): Promise<"shared" | "saved" | "cancelled"> {
   const file = new File([blob], filename, { type: "image/png" });

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db, migrate } from "../db/schema.js";
 import { register } from "../modules/auth/auth.js";
-import { forgottenFavourites, getSettings, onThisDay, similarTracks, updateSettings, weekStart, wrapped } from "../modules/music/stats.js";
+import { forgottenFavourites, getSettings, onThisDay, similarTracks, updateSettings, weekStart, wrapped, yearInMusic } from "../modules/music/stats.js";
 
 let user: string;
 const DAY = 86_400_000;
@@ -105,5 +105,62 @@ describe("settings", () => {
     updateSettings(user, { crossfade: 6 });
     updateSettings(user, { volume: 0.7 });
     expect(getSettings(user)).toEqual({ crossfade: 6, volume: 0.7 });
+  });
+});
+
+describe("year in music", () => {
+  const UTC = 0; // run the assertions in UTC so the dates below are exact
+  const at = (y: number, m: number, d: number, h = 12) => Date.UTC(y, m, d, h);
+
+  it("counts one calendar year, names the top songs, months and discoveries", () => {
+    const a = seed({ artist: "Eminem", album: "Recovery", title: "Not Afraid", genre: "Hip-Hop & R&B", duration: 240 });
+    const b = seed({ artist: "Adele", album: "25", title: "Hello", genre: "Pop", duration: 300 });
+    const old = seed({ artist: "Queen", album: "A Night at the Opera", title: "Bohemian Rhapsody", genre: "Rock" });
+
+    playAt(old.id, at(2024, 5, 1)); // heard before 2025: not a 2025 discovery
+    for (let i = 0; i < 3; i += 1) playAt(a.id, at(2025, 2, 10, 9 + i)); // March
+    for (let i = 0; i < 5; i += 1) playAt(b.id, at(2025, 6, 4, 8 + i));  // July, the big day
+    playAt(old.id, at(2025, 6, 5));
+    playAt(a.id, at(2026, 0, 2)); // next year: excluded
+
+    const y = yearInMusic(user, 2025, UTC);
+    expect(y.year).toBe(2025);
+    expect(y.plays).toBe(9);
+    expect(y.minutes).toBe(Math.round((3 * 240 + 5 * 300 + 180) / 60));
+    expect(y.distinctTracks).toBe(3);
+    expect(y.topSongs[0]).toMatchObject({ title: "Hello", plays: 5 });
+    expect(y.topArtists[0]).toMatchObject({ name: "Adele", plays: 5 });
+    expect(y.topGenres[0]).toMatchObject({ name: "Pop", plays: 5, share: 56 });
+    expect(y.byMonth[2]).toBe(3);
+    expect(y.byMonth[6]).toBe(6);
+    expect(y.bigMonth).toMatchObject({ month: 6, plays: 6 });
+    expect(y.bigDay).toMatchObject({ plays: 5 });
+    expect(new Date(y.bigDay!.at).getUTCMonth()).toBe(6);
+    expect(y.daysListened).toBe(3);
+    expect(y.longestStreak).toBe(2); // 4 and 5 July
+    expect(y.firstPlay?.title).toBe("Not Afraid");
+    // Both new songs were first heard in 2025; Queen was not.
+    expect(y.newToYou).toBe(2);
+    expect(y.discovery).toMatchObject({ title: "Hello", plays: 5 });
+    expect(y.yearsWithPlays).toEqual([2026, 2025, 2024]);
+    expect(y.lastYear).toMatchObject({ plays: 1 });
+  });
+
+  it("is empty, not broken, for a year with no plays", () => {
+    seed({ artist: "Nobody", album: "Silence", title: "Nothing" });
+    const y = yearInMusic(user, 2019, UTC);
+    expect(y).toMatchObject({ plays: 0, minutes: 0, daysListened: 0, longestStreak: 0, newToYou: 0 });
+    expect(y.topSongs).toEqual([]);
+    expect(y.firstPlay).toBeNull();
+    expect(y.discovery).toBeNull();
+    expect(y.lastYear).toBeNull();
+  });
+
+  it("uses the listener's timezone for the year boundary", () => {
+    const t = seed({ artist: "NYE", album: "Countdown", title: "Midnight" });
+    playAt(t.id, Date.UTC(2025, 11, 31, 23, 30)); // 00:30 on 1 Jan in Berlin (offset -60)
+    expect(yearInMusic(user, 2025, 0).plays).toBe(1);   // still 2025 in UTC
+    expect(yearInMusic(user, 2025, -60).plays).toBe(0); // already 2026 in Berlin
+    expect(yearInMusic(user, 2026, -60).plays).toBe(1);
   });
 });

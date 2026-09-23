@@ -1,8 +1,9 @@
+import { isYearSeason } from "./YearPage";
 import { pressProps } from "../components/ContextMenu";
 import { useTrackMenu } from "../lib/menus";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Play } from "lucide-react";
+import { BarChart3, Play, Sparkles } from "lucide-react";
 import { api, type Album, type Genre, type Mix, type Mood, type Track } from "../lib/api";
 import { playQueue } from "../lib/player";
 import { Art } from "../components/Art";
@@ -60,11 +61,12 @@ export function Home() {
     <div className="py-4">
       <h1 className="text-3xl font-extrabold tracking-tight">{greeting()}</h1>
       {d.recent.length > 0 && (
-        <Link to="/wrapped" className="mt-4 flex items-center gap-4 overflow-hidden rounded-xl p-4 transition hover:brightness-110" style={{ background: "linear-gradient(120deg, #A32638, #3A0F16)" }}>
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-cream/15"><BarChart3 className="h-6 w-6 text-cream" /></span>
+        <Link to={isYearSeason() ? "/year" : "/wrapped"} className="mt-4 flex items-center gap-4 overflow-hidden rounded-xl p-4 transition hover:brightness-110"
+          style={{ background: isYearSeason() ? "linear-gradient(120deg, #B8741F, #3A0F16)" : "linear-gradient(120deg, #A32638, #3A0F16)" }}>
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-cream/15">{isYearSeason() ? <Sparkles className="h-6 w-6 text-cream" /> : <BarChart3 className="h-6 w-6 text-cream" />}</span>
           <span className="min-w-0 flex-1">
-            <span className="block text-base font-extrabold text-cream">Your week in music</span>
-            <span className="block truncate text-sm text-cream/75">Song, album and artist of the week — and a card to share</span>
+            <span className="block text-base font-extrabold text-cream">{isYearSeason() ? `Your ${new Date().getFullYear()} in music` : "Your week in music"}</span>
+            <span className="block truncate text-sm text-cream/75">{isYearSeason() ? "Twelve months of listening — song, album and artist of the year" : "Song, album and artist of the week — and a card to share"}</span>
           </span>
           <span className="shrink-0 rounded-full bg-cream px-3 py-1.5 text-xs font-bold text-ink">Open</span>
         </Link>
