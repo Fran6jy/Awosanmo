@@ -12,6 +12,7 @@ import { z } from "zod";
 import { config } from "../../config.js";
 import { torrentService, uploadsDirFor } from "../torrents/torrentService.js";
 import { commitQuotaReservation, releaseQuota, reserveQuota } from "../storage/storageService.js";
+import { ensureFolderPath } from "../folders/folderService.js";
 
 function sanitizeName(value: string): string {
   const clean = value.replace(/[<>:"/\\|?*\x00-\x1F]/g, "").replace(/^\.+/, "").trim();
@@ -53,11 +54,14 @@ uploadRoutes.post("/", upload.single("file"), (req: any, res) => {
   if (!file) return res.status(400).json({ error: "No file provided" });
   const reservationId = crypto.randomUUID();
   try {
+    const uploadLocation = parseUploadLocation(req.body?.relativePath, req.body?.parentFolderId);
     reserveQuota(req.user.id, reservationId, file.size);
+    const folder = ensureFolderPath(uploadLocation.folders, uploadLocation.parentFolderId, req.user.id);
     const record = commitQuotaReservation(reservationId, req.user.id, () => torrentService.registerUpload({
       relativeName: file.filename,
-      displayName: file.filename,
+      displayName: uploadLocation.displayName ?? file.filename,
       size: file.size,
+      folderId: folder?.id ?? uploadLocation.parentFolderId,
     }, req.user.id));
     return res.status(201).json(record);
   } catch (error: any) {
@@ -66,6 +70,23 @@ uploadRoutes.post("/", upload.single("file"), (req: any, res) => {
     return res.status(error.status ?? 413).json({ error: error.message ?? "Storage quota exceeded" });
   }
 });
+
+function parseUploadLocation(relativePath: unknown, parentFolderId: unknown) {
+  const parent = typeof parentFolderId === "string" && parentFolderId.trim() ? parentFolderId.trim() : null;
+  if (typeof relativePath !== "string" || !relativePath.trim()) {
+    return { folders: [] as string[], parentFolderId: parent, displayName: null as string | null };
+  }
+  const normalized = relativePath.replace(/\\/g, "/");
+  const segments = normalized.split("/");
+  if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
+    throw Object.assign(new Error("Invalid folder path"), { status: 400 });
+  }
+  const clean = segments.map((segment) => sanitizeName(segment));
+  if (clean.some((segment, index) => segment !== segments[index].trim())) {
+    throw Object.assign(new Error("Invalid folder path"), { status: 400 });
+  }
+  return { folders: clean.slice(0, -1), parentFolderId: parent, displayName: clean.at(-1) ?? null };
+}
 
 uploadRoutes.post("/url", async (req: any, res) => {
   const { url } = urlSchema.parse(req.body);

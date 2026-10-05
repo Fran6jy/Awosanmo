@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Download, Eye, FileArchive, FileText, Film, Folder, FolderOpen, FolderPlus, FolderInput, Home, Image as ImageIcon, Link2, Music, Pencil, Search, Trash2, Upload, X } from "lucide-react";
+import { ChevronRight, Download, Eye, FileArchive, FileText, Film, Folder, FolderOpen, FolderPlus, FolderInput, FolderUp, Home, Image as ImageIcon, Link2, Music, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 import { Shell } from "../components/Shell";
 import { API_URL, addByUrl, api, token, uploadFile, uploadTorrentFile, downloadZip } from "../lib/api";
 import { pushToast } from "../components/Toast";
@@ -33,6 +33,7 @@ export function FilesPage() {
   const [dragging, setDragging] = useState(0);
   const dragIds = useRef<string[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
   const searching = query.trim().length > 0;
 
@@ -136,20 +137,26 @@ export function FilesPage() {
     window.location.href = `${API_URL}/api/download/${id}?dt=${encodeURIComponent(downloadToken)}`;
   }
 
-  async function onUpload(list: FileList | null) {
+  async function onUpload(list: FileList | null, preserveFolders = false) {
     if (!list?.length) return;
-    for (const file of Array.from(list)) {
-      const isTorrent = file.name.toLowerCase().endsWith(".torrent");
+    const pending = Array.from(list);
+    let failed = 0;
+    for (const [index, file] of pending.entries()) {
+      const isTorrent = !preserveFolders && file.name.toLowerCase().endsWith(".torrent");
       try {
-        setUploadPct(0);
+        setUploadPct(Math.round((index / pending.length) * 100));
         if (isTorrent) { const result = await uploadTorrentFile(file); requestTorrentFileSelection(result.id); pushToast({ type: "success", title: "Torrent added", body: "Choose which files you want." }); qc.invalidateQueries({ queryKey: ["torrents"] }); }
-        else { await uploadFile(file, (f) => setUploadPct(Math.round(f * 100))); pushToast({ type: "success", title: "Upload complete", body: file.name }); }
+        else { await uploadFile(file, (f) => setUploadPct(Math.round(((index + f) / pending.length) * 100)), { relativePath: preserveFolders ? file.webkitRelativePath : undefined, parentFolderId: folderId === "root" ? null : folderId }); }
         invalidate();
       } catch (e) {
+        failed += 1;
         pushToast({ type: "error", title: "Upload failed", body: (e as Error).message.slice(0, 140) });
-      } finally { setUploadPct(null); }
+      }
     }
+    setUploadPct(null);
     if (fileInput.current) fileInput.current.value = "";
+    if (folderInput.current) folderInput.current.value = "";
+    if (preserveFolders && failed === 0) pushToast({ type: "success", title: "Folder uploaded", body: `${pending.length} file${pending.length === 1 ? "" : "s"} added with their folder structure.` });
   }
   const addUrl = useMutation({
     mutationFn: (url: string) => addByUrl(url),
@@ -246,6 +253,10 @@ export function FilesPage() {
               <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
             </button>
             <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
+            <button type="button" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null || searching} title="Upload a folder and preserve its structure" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40">
+              <FolderUp className="h-4 w-4" /> Upload folder
+            </button>
+            <input ref={folderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)} />
           </div>
         </div>
         {uploadPct !== null && <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} /></div>}

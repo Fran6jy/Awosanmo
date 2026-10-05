@@ -5,7 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db, migrate } from "../db/schema.js";
 import { register } from "../modules/auth/auth.js";
 import { getOwnedFile, listFiles, deleteFile, renameFile } from "../modules/files/fileService.js";
-import { createFolder, getFolder, listFolders, moveFiles } from "../modules/folders/folderService.js";
+import { createFolder, ensureFolderPath, getFolder, listFolders, moveFiles } from "../modules/folders/folderService.js";
 import { config } from "../config.js";
 import { getUserStorageStats, releaseQuota, reserveQuota, withQuotaAllocation } from "../modules/storage/storageService.js";
 import { torrentService } from "../modules/torrents/torrentService.js";
@@ -137,6 +137,19 @@ describe("torrent file selection", () => {
 });
 
 describe("folder isolation", () => {
+  it("creates and reuses a nested upload folder path", () => {
+    const leaf = ensureFolderPath(["Photos", "Holiday"], null, alice)!;
+    const reused = ensureFolderPath(["Photos", "Holiday"], null, alice)!;
+    expect(reused.id).toBe(leaf.id);
+    expect(listFolders(null, alice).map((folder) => folder.name)).toEqual(["Photos"]);
+    expect(listFolders(leaf.parent_id, alice).map((folder) => folder.name)).toEqual(["Holiday"]);
+  });
+
+  it("rejects another user's folder as an upload parent", () => {
+    const privateFolder = createFolder("Private", null, alice);
+    expect(() => ensureFolderPath(["Nested"], privateFolder.id, bob)).toThrow(/parent folder not found/i);
+  });
+
   it("only lists a user's own folders", () => {
     createFolder("Movies", null, alice);
     createFolder("Books", null, bob);

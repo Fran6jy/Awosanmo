@@ -42,6 +42,22 @@ export function createFolder(name: string, parentId: string | null, userId: stri
   return getFolder(id, userId)!;
 }
 
+/** Reuse or create each folder in a relative upload path. */
+export function ensureFolderPath(names: string[], parentId: string | null, userId: string): Folder | null {
+  if (parentId && !getFolder(parentId, userId)) throw new Error("Parent folder not found");
+  let parent = parentId;
+  let current: Folder | null = parent ? getFolder(parent, userId)! : null;
+  for (const rawName of names) {
+    const name = sanitize(rawName);
+    const existing = parent === null
+      ? db.prepare("SELECT * FROM folders WHERE user_id = ? AND parent_id IS NULL AND name = ? ORDER BY created_at LIMIT 1").get(userId, name) as Folder | undefined
+      : db.prepare("SELECT * FROM folders WHERE user_id = ? AND parent_id = ? AND name = ? ORDER BY created_at LIMIT 1").get(userId, parent, name) as Folder | undefined;
+    current = existing ?? createFolder(name, parent, userId);
+    parent = current.id;
+  }
+  return current;
+}
+
 export function renameFolder(id: string, name: string, userId: string): Folder | null {
   if (!getFolder(id, userId)) return null;
   db.prepare("UPDATE folders SET name = ? WHERE id = ?").run(sanitize(name), id);

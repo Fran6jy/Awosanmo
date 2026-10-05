@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Download, Gauge, Link2, Pause, Play, Plus, RefreshCw, Trash2, Upload, Waves } from "lucide-react";
+import { ArrowUpRight, Download, FolderUp, Gauge, Link2, Pause, Play, Plus, RefreshCw, Trash2, Upload, Waves } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { addByUrl, api, token, uploadFile, uploadTorrentFile } from "../lib/api";
@@ -78,22 +78,29 @@ export function Dashboard() {
   }
 
   const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
-  async function onUpload(list: FileList | null) {
+  async function onUpload(list: FileList | null, preserveFolders = false) {
     if (!list?.length) return;
-    for (const file of Array.from(list)) {
-      const isTorrent = file.name.toLowerCase().endsWith(".torrent");
+    const pending = Array.from(list);
+    let failed = 0;
+    for (const [index, file] of pending.entries()) {
+      const isTorrent = !preserveFolders && file.name.toLowerCase().endsWith(".torrent");
       try {
-        setUploadPct(0);
+        setUploadPct(Math.round((index / pending.length) * 100));
         if (isTorrent) { const result = await uploadTorrentFile(file); requestTorrentFileSelection(result.id); pushToast({ type: "success", title: "Torrent added", body: "Choose which files you want." }); }
-        else { await uploadFile(file, (f) => setUploadPct(Math.round(f * 100))); pushToast({ type: "success", title: "Upload complete", body: file.name }); }
+        else { await uploadFile(file, (f) => setUploadPct(Math.round(((index + f) / pending.length) * 100)), { relativePath: preserveFolders ? file.webkitRelativePath : undefined }); }
         qc.invalidateQueries({ queryKey: ["files"] });
         qc.invalidateQueries({ queryKey: ["torrents"] });
       } catch (e) {
+        failed += 1;
         pushToast({ type: "error", title: isTorrent ? "Could not add torrent" : "Upload failed", body: (e as Error).message.slice(0, 140) });
-      } finally { setUploadPct(null); }
+      }
     }
+    setUploadPct(null);
     if (fileInput.current) fileInput.current.value = "";
+    if (folderInput.current) folderInput.current.value = "";
+    if (preserveFolders && failed === 0) pushToast({ type: "success", title: "Folder uploaded", body: `${pending.length} file${pending.length === 1 ? "" : "s"} added with their folder structure.` });
   }
   const addUrl = useMutation({
     mutationFn: (url: string) => addByUrl(url),
@@ -181,6 +188,10 @@ export function Dashboard() {
             <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
           </button>
           <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
+          <button type="button" title="Upload a folder and preserve its structure" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null} className="btn-ghost min-h-12 px-5">
+            <FolderUp className="h-4 w-4" /> Upload folder
+          </button>
+          <input ref={folderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)} />
         </form>
         {uploadPct !== null && (
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">

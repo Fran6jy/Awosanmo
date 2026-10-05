@@ -14,9 +14,15 @@ you if you don't know them.
 
 A self-hosted, **multi-user** private cloud-torrenting, file-preview, and
 streaming platform (a lightweight Seedr alternative). Paste a magnet link (or
-upload a `.torrent`, or upload any file); the server downloads onto your VPS; you
+upload a `.torrent`, an individual file, or a complete folder); the server downloads onto your VPS; you
 stream, preview, or download it from anywhere. Accounts are fully siloed, with
 optional 2FA. Built to run on the Oracle Cloud Free Tier (1 vCPU / 1 GB RAM).
+
+Folder upload is available from both Dashboard and Files. It preserves nested
+directory structure, nests the uploaded tree inside the currently open library
+folder, streams one file at a time, and applies the normal per-user quota checks.
+Browsers do not expose empty directories, so an entirely empty folder is not
+created until it contains at least one uploaded file.
 
 ---
 
@@ -95,8 +101,8 @@ apps/
         torrents/          WebTorrent engine + routes (user-scoped)
         streaming/         HTTP range streaming controller
         files/             list/rename/delete/bulk/move/zip + download/subtitle
-        folders/           folders CRUD + move (user-scoped)
-        uploads/           arbitrary file upload (streamed to disk)
+        folders/           folders CRUD + move + upload-path creation (user-scoped)
+        uploads/           file/folder upload (streamed to disk, quota protected)
         wishlist/          saved magnets to add later
         media/             ffprobe metadata worker
         storage/, search/, admin/, playback/

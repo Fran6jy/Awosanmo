@@ -86,9 +86,12 @@ export async function logout() {
 export function uploadFile(
   file: File,
   onProgress?: (fraction: number) => void,
+  options?: { relativePath?: string; parentFolderId?: string | null },
 ): Promise<{ id: string; streamable: boolean; media_kind: string }> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
+    if (options?.relativePath) form.append("relativePath", options.relativePath);
+    if (options?.parentFolderId) form.append("parentFolderId", options.parentFolderId);
     form.append("file", file);
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_URL}/api/uploads`);

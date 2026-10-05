@@ -200,14 +200,14 @@ export class TorrentService {
     return bucketId;
   }
 
-  registerUpload(meta: { relativeName: string; displayName: string; size: number }, userId: string) {
+  registerUpload(meta: { relativeName: string; displayName: string; size: number; folderId?: string | null }, userId: string) {
     const bucketId = this.ensureUploadsBucket(userId);
     const { kind, streamable, mimeType } = classifyFile(meta.displayName);
     const fileId = crypto.randomUUID();
     const probeStatus = streamable ? "pending" : "ready";
-    db.prepare(`INSERT INTO files (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(fileId, bucketId, userId, meta.displayName, meta.relativeName, meta.size, mimeType, kind, streamable, probeStatus);
+    db.prepare(`INSERT INTO files (id, torrent_id, user_id, name, path, size, mime, media_kind, streamable, probe_status, folder_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(fileId, bucketId, userId, meta.displayName, meta.relativeName, meta.size, mimeType, kind, streamable, probeStatus, meta.folderId ?? null);
 
     const total = db.prepare("SELECT COALESCE(SUM(size),0) AS s FROM files WHERE torrent_id = ?").get(bucketId) as any;
     db.prepare("UPDATE torrents SET size = ?, downloaded = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(total.s, total.s, bucketId);

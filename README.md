@@ -31,7 +31,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
   no full buffering, token-authenticated per file, video resume position, audio
   playback, browser-compatible MKV/HEVC transcode fallback, image/PDF/text
   previews, and an in-browser EPUB reader.
-- **Files** — upload any file (streamed to disk), search, rename, delete,
+- **Files** — upload individual files or whole folders (streamed to disk with
+  nested directory structure preserved), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/
   rename/delete/move with breadcrumbs), **right-click context menus**,
   **drag-and-drop into folders**, add-by-URL, thumbnails, resilient
