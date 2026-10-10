@@ -343,7 +343,7 @@ export function FilesPage() {
               <FolderUp className="h-4 w-4" /> Upload folder
             </button>
             <input ref={bindFolderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} />
-            {clipboard ? <button type="button" onClick={pasteClipboard} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200"><ClipboardPaste className="h-4 w-4" /> Paste</button> : null}
+            {clipboard ? <button type="button" onClick={pasteClipboard} className="clipboard-paste flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200"><ClipboardPaste className="h-4 w-4" /> Paste here</button> : null}
           </div>
         </div>
         {uploadPct !== null && <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} /></div>}

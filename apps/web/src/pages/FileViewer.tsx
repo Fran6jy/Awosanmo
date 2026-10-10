@@ -134,6 +134,12 @@ export function FileViewer() {
   async function openExternal() {
     if (!src) return;
     const absolute = new URL(src, window.location.origin).href;
+    if (/Android/i.test(navigator.userAgent)) {
+      const target = absolute.replace(/^https?:\/\//, "");
+      const scheme = absolute.startsWith("https:") ? "https" : "http";
+      window.location.href = `intent://${target}#Intent;scheme=${scheme};package=org.videolan.vlc;S.browser_fallback_url=${encodeURIComponent(absolute)};end`;
+      return;
+    }
     if (navigator.share) {
       try {
         await navigator.share({ title: meta?.name ?? "Awosanmo stream", url: absolute });
@@ -162,20 +168,20 @@ export function FileViewer() {
 
   return (
     <main className="min-h-screen text-slate-100">
-      <header className="sticky top-0 z-20 border-b border-line bg-[color:var(--app-bg)]/90 backdrop-blur-xl">
+      <header className="viewer-header sticky top-0 z-20 border-b border-line bg-[color:var(--app-bg)]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
           <Link to="/files" className="btn-ghost px-3">
             <ArrowLeft className="h-4 w-4" /> Files
           </Link>
-          <div className="min-w-0 flex-1">
+          <div className="viewer-meta min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">{meta?.name ?? "Opening file"}</p>
             <p className="text-xs text-slate-400">{meta ? `${kind.toUpperCase()} · ${formatBytes(meta.size)}` : "Preparing secure preview"}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="viewer-actions flex shrink-0 items-center gap-2">
             <ThemeToggle />
             {(kind === "video" || kind === "audio") && src ? <button onClick={() => void openExternal()} className="btn-ghost" title="Copy a private URL for PotPlayer, VLC, or another network player"><ExternalLink className="h-4 w-4" /><span className="hidden sm:inline">External player</span></button> : null}
             <button onClick={() => void enterFullscreen()} className="btn-ghost" title="View fullscreen"><Expand className="h-4 w-4" /><span className="hidden sm:inline">Fullscreen</span></button>
-            <button onClick={() => window.open(location.href, `awosanmo-${id}`, "popup,width=1200,height=820")} className="btn-ghost" title="Keep this viewer open in a separate window"><Maximize2 className="h-4 w-4" /><span className="hidden sm:inline">New window</span></button>
+            <button onClick={() => window.open(location.href, `awosanmo-${id}`, "popup,width=1200,height=820")} className="viewer-new-window btn-ghost" title="Keep this viewer open in a separate window"><Maximize2 className="h-4 w-4" /><span className="hidden sm:inline">New window</span></button>
             <button onClick={() => void download()} className="btn-primary">
               <Download className="h-4 w-4" /> Download
             </button>
