@@ -9,7 +9,7 @@ import { isDownloadSiteName, normalizeGenre, sortKey, toTrackRecord, type Common
 import { invalidateHome } from "./service.js";
 import { enrichInProgress, enrichLibrary } from "./enrich.js";
 import { analyseLibrary, analysisInProgress } from "./analysis.js";
-import { storeArt } from "./art.js";
+import { isBlockedArtPath, storeArt } from "./art.js";
 
 const AUDIO_EXT = new Set([".mp3", ".m4a", ".aac", ".flac", ".ogg", ".oga", ".opus", ".wav", ".wma", ".weba"]);
 const FOLDER_ART = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "album.jpg"];
@@ -43,6 +43,38 @@ function folderArt(filePath: string): string | null {
     }
   }
   return null;
+}
+
+/** Remove artwork accepted before content-hash blocking existed. */
+export function purgeBlockedArtwork(): number {
+  const trackRows = db.prepare("SELECT DISTINCT art_path FROM music_tracks WHERE art_path IS NOT NULL").all() as { art_path: string }[];
+  const albumRows = db.prepare("SELECT DISTINCT art_path FROM music_albums WHERE art_path IS NOT NULL").all() as { art_path: string }[];
+  const artistRows = db.prepare("SELECT DISTINCT image_path AS art_path FROM music_artists WHERE image_path IS NOT NULL").all() as { art_path: string }[];
+  const playlistRows = db.prepare("SELECT DISTINCT cover_path AS art_path FROM music_playlists WHERE cover_path IS NOT NULL").all() as { art_path: string }[];
+  const blocked = [...new Set([...trackRows, ...albumRows, ...artistRows, ...playlistRows]
+    .map((row) => row.art_path)
+    .filter(isBlockedArtPath))];
+  if (!blocked.length) return 0;
+
+  const clearTracks = db.prepare("UPDATE music_tracks SET art_path = NULL WHERE art_path = ?");
+  const clearAlbums = db.prepare("UPDATE music_albums SET art_path = NULL WHERE art_path = ?");
+  const clearArtists = db.prepare("UPDATE music_artists SET image_path = NULL WHERE image_path = ?");
+  const clearPlaylists = db.prepare("UPDATE music_playlists SET cover_path = NULL WHERE cover_path = ?");
+  const cleanup = db.transaction(() => {
+    for (const artPath of blocked) {
+      clearTracks.run(artPath);
+      clearAlbums.run(artPath);
+      clearArtists.run(artPath);
+      clearPlaylists.run(artPath);
+    }
+  });
+  cleanup();
+  for (const artPath of blocked) {
+    try { fs.unlinkSync(path.join(config.musicArtDir, path.basename(artPath))); } catch {}
+  }
+  invalidateHome();
+  logger.info({ blocked }, "Blocked music artwork removed");
+  return blocked.length;
 }
 
 /**
@@ -247,7 +279,10 @@ export function startMusicScanner() {
     logger.info("Music module disabled (MUSIC_DIR not set)");
     return;
   }
-  try { renormalizeGenres(); } catch (error) { logger.warn({ error }, "Genre re-normalisation failed"); }
+  try {
+    renormalizeGenres();
+    purgeBlockedArtwork();
+  } catch (error) { logger.warn({ error }, "Music library cleanup failed"); }
   const run = () => scanLibrary().catch((error) => logger.error({ error }, "Music scan failed"));
   setTimeout(run, 5_000).unref();
   // Catch up on tracks indexed before repair/analysis existed (or interrupted runs) once, a little after boot.

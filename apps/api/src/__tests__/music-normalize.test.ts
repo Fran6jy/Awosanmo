@@ -1,6 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { isDownloadSiteName, normalizeGenre, parseFilename, sortKey, toTrackRecord, UNKNOWN_ARTIST } from "../modules/music/normalize.js";
+import { isBlockedArtPath } from "../modules/music/art.js";
 
 const ROOT = path.join("C:", "Users", "fran6", "Music");
 const under = (folder: string, name: string) => path.join(ROOT, folder, name);
@@ -130,5 +131,14 @@ describe("sort keys", () => {
     expect(sortKey("the weeknd")).toBe("weeknd");
     expect(sortKey("A Tribe Called Quest")).toBe("tribe called quest");
     expect(sortKey("  Burna  Boy ")).toBe("burna boy");
+  });
+});
+
+describe("artwork blocking", () => {
+  it("recognises known download-site artwork regardless of extension or path", () => {
+    expect(isBlockedArtPath("51c11874e412ef68e0473170209f46062566ac22.jpg")).toBe(true);
+    expect(isBlockedArtPath("/data/music-art/51C11874E412EF68E0473170209F46062566AC22.png")).toBe(true);
+    expect(isBlockedArtPath("43158859a4fdc688e960804cb1f908799717ae6a.jpg")).toBe(false);
+    expect(isBlockedArtPath(null)).toBe(false);
   });
 });
