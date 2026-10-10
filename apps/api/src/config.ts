@@ -1,5 +1,4 @@
 import "dotenv/config";
-import path from "node:path";
 
 const production = process.env.NODE_ENV === "production";
 
@@ -44,15 +43,5 @@ export const config = {
   // Per-user storage quota (bytes). 0 = unlimited. New users get the default.
   defaultQuotaBytes: Number(process.env.DEFAULT_QUOTA_BYTES ?? 20 * 1024 * 1024 * 1024),
   // Max size for a single add-by-URL fetch.
-  maxRemoteBytes: Number(process.env.MAX_REMOTE_BYTES ?? 8 * 1024 * 1024 * 1024),
-  // Music library: where the audio files live and where extracted album art is cached.
-  // Leave MUSIC_DIR unset to disable the music module entirely.
-  musicDir: process.env.MUSIC_DIR ?? "",
-  /** Look tracks up in Deezer's public catalogue to fix names and fetch artwork. */
-  musicEnrich: (process.env.MUSIC_ENRICH ?? "true") !== "false",
-  /** Measure tempo/energy/brightness per track with ffmpeg for moods and mixes. */
-  musicAnalyse: (process.env.MUSIC_ANALYSE ?? "true") !== "false",
-  musicArtDir: process.env.MUSIC_ART_DIR ?? path.join(process.env.DATA_DIR ?? "./data", "music-art"),
-  // Rescan the library on this interval (0 = only on startup / manual trigger).
-  musicScanIntervalMinutes: Number(process.env.MUSIC_SCAN_INTERVAL_MINUTES ?? 30)
+  maxRemoteBytes: Number(process.env.MAX_REMOTE_BYTES ?? 8 * 1024 * 1024 * 1024)
 };

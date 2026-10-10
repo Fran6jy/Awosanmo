@@ -5,7 +5,6 @@ npm-debug.log
 data
 data-prod-smoke
 apps/web/tsconfig.tsbuildinfo
-apps/music/tsconfig.tsbuildinfo
 .git
 .env
 .DS_Store

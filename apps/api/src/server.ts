@@ -17,8 +17,6 @@ import { migrate } from "./db/schema.js";
 import { changePassword, completeTwoFactorLogin, disableTotp, enableTotp, ensureAdminUser, login, loginSchema, register, registerSchema, requireAuth, requireDownloadAuth, requireStreamAuth, requireSubtitleAuth, rotateRefresh, revokeRefresh, setupTotp, signDownloadToken, signStreamToken, signSubtitleToken, twoFactorStatus } from "./modules/auth/auth.js";
 import { getOwnedFile } from "./modules/files/fileService.js";
 import { torrentRoutes } from "./modules/torrents/routes.js";
-import { attachMusicRealtime, musicMediaRoutes, musicRoutes } from "./modules/music/routes.js";
-import { startMusicScanner } from "./modules/music/scanner.js";
 import { torrentService } from "./modules/torrents/torrentService.js";
 import { streamFile } from "./modules/streaming/streamController.js";
 import { transcodeFile } from "./modules/streaming/transcodeController.js";
@@ -27,7 +25,6 @@ import { getStorageStats, getUserStorageStats } from "./modules/storage/storageS
 import { mediaWorker } from "./modules/media/mediaWorker.js";
 import { fileRoutes } from "./modules/files/routes.js";
 import { downloadFile } from "./modules/files/downloadController.js";
-import { playbackRoutes } from "./modules/playback/routes.js";
 import { subtitleFile } from "./modules/files/subtitleController.js";
 import { thumbnailFile } from "./modules/files/thumbnailController.js";
 import { adminRoutes } from "./modules/admin/routes.js";
@@ -53,10 +50,8 @@ app.set("trust proxy", 1);
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: config.corsOrigin } });
 torrentService.attach(io);
-attachMusicRealtime(io);
 torrentService.restore();
 mediaWorker.start();
-startMusicScanner();
 
 app.use(helmet({
   crossOriginResourcePolicy: false,
@@ -158,18 +153,11 @@ app.post("/api/logout", (req, res) => {
 });
 app.use("/api/torrents", requireAuth, torrentRoutes);
 app.use("/api/files", requireAuth, fileRoutes);
-app.use("/api/playback", requireAuth, playbackRoutes);
 app.use("/api/admin", requireAuth, adminRoutes);
 app.use("/api/search", requireAuth, searchRoutes);
 app.use("/api/uploads", requireAuth, uploadRoutes);
 app.use("/api/folders", requireAuth, folderRoutes);
 app.use("/api/wishlist", requireAuth, wishlistRoutes);
-// Art and audio are fetched by <img>/<audio>, which cannot send a bearer
-// header, so these authenticate via a token in the URL instead. They must be
-// mounted before the bearer-protected router on the same prefix, or requireAuth
-// rejects them first.
-app.use("/api/music", musicMediaRoutes);
-app.use("/api/music", requireAuth, musicRoutes);
 // Token-authenticated so the browser can download by navigation (no header).
 app.get("/api/zip", zipDownload);
 // Only issue a media token if the caller owns the file.
@@ -201,9 +189,7 @@ app.get("/api/stats", requireAuth, (req: any, res) => {
 app.get("/api/storage", requireAuth, (req: any, res) => res.json({ ...getStorageStats(), user: getUserStorageStats(req.user.id) }));
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-// The same API image serves either frontend; APP=music switches the static
-// bundle to JYMusic while the API surface stays identical.
-const webDist = path.resolve(here, process.env.APP === "music" ? "../../music/dist" : "../../web/dist");
+const webDist = path.resolve(here, "../../web/dist");
 if (process.env.NODE_ENV === "production" && fs.existsSync(webDist)) {
   // Hashed assets can be cached hard; the HTML that points at them must not be,
   // or a browser keeps loading last week's bundle for an hour after a deploy.

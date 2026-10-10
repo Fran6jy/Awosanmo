@@ -9,12 +9,11 @@
   ],
   "workspaces": [
     "apps/api",
-    "apps/web",
-    "apps/music"
+    "apps/web"
   ],
   "scripts": {
     "dev": "npm run dev --workspace @awosanmo/api & npm run dev --workspace @awosanmo/web",
-    "build": "npm run build --workspace @awosanmo/api && npm run build --workspace @awosanmo/web && npm run build --workspace @awosanmo/music",
+    "build": "npm run build --workspace @awosanmo/api && npm run build --workspace @awosanmo/web",
     "test": "npm run test --workspace @awosanmo/api",
     "lint": "npm run lint --workspaces --if-present"
   },

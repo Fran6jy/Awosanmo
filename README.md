@@ -98,6 +98,10 @@ Dockerfile · docker-compose*.yml · vercel.json
 The API also serves the built SPA (`apps/web/dist`) in production, so the whole
 app runs from **one container** on one origin.
 
+JYMusic is maintained and deployed independently from its canonical repository:
+[`Fran6jy/jymusic`](https://github.com/Fran6jy/jymusic). Music application code
+does not belong in this repository.
+
 ---
 
 ## Target environment

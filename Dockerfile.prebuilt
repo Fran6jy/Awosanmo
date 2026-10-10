@@ -8,13 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tini pyt
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
-COPY apps/music/package.json apps/music/package.json
 # better-sqlite3 compiles natively here; the toolchain is dropped afterwards.
 RUN npm install --omit=dev --no-audit --no-fund \
   && apt-get purge -y python3 make g++ && apt-get autoremove -y && rm -rf /root/.npm
 COPY apps/api/dist ./apps/api/dist
 COPY apps/web/dist ./apps/web/dist
-COPY apps/music/dist ./apps/music/dist
 VOLUME ["/data"]
 EXPOSE 4000
 ENTRYPOINT ["/usr/bin/tini", "--"]
