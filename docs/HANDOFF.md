@@ -43,16 +43,19 @@ ergonomics but retains Awosanmo branding and does not depend on Apple assets.
 | Item | Value |
 | --- | --- |
 | Repo | https://github.com/Fran6jy/Awosanmo (public) |
-| Server | Oracle Cloud VM, Ubuntu 20.04, 1 vCPU / ~1 GB RAM / 100 GB disk / 2 GB swap |
-| Public IP | `145.241.232.240` |
-| App URL (HTTP) | `http://145.241.232.240` |
+| Server | Abram's Oracle Cloud A1 VM, Ubuntu, ARM64, 1 OCPU / 6 GB RAM |
+| Public IP | `129.213.98.196` |
+| App URL (HTTP) | `http://129.213.98.196` |
 | App URL (HTTPS) | Cloudflare quick tunnel — **ephemeral, changes on tunnel restart** |
-| SSH | `ssh -i <oracle-key> ubuntu@145.241.232.240` |
-| App directory | `/opt/awosanmo` (owned by the `awosanmo` service user) |
+| SSH | `ssh -i ~/.ssh/abram-a1.key ubuntu@129.213.98.196` |
+| App directory | `/opt/awosanmo` |
 | Data directory | `/var/lib/awosanmo` (SQLite DB, `downloads/`, `backups/`) |
 | Runtime | Docker Compose (`docker-compose.prod.yml`), container `awosanmo-awosanmo-1` |
 | Reverse proxy | nginx on port 80 → `127.0.0.1:4000` |
-| HTTPS tunnel | `awosanmo-tunnel.service` (systemd) running `cloudflared` |
+| HTTPS tunnel | `cloudflared-awosanmo.service` (systemd) running `cloudflared` |
+
+The old London micro at `145.241.232.240` is a **backup only**. Do not deploy
+normal releases there and do not report its quick-tunnel URL as production.
 
 ### Credentials
 - Admin email/password: in `/opt/awosanmo/.env` (`ADMIN_EMAIL`, `ADMIN_PASSWORD`).
@@ -65,7 +68,7 @@ ergonomics but retains Awosanmo branding and does not depend on Apple assets.
 
 ### Get the current HTTPS tunnel URL
 ```bash
-sudo journalctl -u awosanmo-tunnel.service --no-pager | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1
+sudo grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /var/log/cloudflared-awosanmo.log | tail -1
 ```
 
 ---
@@ -338,8 +341,7 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
 
 ## 7. Operations runbook
 
-All commands run on the VM over SSH. The repo dir is owned by the `awosanmo`
-user, so most git/docker commands need `sudo`.
+All commands run on Abram's VM over SSH. Docker commands require `sudo`.
 
 ### Redeploy latest code
 ```bash
@@ -355,7 +357,7 @@ Or use the helper: `sudo bash deploy/deploy-oracle.sh`.
 ```bash
 sudo docker logs --tail 100 -f awosanmo-awosanmo-1        # app
 sudo tail -f /var/log/nginx/{access,error}.log            # nginx
-sudo journalctl -u awosanmo-tunnel.service -f             # tunnel
+sudo tail -f /var/log/cloudflared-awosanmo.log             # tunnel
 ```
 
 ### Restart / stop
@@ -398,11 +400,11 @@ sudo docker compose -f docker-compose.prod.yml up -d
 ### Rotate/replace the HTTPS tunnel
 The quick-tunnel URL changes whenever the service restarts:
 ```bash
-sudo systemctl restart awosanmo-tunnel.service
+sudo systemctl restart cloudflared-awosanmo.service
 # then read the new URL (see §2)
 ```
 For a **permanent** URL you need a domain on Cloudflare and a *named* tunnel
-(replace the `ExecStart` in `/etc/systemd/system/awosanmo-tunnel.service`).
+(replace the `ExecStart` in `/etc/systemd/system/cloudflared-awosanmo.service`).
 
 ### Backups
 `deploy/backup.sh` + `awosanmo-backup.timer` snapshot the SQLite DB to

@@ -204,7 +204,7 @@ static frontend can be deployed there, pointed at your VPS API via
 - **Logs:** structured JSON via pino (`docker logs`), plus nginx access/error logs.
 - **Backups:** `deploy/backup.sh` + `awosanmo-backup.timer` snapshot the SQLite DB.
   Downloaded media is re-downloadable and not backed up by default.
-- **Redeploy:** `git pull` + `docker compose build && up -d` (or
+- **Redeploy:** `git pull` + `docker compose -f docker-compose.prod.yml up -d --build` (or
   `deploy/deploy-oracle.sh`). See the runbook in **[docs/HANDOFF.md §7](docs/HANDOFF.md)**.
 - **Scaling up:** raise `TORRENT_MAX_CONNS`, `MAX_*_RATE`, and Node heap on a
   bigger VM. The architecture (repository-style modules, token-authed media,
