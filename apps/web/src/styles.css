@@ -851,7 +851,7 @@ body {
 
 @media (max-height: 500px) and (orientation: landscape) {
   .desktop-main { padding-top: 0 !important; }
-  .desktop-utilities { position: absolute; top: 8px; right: 10px; display: grid; width: 300px; margin: 0; padding: 5px; grid-template-columns: minmax(0,1fr) 38px; }
+  .desktop-utilities { position: absolute; top: 48px; right: 10px; display: grid; width: 300px; margin: 0; padding: 5px; grid-template-columns: minmax(0,1fr) 38px; }
   .desktop-utilities .icon-btn { width: 38px; height: 38px; }
   .storage-quota { min-height: 38px; padding: 3px 6px !important; }
   .storage-summary { height: 28px; }
@@ -867,6 +867,8 @@ body {
   .desktop-command .dashboard-url-form { display: none; }
   .desktop-command .field, .desktop-command .btn-primary, .desktop-command .btn-ghost { min-height: 40px; }
   .desktop-status { display: none; }
+  .os-dock { display: none !important; }
+  nav.fixed.inset-x-0.bottom-0 { display: flex !important; }
 }
 
 @media (max-width: 900px), (pointer: coarse) {
