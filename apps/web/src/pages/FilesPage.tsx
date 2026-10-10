@@ -238,7 +238,7 @@ export function FilesPage() {
 
   return (
     <Shell>
-      <section className="rounded-2xl p-5 glass">
+      <section className="files-toolbar rounded-2xl p-5 glass">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="font-mono text-xs font-bold uppercase text-accent2">Library</p>

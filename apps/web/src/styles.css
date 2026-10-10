@@ -647,6 +647,13 @@ body {
 :root:not([data-theme="dark"]) .text-slate-300 { color: #29384a !important; }
 :root:not([data-theme="dark"]) .text-slate-400,
 :root:not([data-theme="dark"]) .text-slate-500 { color: #637286 !important; }
+:root:not([data-theme="dark"]) .bg-accent,
+:root:not([data-theme="dark"]) .bg-accent2,
+:root:not([data-theme="dark"]) .bg-stream,
+:root:not([data-theme="dark"]) .btn-primary { background: #1677c8 !important; }
+:root:not([data-theme="dark"]) .text-accent,
+:root:not([data-theme="dark"]) .text-accent2,
+:root:not([data-theme="dark"]) .text-stream { color: #126eb9 !important; }
 
 @media (max-width: 1023px) {
   .desktop-main { padding-top: 0 !important; }
@@ -667,6 +674,14 @@ body {
   .desktop-shortcuts { top: 58px; left: 34px; grid-template-columns: 112px; transform: none; }
   .desktop-command { bottom: 104px; }
   .desktop-status { right: 24px; bottom: 82px; transform: none; }
+  .os-desktop > main:not(.desktop-main) { padding-top: 52px !important; }
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .files-toolbar > div { align-items: flex-start !important; }
+  .files-toolbar > div > div:first-child { flex: 0 0 150px; }
+  .files-toolbar > div > div:last-child { flex: 1 1 620px; flex-wrap: wrap; }
+  .files-toolbar h1 { white-space: nowrap; }
 }
 
 @media (max-width: 640px) {
