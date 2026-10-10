@@ -364,7 +364,6 @@ export function FilesPage() {
               <button onClick={() => setMoveIds(Array.from(selected))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FolderInput className="h-4 w-4" /> Move</button>
               <button onClick={() => { setClipboard({ mode: "cut", kind: "files", ids: Array.from(selected) }); setSelected(new Set()); }} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><Scissors className="h-4 w-4" /> Cut</button>
               <button onClick={() => { setClipboard({ mode: "copy", kind: "files", ids: Array.from(selected) }); setSelected(new Set()); }} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><Copy className="h-4 w-4" /> Copy</button>
-              <button onClick={() => setConfirmDel({ ids: Array.from(selected), label: `${selected.size} file${selected.size === 1 ? "" : "s"}` })} disabled={bulkDelete.isPending} className="flex min-h-10 items-center gap-2 rounded-lg border border-rose-500/40 px-3 text-sm text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-50"><Trash2 className="h-4 w-4" /> Delete</button>
               <button onClick={() => setSelected(new Set())} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-slate-400 transition hover:bg-white/10"><X className="h-4 w-4" /> Clear</button>
             </div>
           )}
