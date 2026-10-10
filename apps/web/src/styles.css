@@ -535,6 +535,11 @@ body {
 .desktop-utilities > :first-child { width: 210px; border: 0; background: transparent; }
 .desktop-utilities .icon-btn { background: rgba(255,255,255,.42); color: #263546; }
 .desktop-utilities button { white-space: nowrap; }
+.desktop-utilities > button:last-child {
+  background: rgba(255,255,255,.78) !important;
+  color: #17202b !important;
+  box-shadow: none !important;
+}
 
 .desktop-stage {
   min-height: calc(100vh - 40px);
@@ -650,6 +655,18 @@ body {
   .desktop-shortcuts { top: 32px; left: 50%; grid-template-columns: repeat(4, 78px); transform: translateX(-50%); }
   .desktop-command { bottom: 74px; }
   .desktop-status { right: 50%; bottom: 36px; width: max-content; transform: translateX(50%); }
+}
+
+@media (min-width: 768px) {
+  .os-menubar,
+  .os-dock { display: flex !important; }
+  nav.fixed.inset-x-0.bottom-0 { display: none !important; }
+  .desktop-main { padding-top: 40px !important; }
+  .desktop-utilities { position: fixed; top: 50px; right: 18px; margin: 0; }
+  .desktop-stage { min-height: calc(100vh - 40px); padding-top: 120px; }
+  .desktop-shortcuts { top: 58px; left: 34px; grid-template-columns: 112px; transform: none; }
+  .desktop-command { bottom: 104px; }
+  .desktop-status { right: 24px; bottom: 82px; transform: none; }
 }
 
 @media (max-width: 640px) {
