@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import Hls from "hls.js";
-import { ArrowLeft, Download, ExternalLink, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Music, Plus, Video } from "lucide-react";
+import { ArrowLeft, Download, Expand, ExternalLink, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Music, Plus, Video } from "lucide-react";
 import { API_URL, api, token } from "../lib/api";
 import { formatBytes } from "../lib/format";
 import { previewKind } from "../lib/fileTypes";
@@ -20,6 +20,7 @@ export function FileViewer() {
   const authed = !!token();
   const { id } = useParams();
   const mediaRef = useRef<HTMLVideoElement | null>(null);
+  const viewerRef = useRef<HTMLDivElement | null>(null);
   const [text, setText] = useState<string | null>(null);
   const [forceTranscode, setForceTranscode] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
@@ -133,12 +134,28 @@ export function FileViewer() {
   async function openExternal() {
     if (!src) return;
     const absolute = new URL(src, window.location.origin).href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: meta?.name ?? "Awosanmo stream", url: absolute });
+        return;
+      } catch (error) {
+        if ((error as DOMException).name !== "AbortError") console.warn("Share failed", error);
+        else return;
+      }
+    }
     try {
       await navigator.clipboard.writeText(absolute);
       pushToast({ type: "success", title: "Stream link copied", body: "In PotPlayer press Ctrl+U, paste, then choose OK. In VLC use Media → Open Network Stream." });
     } catch {
       window.prompt("Copy this private stream URL, then open it in PotPlayer with Ctrl+U:", absolute);
     }
+  }
+
+  async function enterFullscreen() {
+    const target = viewerRef.current;
+    if (!target) return;
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await target.requestFullscreen();
   }
 
   if (!authed) return <Navigate to="/login" replace />;
@@ -157,6 +174,7 @@ export function FileViewer() {
           <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
             {(kind === "video" || kind === "audio") && src ? <button onClick={() => void openExternal()} className="btn-ghost" title="Copy a private URL for PotPlayer, VLC, or another network player"><ExternalLink className="h-4 w-4" /><span className="hidden sm:inline">External player</span></button> : null}
+            <button onClick={() => void enterFullscreen()} className="btn-ghost" title="View fullscreen"><Expand className="h-4 w-4" /><span className="hidden sm:inline">Fullscreen</span></button>
             <button onClick={() => window.open(location.href, `awosanmo-${id}`, "popup,width=1200,height=820")} className="btn-ghost" title="Keep this viewer open in a separate window"><Maximize2 className="h-4 w-4" /><span className="hidden sm:inline">New window</span></button>
             <button onClick={() => void download()} className="btn-primary">
               <Download className="h-4 w-4" /> Download
@@ -164,15 +182,15 @@ export function FileViewer() {
           </div>
         </div>
       </header>
-      <section className="mx-auto max-w-7xl px-4 py-6">
-        <div className="glass min-h-[72vh] overflow-hidden rounded-2xl">
+      <section className="viewer-stage">
+        <div ref={viewerRef} className="viewer-surface glass overflow-hidden">
           {!src || !meta ? <Empty icon={FileText} title="Preparing preview" detail="Creating a short-lived private media link." /> : null}
           {src && meta && kind === "video" ? (
-            <div className="relative bg-black p-3">
+            <div className="relative h-full bg-black">
               <video
                 key={shouldTranscode ? "transcode" : "native"}
                 ref={mediaRef}
-                className="h-[72vh] w-full rounded-xl bg-black"
+                className="h-full w-full bg-black object-contain"
                 controls
                 preload="metadata"
                 playsInline
@@ -198,7 +216,7 @@ export function FileViewer() {
               </video>
               {/* Loading overlay while the (possibly transcoded) stream warms up. */}
               {!videoReady ? (
-                <div className="pointer-events-none absolute inset-3 grid place-items-center rounded-xl bg-black/60 backdrop-blur-sm">
+                <div className="pointer-events-none absolute inset-0 grid place-items-center bg-black/60 backdrop-blur-sm">
                   <div className="flex flex-col items-center gap-3 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-accent2" />
                     <p className="text-sm font-medium text-white">Preparing video…</p>
@@ -210,11 +228,11 @@ export function FileViewer() {
           ) : null}
           {src && meta && kind === "audio" ? <Empty icon={Music} title={meta.name} detail="Audio preview"><audio className="mt-6 w-full max-w-2xl" controls src={src} /></Empty> : null}
           {src && meta && kind === "image" ? (
-            <div className="grid min-h-[72vh] place-items-center bg-black/20 p-4 md:p-8">
-              <img src={src} alt={meta.name} className="max-h-[78vh] max-w-full rounded-xl object-contain shadow-2xl shadow-black/30 ring-1 ring-white/10" />
+            <div className="grid h-full place-items-center bg-black/20 p-2 md:p-4">
+              <img src={src} alt={meta.name} className="max-h-full max-w-full object-contain shadow-2xl shadow-black/30" />
             </div>
           ) : null}
-          {src && meta && kind === "pdf" ? <div className="flex h-[78vh] flex-col"><ReaderZoom value={pdfZoom} onChange={setPdfZoom} /><iframe title={meta.name} src={`${src}#zoom=${pdfZoom}`} className="min-h-0 flex-1 w-full border-0 bg-white" /></div> : null}
+          {src && meta && kind === "pdf" ? <div className="flex h-full flex-col"><ReaderZoom value={pdfZoom} onChange={setPdfZoom} /><iframe title={meta.name} src={`${src}#zoom=${pdfZoom}`} className="min-h-0 flex-1 w-full border-0 bg-white" /></div> : null}
           {src && meta && kind === "text" ? <pre className="max-h-[78vh] overflow-auto whitespace-pre-wrap p-6 font-mono text-sm leading-6 text-slate-100">{text ?? "Loading text preview..."}</pre> : null}
           {src && meta && kind === "epub" ? (
             <EpubReader src={src} title={meta.name} />
@@ -279,7 +297,7 @@ function EpubReader({ src, title }: { src: string; title: string }) {
   useEffect(() => { renditionRef.current?.themes?.fontSize?.(`${fontSize}%`); }, [fontSize, ready]);
 
   return (
-    <div className="flex h-[78vh] flex-col bg-[color:var(--app-panel)]">
+    <div className="flex h-full flex-col bg-[color:var(--app-panel)]">
       <div className="flex items-center justify-between border-b border-line bg-white/[0.04] px-4 py-3">
         <p className="truncate text-sm font-semibold text-slate-200">{title}</p>
         <div className="flex gap-2">

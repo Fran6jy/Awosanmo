@@ -673,6 +673,14 @@ body {
 .finder-search input::placeholder { color: #718096; }
 .finder-filter { display: flex; min-height: 48px; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--app-line); border-radius: 10px; color: var(--app-muted); background: var(--app-field); }
 .finder-filter select { max-width: 110px; background: transparent; color: inherit; outline: none; }
+.finder-actionbar .finder-filter,
+.finder-actionbar form input,
+.finder-actionbar form button,
+.finder-actionbar > .flex > div:last-child > button { height: 48px; min-height: 48px; box-sizing: border-box; }
+.viewer-stage { width: 100%; height: calc(100dvh - 81px); padding: 0; }
+.viewer-surface { width: 100%; height: 100%; min-height: 0; border-radius: 0 !important; }
+.viewer-surface:fullscreen { width: 100vw; height: 100vh; border: 0 !important; background: #000 !important; }
+.viewer-surface:fullscreen .reader-zoom { position: relative; z-index: 2; }
 .reader-zoom { display: inline-flex; min-height: 38px; align-items: center; gap: 4px; padding: 3px; border: 1px solid var(--app-line); border-radius: 8px; background: var(--app-field); color: var(--app-text); }
 .reader-zoom button { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 6px; }
 .reader-zoom button:hover { background: var(--app-card-hover); }
@@ -702,6 +710,7 @@ body {
   .finder-search { grid-column: 1 / -1; }
   .finder-actionbar { padding: 12px; }
   .appearance-settings { align-items: flex-start; flex-wrap: wrap; }
+  .viewer-stage { height: calc(100dvh - 73px); }
 }
 
 @media (max-width: 1023px) {

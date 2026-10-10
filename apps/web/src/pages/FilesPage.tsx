@@ -366,7 +366,7 @@ export function FilesPage() {
               </button>
               <span className="hidden text-sm text-slate-400 md:block">Folder</span>
               <span className="hidden text-sm text-slate-400 md:block">--</span>
-              <button onClick={() => { if (confirm(`Delete folder "${f.name}"? Its files return to the library root.`)) deleteFolder.mutate(f.id); }} className="ml-auto grid h-10 w-10 place-items-center rounded-lg text-rose-400 transition hover:bg-rose-500/10" aria-label="Delete folder"><Trash2 className="h-4 w-4" /></button>
+              <button onClick={() => { if (confirm(`Delete folder "${f.name}"? Its files return to the library root.`)) deleteFolder.mutate(f.id); }} className="ml-auto grid h-10 w-10 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-500" aria-label="Delete folder"><Trash2 className="h-4 w-4" /></button>
             </article>
           ))}
           {/* Files */}
@@ -386,7 +386,7 @@ export function FilesPage() {
                 {canPreview(file) ? <Link to={`/view/${file.id}`} className="hidden h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream sm:grid" aria-label="Open"><Eye className="h-4 w-4" /></Link> : null}
                 <button onClick={() => void downloadOne(file.id)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Download"><Download className="h-4 w-4" /></button>
                 <button onClick={() => setRenaming(file)} className="hidden h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream sm:grid" aria-label="Rename"><Pencil className="h-4 w-4" /></button>
-                <button onClick={() => setConfirmDel({ ids: [file.id], label: file.name })} className="grid h-10 w-10 place-items-center rounded-lg text-rose-400 transition hover:bg-rose-500/10 focus:outline-none focus:ring-2 focus:ring-rose-500/40" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                <button onClick={() => setConfirmDel({ ids: [file.id], label: file.name })} className="grid h-10 w-10 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/40" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
               </div>
             </article>
           ))}
