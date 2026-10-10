@@ -9,7 +9,7 @@
 - Deploy only to Abram's box (`129.213.98.196`, `/opt/awosanmo`) with `docker compose -f docker-compose.prod.yml`; the old VPS remains backup-only.
 - The redundant top-right Search, Add magnet, and Wishlist triggers were removed; global Find remains available from the macOS menu bar or `Ctrl/Cmd+K`.
 - Finder supports external file drops, file-type filters, cut/copy/paste, hierarchical move browsing, and cycle-safe folder moves.
-- PDF and EPUB readers have zoom controls. Media viewers can open in a separate window or launch a tokenized private stream in VLC.
+- PDF and EPUB readers have zoom controls. Media viewers can open in a separate window or copy a tokenized HTTPS stream for PotPlayer (`Ctrl+U`), VLC, and other network players. Custom `vlc://` launching was removed because Windows may route it to another player and corrupt the nested HTTPS URL.
 - HEVC still uses the production HLS server fallback. A WASM decoder was deliberately not bundled: it requires a separate HEVC demux/remux pipeline and imposes substantial CPU, memory, battery, and bundle costs on phones.
 
 > **Repository boundary:** Awosanmo owns the private cloud, torrent,

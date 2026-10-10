@@ -37,7 +37,7 @@ RAM box (the Oracle Cloud Free Tier in particular).
 - **Finder operations** — hierarchical folder navigation and moves, movable folders,
   cut/copy/paste, drag-and-drop uploads, type filters, and multi-file actions.
 - **Reader and player controls** — PDF/EPUB zoom, separate viewer windows for
-  multitasking, and direct VLC launch links for private audio/video streams.
+  multitasking, and signed HTTPS links for PotPlayer, VLC, and other network players.
 - **Files** — upload individual files or whole folders (streamed to disk with
   nested directory structure preserved), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/

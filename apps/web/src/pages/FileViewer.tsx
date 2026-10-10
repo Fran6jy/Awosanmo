@@ -7,6 +7,7 @@ import { API_URL, api, token } from "../lib/api";
 import { formatBytes } from "../lib/format";
 import { previewKind } from "../lib/fileTypes";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { pushToast } from "../components/Toast";
 
 type FileRow = {
   id: string; name: string; path: string; size: number; mime?: string | null; media_kind: string; streamable: number;
@@ -129,9 +130,15 @@ export function FileViewer() {
     window.location.href = `${API_URL}/api/download/${id}?dt=${encodeURIComponent(downloadToken)}`;
   }
 
-  function openExternal() {
+  async function openExternal() {
     if (!src) return;
-    window.location.href = `vlc://${src}`;
+    const absolute = new URL(src, window.location.origin).href;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      pushToast({ type: "success", title: "Stream link copied", body: "In PotPlayer press Ctrl+U, paste, then choose OK. In VLC use Media → Open Network Stream." });
+    } catch {
+      window.prompt("Copy this private stream URL, then open it in PotPlayer with Ctrl+U:", absolute);
+    }
   }
 
   if (!authed) return <Navigate to="/login" replace />;
@@ -149,7 +156,7 @@ export function FileViewer() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
-            {(kind === "video" || kind === "audio") && src ? <button onClick={openExternal} className="btn-ghost" title="Open this private stream in VLC"><ExternalLink className="h-4 w-4" /><span className="hidden sm:inline">VLC</span></button> : null}
+            {(kind === "video" || kind === "audio") && src ? <button onClick={() => void openExternal()} className="btn-ghost" title="Copy a private URL for PotPlayer, VLC, or another network player"><ExternalLink className="h-4 w-4" /><span className="hidden sm:inline">External player</span></button> : null}
             <button onClick={() => window.open(location.href, `awosanmo-${id}`, "popup,width=1200,height=820")} className="btn-ghost" title="Keep this viewer open in a separate window"><Maximize2 className="h-4 w-4" /><span className="hidden sm:inline">New window</span></button>
             <button onClick={() => void download()} className="btn-primary">
               <Download className="h-4 w-4" /> Download
