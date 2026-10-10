@@ -126,15 +126,15 @@ function StorageQuota() {
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
 
   return (
-    <div className="order-last w-full min-w-0 rounded-xl border border-line bg-white/5 px-3 py-2 sm:order-none sm:w-52 md:w-64">
-      <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
+    <div className="storage-quota order-last w-full min-w-0 rounded-xl border border-line bg-white/5 px-3 py-2 sm:order-none sm:w-52 md:w-64">
+      <div className="storage-summary flex items-center justify-between gap-3 text-xs text-slate-300">
         <span className="inline-flex items-center gap-2 font-medium"><HardDrive className="h-4 w-4 text-accent2" /> Storage</span>
         <span className="shrink-0 font-mono text-slate-400">{formatBytes(used)} / {quota?.unlimited ? "unlimited" : formatBytes(total)}</span>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-400/25">
+      <div className="storage-meter mt-2 h-2 overflow-hidden rounded-full bg-slate-400/25">
         <div className="h-full rounded-full bg-gradient-to-r from-accent to-violet transition-all" style={{ width: `${pct}%` }} />
       </div>
-      <p className="mt-1 truncate text-xs text-slate-400">{storage.isLoading ? "Checking disk..." : quota?.unlimited ? `${formatBytes(storage.data?.available ?? 0)} disk free` : `${formatBytes(available)} quota free`}</p>
+      <p className="storage-free mt-1 truncate text-xs text-slate-400">{storage.isLoading ? "Checking disk..." : quota?.unlimited ? `${formatBytes(storage.data?.available ?? 0)} disk free` : `${formatBytes(available)} quota free`}</p>
     </div>
   );
 }

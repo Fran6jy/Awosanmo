@@ -204,7 +204,7 @@ export function FileViewer() {
             <button onClick={() => void enterFullscreen()} className="btn-ghost" title="View fullscreen"><Expand className="h-4 w-4" /><span className="hidden sm:inline">Fullscreen</span></button>
             <button onClick={() => window.open(location.href, `awosanmo-${id}`, "popup,width=1200,height=820")} className="viewer-new-window btn-ghost" title="Keep this viewer open in a separate window"><Maximize2 className="h-4 w-4" /><span className="hidden sm:inline">New window</span></button>
             <button onClick={() => void download()} className="btn-primary">
-              <Download className="h-4 w-4" /> Download
+              <Download className="h-4 w-4" /> <span>Download</span>
             </button>
           </div>
         </div>

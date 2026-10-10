@@ -184,7 +184,7 @@ export function Dashboard() {
         </motion.div>
 
         <section className="desktop-command" aria-label="Add content">
-        <form onSubmit={(e) => { e.preventDefault(); const uri = magnetUri.trim(); if (uri.startsWith("magnet:")) add.mutate(uri); }} className="flex flex-col gap-3 md:flex-row">
+        <form onSubmit={(e) => { e.preventDefault(); const uri = magnetUri.trim(); if (uri.startsWith("magnet:")) add.mutate(uri); }} className="dashboard-magnet-form flex flex-col gap-3 md:flex-row">
           <label className="sr-only" htmlFor="magnet">Magnet link</label>
           <div className="relative flex-1">
             <Plus className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -202,7 +202,7 @@ export function Dashboard() {
             <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} />
           </div>
         )}
-        <form onSubmit={(e) => { e.preventDefault(); const url = remoteUrl.trim(); if (url) addUrl.mutate(url); }} className="mt-3 flex flex-col gap-3 md:flex-row">
+        <form onSubmit={(e) => { e.preventDefault(); const url = remoteUrl.trim(); if (url) addUrl.mutate(url); }} className="dashboard-url-form mt-3 flex flex-col gap-3 md:flex-row">
           <div className="relative flex-1">
             <Link2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input value={remoteUrl} onChange={(e) => setRemoteUrl(e.target.value)} placeholder="Direct file URL" className="field pl-11" />
