@@ -322,6 +322,11 @@ socket joins a per-user room, so `torrents:update` and notifications are deliver
 | `TORRENT_MAX_CONNS` | peer connection cap | `30` |
 | `STREAM_TOKEN_TTL_SECONDS` | media token lifetime | `3600` |
 | `MEDIA_SCAN_INTERVAL_SECONDS` / `MEDIA_PROBE_TIMEOUT_SECONDS` | ffprobe worker | `45` / `20` |
+| `MUSIC_DIR` | persistent audio directory inside the container; unset disables JyMusic scanning | — |
+
+`MUSIC_DIR` must point to a persistent mounted directory containing the audio
+files. The scanner refuses to prune an existing index when that directory is
+missing or unexpectedly empty.
 
 ---
 

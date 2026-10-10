@@ -168,6 +168,14 @@ export async function scanLibrary(): Promise<ScanSummary> {
   const seen = new Set<string>();
   try {
     const root = path.resolve(config.musicDir);
+    let rootStat: fs.Stats;
+    try {
+      rootStat = fs.statSync(root);
+    } catch {
+      throw new Error(`Music directory is unavailable: ${root}`);
+    }
+    if (!rootStat.isDirectory()) throw new Error(`Music path is not a directory: ${root}`);
+    const indexedBeforeScan = (db.prepare("SELECT COUNT(*) AS n FROM music_tracks").get() as { n: number }).n;
     for (const filePath of walk(root)) {
       seen.add(filePath);
       summary.scanned += 1;
@@ -178,6 +186,11 @@ export async function scanLibrary(): Promise<ScanSummary> {
       } catch (error) {
         logger.warn({ error, filePath }, "Could not index audio file");
       }
+    }
+    // A missing/unmounted library often appears as an empty directory. Keep
+    // the existing index instead of cascading deletion through plays/likes.
+    if (summary.scanned === 0 && indexedBeforeScan > 0) {
+      throw new Error(`Music directory is empty; refusing to remove ${indexedBeforeScan} indexed tracks`);
     }
     summary.removed = prune(seen);
     summary.unplayable = (db.prepare("SELECT COUNT(*) AS n FROM music_tracks WHERE playable = 0").get() as any).n;
