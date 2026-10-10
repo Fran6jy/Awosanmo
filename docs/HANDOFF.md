@@ -1,5 +1,11 @@
 # Awosanmo — Operations & Handoff
 
+> **Repository boundary:** Awosanmo owns the private cloud, torrent,
+> file-management, and media-preview product. JYMusic is maintained separately
+> at [`Fran6jy/jymusic`](https://github.com/Fran6jy/jymusic) and is deployed from
+> `/opt/jymusic` on its own host. Do not add `apps/music`, music API routes, or
+> JYMusic deployment files back to this repository.
+
 A complete operational picture of the running system: how it's deployed, how to
 run it day-to-day, what's implemented, what isn't, and the gotchas that will bite
 you if you don't know them.
