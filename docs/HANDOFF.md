@@ -14,6 +14,11 @@
   selection/keyboard flow instead of appearing persistently on every row.
 - PDF and EPUB readers have zoom controls. Media viewers can open in a separate window or copy a tokenized HTTPS stream for PotPlayer (`Ctrl+U`), VLC, and other network players. Custom `vlc://` launching was removed because Windows may route it to another player and corrupt the nested HTTPS URL.
 - On mobile, External player opens the OS share sheet so an installed media app can receive the signed HTTPS stream; browsers without Web Share fall back to copying it. Viewers use the full viewport and expose the Fullscreen API.
+- Android uses a package-targeted VLC intent so the signed HTTPS stream opens
+  directly in VLC; other mobile platforms retain the share-sheet/copy fallback.
+- The phone layout is a dedicated compact composition rather than a scaled desktop:
+  restrained dashboard branding, a single Finder tool strip, opaque work surfaces,
+  and an icon-led viewer toolbar that stays within narrow viewports.
 - HEVC still uses the production HLS server fallback. A WASM decoder was deliberately not bundled: it requires a separate HEVC demux/remux pipeline and imposes substantial CPU, memory, battery, and bundle costs on phones.
 
 > **Repository boundary:** Awosanmo owns the private cloud, torrent,

@@ -756,7 +756,8 @@ body {
     background: rgba(245, 250, 255, .9);
     backdrop-filter: blur(22px) saturate(150%);
   }
-  .desktop-utilities > :first-child { width: 100%; padding: 4px 6px; border: 0; background: transparent; }
+  .desktop-utilities > :first-child { order: 0; grid-column: 1; width: 100%; padding: 4px 6px; border: 0; background: transparent; }
+  .desktop-utilities > :last-child { order: 0; grid-column: 2; }
   .desktop-utilities .icon-btn { width: 44px; height: 44px; }
   .desktop-stage {
     display: flex;
