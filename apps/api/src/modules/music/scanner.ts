@@ -5,7 +5,7 @@ import { parseFile } from "music-metadata";
 import { config } from "../../config.js";
 import { db } from "../../db/schema.js";
 import { logger } from "../../logger.js";
-import { normalizeGenre, sortKey, toTrackRecord, type CommonTags } from "./normalize.js";
+import { isDownloadSiteName, normalizeGenre, sortKey, toTrackRecord, type CommonTags } from "./normalize.js";
 import { invalidateHome } from "./service.js";
 import { enrichInProgress, enrichLibrary } from "./enrich.js";
 import { analyseLibrary, analysisInProgress } from "./analysis.js";
@@ -74,7 +74,11 @@ function sql() {
         art_path = COALESCE(music_albums.art_path, excluded.art_path)
       RETURNING id
     `),
-    findTrack: db.prepare("SELECT id, size, mtime FROM music_tracks WHERE path = ?"),
+    findTrack: db.prepare(`
+      SELECT t.id, t.size, t.mtime, al.title AS album
+      FROM music_tracks t JOIN music_albums al ON al.id = t.album_id
+      WHERE t.path = ?
+    `),
     insertTrack: db.prepare(`
       INSERT INTO music_tracks (id, album_id, artist_id, title, track_no, disc_no, duration, genre, year, path, size, mtime, mime, bitrate, playable, art_path)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -91,9 +95,11 @@ function sql() {
 async function indexFile(filePath: string, rootDir: string): Promise<"added" | "updated" | "unchanged"> {
   const stat = fs.statSync(filePath);
   const { findTrack, upsertArtist, upsertAlbum, insertTrack, updateTrack } = sql();
-  const existing = findTrack.get(filePath) as { id: string; size: number; mtime: number } | undefined;
+  const existing = findTrack.get(filePath) as { id: string; size: number; mtime: number; album: string } | undefined;
   const mtime = Math.floor(stat.mtimeMs);
-  if (existing && existing.size === stat.size && existing.mtime === mtime) return "unchanged";
+  // Re-open unchanged files once when an old scan accepted a download site's
+  // advert as the album. The corrected album then makes later scans cheap again.
+  if (existing && existing.size === stat.size && existing.mtime === mtime && !isDownloadSiteName(existing.album)) return "unchanged";
 
   let tags: CommonTags = {};
   let duration: number | null = null;
@@ -108,7 +114,9 @@ async function indexFile(filePath: string, rootDir: string): Promise<"added" | "
     bitrate = meta.format.bitrate ? Math.round(meta.format.bitrate) : null;
     mime = meta.format.container ? `audio/${meta.format.container.toLowerCase()}` : null;
     const picture = meta.common.picture?.[0];
-    if (picture?.data?.length) art = storeArt(picture.data, picture.format);
+    const branded = [meta.common.album, meta.common.artist, meta.common.albumartist, picture?.description]
+      .some((value) => isDownloadSiteName(value));
+    if (picture?.data?.length && !branded) art = storeArt(picture.data, picture.format);
   } catch (error) {
     // A corrupt tag block is not a reason to hide the song; index it from its filename.
     logger.warn({ error, filePath }, "Could not read audio tags");

@@ -1,5 +1,5 @@
-import { Music2 } from "lucide-react";
 import { artUrl } from "../lib/api";
+import { Mark } from "./Logo";
 
 /** Deterministic warm gradient so untagged tracks still get a distinct tile. */
 function gradientFor(seed: string) {
@@ -19,8 +19,11 @@ export function Art({ src, seed, alt = "", className = "", round = false, iconSi
     return <img src={url} alt={alt} loading="lazy" decoding="async" className={`${shape} object-cover ${className}`} draggable={false} />;
   }
   return (
-    <div className={`${shape} grid place-items-center ${className}`} style={{ background: gradientFor(seed) }} aria-label={alt}>
-      <Music2 className="text-cream/40" style={{ width: `${iconSize * 100}%`, height: `${iconSize * 100}%` }} />
+    <div className={`${shape} grid place-items-center overflow-hidden ${className}`} style={{ background: gradientFor(seed) }} aria-label={alt || "JYMusic artwork"}>
+      <div className="flex flex-col items-center text-cream/75" style={{ width: `${Math.max(iconSize, 0.34) * 100}%` }}>
+        <Mark className="h-auto w-full text-accent2" />
+        <span className="mt-1 text-center text-[clamp(9px,1.4vw,18px)] font-extrabold leading-none">JYMusic</span>
+      </div>
     </div>
   );
 }

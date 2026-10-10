@@ -28,6 +28,13 @@ export type CommonTags = {
 export const UNKNOWN_ARTIST = "Unknown Artist";
 export const UNKNOWN_ALBUM = "Unknown Album";
 
+/** Download-site tags are advertising, not music metadata. */
+const DOWNLOAD_SITE = /(?:^|[^a-z0-9])(?:www\.)?[a-z0-9-]*(?:toxicwap|toxicunrated)[a-z0-9-]*(?:\.(?:com|net|org|cc|ng|me|to|io))?(?:$|[^a-z0-9])|(?:^|[^a-z0-9])(?:[a-z0-9-]+\.)+(?:com|net|org|cc|ng|me|to|io)(?:$|[^a-z0-9])/i;
+
+export function isDownloadSiteName(value: string | undefined | null): boolean {
+  return Boolean(value && DOWNLOAD_SITE.test(clean(value)));
+}
+
 /** Formats browsers decode natively; anything else is indexed but flagged unplayable. */
 const PLAYABLE_EXT = new Set([".mp3", ".m4a", ".aac", ".flac", ".ogg", ".oga", ".opus", ".wav", ".weba", ".webm"]);
 
@@ -110,7 +117,8 @@ export function toTrackRecord(tags: CommonTags, filePath: string, rootDir: strin
   // named after itself, so it gets a proper tile with art instead of being
   // lost in one enormous "Unknown Album" bucket. The album is keyed per
   // artist, so two artists' singles sharing a title never merge.
-  const album = clean(tags.album) || title;
+  const taggedAlbum = clean(tags.album);
+  const album = taggedAlbum && !isDownloadSiteName(taggedAlbum) ? taggedAlbum : title;
 
   const rel = path.relative(rootDir, filePath);
   // Split on either separator: the scanner runs on Linux but tests run on Windows.

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { normalizeGenre, parseFilename, sortKey, toTrackRecord, UNKNOWN_ARTIST } from "../modules/music/normalize.js";
+import { isDownloadSiteName, normalizeGenre, parseFilename, sortKey, toTrackRecord, UNKNOWN_ARTIST } from "../modules/music/normalize.js";
 
 const ROOT = path.join("C:", "Users", "fran6", "Music");
 const under = (folder: string, name: string) => path.join(ROOT, folder, name);
@@ -61,6 +61,15 @@ describe("tag merging with fallbacks", () => {
     expect(r.album).toBe("If It Ain't Love");
     // ...and a real album tag is still preferred.
     expect(toTrackRecord({ album: "Everything Is 4" }, under("Pop Blues", "x.mp3"), ROOT).album).toBe("Everything Is 4");
+  });
+
+  it("rejects download-site advertising as an album name", () => {
+    for (const album of ["www.ToxicWap.com", "www.ToxicUnrated.com", "music.example.net"]) {
+      expect(isDownloadSiteName(album)).toBe(true);
+      expect(toTrackRecord({ title: "Right By My Side", album }, under("Pop", "song.mp3"), ROOT).album).toBe("Right By My Side");
+    }
+    expect(isDownloadSiteName("Toxicity")).toBe(false);
+    expect(isDownloadSiteName("The Dark Side of the Moon")).toBe(false);
   });
 
   it("takes the genre from the top-level folder when the tag is missing", () => {
