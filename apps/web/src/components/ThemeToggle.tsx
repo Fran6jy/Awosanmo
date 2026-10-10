@@ -4,13 +4,13 @@ import { Moon, Sun } from "lucide-react";
 type ThemeMode = "dark" | "light";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemeMode>(() => (localStorage.getItem("awosanmo-theme-v2") === "dark" ? "dark" : "light"));
+  const [theme, setTheme] = useState<ThemeMode>(() => (localStorage.getItem("awosanmo-macos-theme") === "dark" ? "dark" : "light"));
   const isLight = theme === "light";
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("theme", theme);
-    localStorage.setItem("awosanmo-theme-v2", theme);
+    localStorage.setItem("awosanmo-macos-theme", theme);
   }, [theme]);
 
   return (

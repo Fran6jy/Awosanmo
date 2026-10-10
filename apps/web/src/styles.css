@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -74,189 +74,6 @@ body {
 body * { letter-spacing: 0 !important; }
 
 button, input, select, textarea { font: inherit; }
-
-/* Editorial workspace -----------------------------------------------------
-   The product is a library first: quiet canvas, legible hierarchy, and very
-   little chrome. The dark theme uses the same system rather than a separate
-   "desktop" metaphor. */
-:root {
-  color-scheme: light;
-  --app-bg: #f3f0e9;
-  --app-bg-top: #f3f0e9;
-  --app-bg-bottom: #f3f0e9;
-  --app-text: #3c3b36;
-  --app-strong: #171714;
-  --app-muted: #747168;
-  --app-faint: #9a968b;
-  --app-line: rgba(23, 23, 20, 0.13);
-  --app-glass-start: #faf8f2;
-  --app-glass-end: #faf8f2;
-  --app-panel: #faf8f2;
-  --app-card: transparent;
-  --app-card-hover: rgba(23, 23, 20, 0.035);
-  --app-field: rgba(255, 255, 255, 0.62);
-  --app-scrim: rgba(34, 32, 27, 0.28);
-  --app-shadow: none;
-  --editorial-accent: #d85d42;
-  --editorial-accent-soft: rgba(216, 93, 66, 0.1);
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --app-bg: #11110f;
-  --app-bg-top: #11110f;
-  --app-bg-bottom: #11110f;
-  --app-text: #deddd7;
-  --app-strong: #faf8f1;
-  --app-muted: #9c9a91;
-  --app-faint: #77756d;
-  --app-line: rgba(255, 255, 255, 0.11);
-  --app-glass-start: #1b1b18;
-  --app-glass-end: #181816;
-  --app-panel: #1b1b18;
-  --app-card: transparent;
-  --app-card-hover: rgba(255, 255, 255, 0.035);
-  --app-field: rgba(255, 255, 255, 0.055);
-  --app-shadow: none;
-  --editorial-accent: #e86f51;
-  --editorial-accent-soft: rgba(232, 111, 81, 0.13);
-}
-
-body {
-  background: var(--app-bg);
-  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-}
-
-.awosanmo-app { background: var(--app-bg); }
-
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  border-bottom: 1px solid var(--app-line);
-  background: color-mix(in srgb, var(--app-bg) 88%, transparent);
-  backdrop-filter: blur(18px);
-}
-
-.app-header-inner {
-  display: flex;
-  min-height: 76px;
-  max-width: 1480px;
-  margin: 0 auto;
-  padding: 0 40px;
-  align-items: center;
-  gap: 30px;
-}
-
-.brand-lockup {
-  display: inline-flex;
-  align-items: center;
-  gap: 11px;
-  color: var(--app-strong);
-  font-weight: 700;
-}
-
-.primary-nav { display: flex; align-items: center; gap: 6px; }
-.primary-nav a {
-  padding: 9px 12px;
-  border-radius: 6px;
-  color: var(--app-muted);
-  font-size: 14px;
-  font-weight: 500;
-  transition: color 160ms ease, background 160ms ease;
-}
-.primary-nav a:hover { color: var(--app-strong); }
-.primary-nav a.is-active { color: var(--app-strong); background: var(--editorial-accent-soft); }
-.header-actions { display: flex; min-width: 0; margin-left: auto; align-items: center; gap: 8px; }
-.header-actions > :first-child { border: 0; background: transparent; padding-left: 0; padding-right: 12px; }
-
-.dashboard-intro {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 32px;
-  padding: 44px 0 38px;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  color: var(--editorial-accent);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.dashboard-intro h1,
-.section-title {
-  margin: 0;
-  color: var(--app-strong);
-  font-family: "Instrument Serif", Georgia, serif;
-  font-weight: 400;
-}
-.dashboard-intro h1 { font-size: clamp(48px, 6vw, 84px); line-height: 0.95; }
-.dashboard-lede { margin: 14px 0 0; color: var(--app-muted); font-size: 16px; }
-.section-title { font-size: 34px; line-height: 1; }
-
-.quiet-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 18px; color: var(--app-muted); }
-.quiet-stats span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
-.quiet-stats svg { width: 14px; height: 14px; color: var(--editorial-accent); }
-.quiet-stats b { color: var(--app-strong); font-weight: 600; }
-
-.ingest-panel {
-  max-width: 1080px;
-  padding: 24px;
-  border: 1px solid var(--app-line);
-  border-radius: 8px;
-  background: var(--app-glass-start);
-}
-.ingest-heading { display: flex; margin-bottom: 18px; align-items: center; justify-content: space-between; color: var(--app-strong); font-size: 14px; font-weight: 600; }
-.text-action { display: inline-flex; min-height: 40px; align-items: center; gap: 7px; color: var(--editorial-accent); font-size: 13px; font-weight: 600; }
-.text-action:hover { color: var(--app-strong); }
-
-.transfer-section { border-top: 1px solid var(--app-line); padding-top: 30px; }
-.transfer-row { border-bottom: 1px solid var(--app-line); transition: background 160ms ease; }
-.transfer-row:hover { background: var(--app-card-hover); }
-.count-label { color: var(--app-muted); font-size: 12px; }
-.empty-transfers { border-top: 1px solid var(--app-line); color: var(--app-faint); }
-
-.glass {
-  border-color: var(--app-line) !important;
-  border-radius: 8px !important;
-  background: var(--app-glass-start) !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-}
-.card { border-radius: 6px !important; }
-.field, input, select, textarea { color: var(--app-strong); }
-.field { border-radius: 6px !important; background: var(--app-field) !important; }
-.btn-primary { border-radius: 6px !important; background: var(--editorial-accent) !important; box-shadow: none !important; }
-.btn-primary:hover { filter: brightness(0.94); }
-.btn-ghost, .icon-btn { border-radius: 6px !important; box-shadow: none !important; }
-
-:root[data-theme="light"] .text-white { color: var(--app-strong) !important; }
-:root[data-theme="light"] .text-slate-200,
-:root[data-theme="light"] .text-slate-300 { color: var(--app-text) !important; }
-:root[data-theme="light"] .text-slate-400,
-:root[data-theme="light"] .text-slate-500 { color: var(--app-muted) !important; }
-:root[data-theme="light"] .bg-white\/5,
-:root[data-theme="light"] .bg-white\/\[0\.04\] { background: rgba(255,255,255,.5) !important; }
-
-@media (max-width: 767px) {
-  .app-header-inner { min-height: 68px; padding: 0 20px; }
-  .primary-nav, .header-actions > :first-child, .header-actions > :nth-child(2), .header-actions > :nth-child(3), .header-actions > :last-child { display: none; }
-}
-
-@media (max-width: 767px) {
-  .app-content { padding-top: 16px !important; }
-  .dashboard-intro { display: block; padding: 24px 0 28px; }
-  .dashboard-intro h1 { font-size: 48px; }
-  .quiet-stats { justify-content: flex-start; margin-top: 24px; }
-  .ingest-panel { padding: 16px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
-}
 
 .os-desktop {
   position: relative;
@@ -654,47 +471,191 @@ a {
   }
 }
 
-/* Final component skin. Kept last so utility-generated legacy colors cannot
-   pull the editorial system back toward the old indigo dashboard. */
-.glass {
-  border-color: var(--app-line) !important;
-  border-radius: 8px !important;
-  background: var(--app-glass-start) !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
+/* Awosanmo desktop ------------------------------------------------------- */
+:root:not([data-theme="dark"]) {
+  color-scheme: light;
+  --app-bg: #dbeeff;
+  --app-text: #17202b;
+  --app-strong: #090d12;
+  --app-muted: #536172;
+  --app-faint: #758396;
+  --app-line: rgba(24, 36, 52, 0.13);
+  --app-glass-start: rgba(255, 255, 255, 0.82);
+  --app-glass-end: rgba(246, 250, 255, 0.72);
+  --app-panel: #f7f9fc;
+  --app-card: rgba(255, 255, 255, 0.44);
+  --app-card-hover: rgba(255, 255, 255, 0.7);
+  --app-field: rgba(255, 255, 255, 0.72);
+  --app-shadow: 0 28px 70px -28px rgba(28, 53, 81, 0.46), 0 8px 24px -16px rgba(28, 53, 81, 0.3);
 }
-.panel { border-radius: 8px !important; box-shadow: 0 18px 60px rgba(23, 23, 20, .16) !important; }
-.card { border-radius: 6px !important; }
-.field { border-radius: 6px !important; background: var(--app-field) !important; }
-.btn-primary,
-.bg-accent,
-.bg-accent2,
-.bg-stream { background-color: var(--editorial-accent) !important; }
-.btn-primary { border-radius: 6px !important; box-shadow: none !important; }
-.btn-ghost,
-.icon-btn { border-radius: 6px !important; box-shadow: none !important; }
-.text-accent,
-.text-accent2 { color: var(--editorial-accent) !important; }
 
-:root:not([data-theme="dark"]) .text-white { color: var(--app-strong) !important; }
+body {
+  background-image: url("/awosanmo-wallpaper.png");
+  background-position: center;
+  background-size: cover;
+}
+
+:root[data-theme="dark"] body {
+  background-image: linear-gradient(rgba(3, 8, 18, .5), rgba(3, 8, 18, .62)), url("/awosanmo-wallpaper.png");
+}
+
+.awosanmo-mark {
+  color: #17202b;
+  border: 1px solid rgba(255, 255, 255, .7);
+  background: rgba(255, 255, 255, .76);
+  box-shadow: 0 5px 16px -8px rgba(21, 43, 67, .55), inset 0 1px rgba(255,255,255,.8);
+  backdrop-filter: blur(12px);
+}
+
+.os-menubar {
+  height: 40px !important;
+  border: 0;
+  background: rgba(255, 255, 255, .7) !important;
+  color: #111820;
+  box-shadow: 0 1px rgba(255,255,255,.65) inset, 0 1px 12px rgba(31,52,76,.08);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+.os-menubar .text-slate-400 { color: rgba(17, 24, 32, .68) !important; }
+
+.desktop-main { padding: 40px 0 0 !important; }
+.desktop-utilities {
+  position: fixed;
+  top: 50px;
+  right: 18px;
+  z-index: 30;
+  gap: 7px;
+  margin: 0;
+  padding: 7px;
+  border: 1px solid rgba(255,255,255,.58);
+  border-radius: 13px;
+  background: rgba(247,250,255,.62);
+  box-shadow: 0 16px 42px -24px rgba(21,43,67,.52);
+  backdrop-filter: blur(24px) saturate(170%);
+}
+.desktop-utilities > :first-child { width: 210px; border: 0; background: transparent; }
+.desktop-utilities .icon-btn { background: rgba(255,255,255,.42); color: #263546; }
+.desktop-utilities button { white-space: nowrap; }
+
+.desktop-stage {
+  min-height: calc(100vh - 40px);
+  padding: 120px 20px 180px;
+}
+.desktop-intro { color: #fff; text-shadow: 0 3px 24px rgba(22,42,67,.34); }
+.desktop-intro p { margin-bottom: 10px; color: rgba(255,255,255,.84); font-size: clamp(17px, 1.4vw, 23px); font-weight: 400; }
+.desktop-intro h1 { font-size: clamp(82px, 10vw, 156px); font-weight: 700; line-height: .9; }
+.desktop-intro span { margin-top: 18px; color: rgba(255,255,255,.9); font-size: 15px; }
+
+.desktop-shortcuts {
+  top: 58px;
+  left: 34px;
+  grid-template-columns: 112px;
+  gap: 22px;
+}
+.desktop-shortcut { gap: 8px; color: #fff; font-size: 13px; text-shadow: 0 2px 7px rgba(14,32,53,.7); }
+.shortcut-icon {
+  position: relative;
+  width: 72px;
+  height: 55px;
+  overflow: visible;
+  border: 0;
+  border-radius: 7px 7px 10px 10px;
+  color: rgba(255,255,255,.92);
+  background: linear-gradient(180deg, #73c9ff, #2e93db) !important;
+  box-shadow: 0 13px 20px -12px rgba(19,70,108,.72), inset 0 1px rgba(255,255,255,.55);
+}
+.shortcut-icon::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 7px;
+  width: 30px;
+  height: 10px;
+  border-radius: 5px 5px 0 0;
+  background: #6bc2f6;
+}
+.shortcut-icon svg { position: relative; z-index: 1; width: 24px; height: 24px; }
+.desktop-shortcut:nth-child(2) .shortcut-icon { background: linear-gradient(180deg, #8dd8ff, #4aa8e8) !important; }
+.desktop-shortcut:nth-child(3) .shortcut-icon { background: linear-gradient(180deg, #72d7c0, #23a58b) !important; }
+.desktop-shortcut:nth-child(3) .shortcut-icon::before { background: #6bd2bb; }
+.desktop-shortcut:nth-child(4) .shortcut-icon { background: linear-gradient(180deg, #aab6c8, #68788e) !important; }
+.desktop-shortcut:nth-child(4) .shortcut-icon::before { background: #a5b1c2; }
+
+.desktop-command {
+  bottom: 104px;
+  width: min(820px, calc(100% - 36px));
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.56);
+  border-radius: 16px;
+  background: rgba(245,249,255,.68);
+  box-shadow: 0 24px 70px -25px rgba(24,55,88,.62), inset 0 1px rgba(255,255,255,.72);
+  backdrop-filter: blur(30px) saturate(175%);
+}
+.desktop-command .field { border-color: rgba(25,43,64,.1); background: rgba(255,255,255,.7); color: #17202b; }
+.desktop-command .field::placeholder { color: rgba(34,51,70,.52); }
+.desktop-command .btn-primary { background: #1677c8; box-shadow: none; }
+.desktop-command .btn-ghost { border-color: rgba(25,43,64,.1); background: rgba(255,255,255,.58); color: #223246; }
+
+.desktop-status { right: 24px; bottom: 82px; color: rgba(255,255,255,.82); font-size: 12px; }
+.desktop-status b { color: #fff; }
+
+.os-dock {
+  bottom: 14px !important;
+  gap: 9px !important;
+  padding: 9px 11px !important;
+  border-color: rgba(255,255,255,.62);
+  border-radius: 20px;
+  background: rgba(239,246,255,.56);
+  box-shadow: 0 18px 54px -18px rgba(20,46,75,.55), inset 0 1px rgba(255,255,255,.78);
+  backdrop-filter: blur(26px) saturate(180%);
+}
+.dock-app {
+  width: 50px;
+  height: 50px;
+  border: 1px solid rgba(255,255,255,.45);
+  border-radius: 13px;
+  color: #fff;
+  background: linear-gradient(145deg, #63c9ff, #168bd7);
+  box-shadow: 0 8px 18px -10px rgba(16,53,83,.7), inset 0 1px rgba(255,255,255,.4);
+}
+.dock-app:nth-of-type(2) { background: linear-gradient(145deg, #58c8ff, #168bd7); }
+.dock-app:nth-of-type(3) { background: linear-gradient(145deg, #72d7c0, #15977f); }
+.dock-app:nth-of-type(4) { background: linear-gradient(145deg, #aab7c8, #64748b); }
+.dock-app:last-child { background: linear-gradient(145deg, #ff8378, #e34f56); }
+.dock-app:hover, .dock-app:focus-visible { color: #fff; background-color: transparent; transform: translateY(-9px) scale(1.13); }
+.dock-tooltip { border-color: rgba(255,255,255,.65); background: rgba(255,255,255,.84); color: #17202b; }
+.dock-dot { background: #17202b; }
+
+.os-window,
+.finder-window,
+.glass {
+  border-color: rgba(255,255,255,.56) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(242,247,252,.76)) !important;
+  color: #17202b;
+  box-shadow: 0 30px 80px -30px rgba(21,45,73,.62), inset 0 1px rgba(255,255,255,.85) !important;
+  backdrop-filter: blur(28px) saturate(155%) !important;
+}
+.window-titlebar { background: rgba(255,255,255,.28); }
+.window-toolbar { background: rgba(232,239,247,.34); }
+:root:not([data-theme="dark"]) .text-white { color: #111820 !important; }
 :root:not([data-theme="dark"]) .text-slate-100,
 :root:not([data-theme="dark"]) .text-slate-200,
-:root:not([data-theme="dark"]) .text-slate-300 { color: var(--app-text) !important; }
+:root:not([data-theme="dark"]) .text-slate-300 { color: #29384a !important; }
 :root:not([data-theme="dark"]) .text-slate-400,
-:root:not([data-theme="dark"]) .text-slate-500 { color: var(--app-muted) !important; }
-:root:not([data-theme="dark"]) .bg-white\/5,
-:root:not([data-theme="dark"]) .bg-white\/\[0\.04\] { background: rgba(255, 255, 255, .52) !important; }
+:root:not([data-theme="dark"]) .text-slate-500 { color: #637286 !important; }
 
-* { scrollbar-color: color-mix(in srgb, var(--app-muted) 35%, transparent) transparent; }
-*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--app-muted) 30%, transparent); background-clip: content-box; }
-
-.mobile-nav {
-  border-top: 1px solid var(--app-line);
-  background: color-mix(in srgb, var(--app-bg) 94%, transparent);
-  color: var(--app-muted);
-  backdrop-filter: blur(18px);
+@media (max-width: 1023px) {
+  .desktop-main { padding-top: 0 !important; }
+  .desktop-utilities { position: relative; top: auto; right: auto; margin: 12px; }
+  .desktop-stage { min-height: 780px; padding-top: 240px; }
+  .desktop-shortcuts { top: 32px; left: 50%; grid-template-columns: repeat(4, 78px); transform: translateX(-50%); }
+  .desktop-command { bottom: 74px; }
+  .desktop-status { right: 50%; bottom: 36px; width: max-content; transform: translateX(50%); }
 }
 
-@media (min-width: 768px) {
-  .mobile-nav { display: none !important; }
+@media (max-width: 640px) {
+  .desktop-utilities > :first-child { width: 100%; }
+  .desktop-stage { min-height: 820px; padding-top: 250px; }
+  .desktop-shortcuts { grid-template-columns: repeat(2, 88px); }
+  .desktop-intro h1 { font-size: 64px; }
+  .desktop-intro p { font-size: 16px; }
 }

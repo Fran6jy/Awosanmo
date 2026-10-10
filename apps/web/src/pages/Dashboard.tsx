@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Download, FolderUp, HardDrive, Link2, Pause, Play, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import { Download, Files, FolderUp, Link2, Pause, Play, Plus, RefreshCw, Server, Trash2, Upload } from "lucide-react";
+import { motion } from "framer-motion";
 import { addByUrl, api, token, uploadFile, uploadTorrentFile } from "../lib/api";
 import { readClipboardMagnet } from "../lib/clipboard";
 import { pushToast } from "../components/Toast";
@@ -160,27 +161,29 @@ export function Dashboard() {
 
   return (
     <Shell>
-      <section className="dashboard-intro">
-        <div>
-          <p className="eyebrow">Private cloud</p>
-          <h1>Good to see you.</h1>
-          <p className="dashboard-lede">Bring something in, or pick up where you left off.</p>
-        </div>
-        <div className="quiet-stats" aria-label="Transfer status">
-          <span><Download /> <b>{stats.active}</b> active</span>
-          <span><ArrowDown /> <b>{fmt(stats.down)}/s</b></span>
-          <span><ArrowUp /> <b>{fmt(stats.up)}/s</b></span>
-          <span><HardDrive /> <b>{fmt(stats.stored)}</b></span>
-        </div>
-      </section>
-
-      <section className="ingest-panel" aria-label="Add content">
-        <div className="ingest-heading">
-          <span>Start something</span>
-          <button type="button" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null} className="text-action">
-            <FolderUp className="h-4 w-4" /> {uploadPct === null ? "Upload folder" : `${uploadPct}%`}
+      <section className="desktop-stage">
+        <div className="desktop-shortcuts" aria-label="Quick actions">
+          <Link to="/files" className="desktop-shortcut">
+            <span className="shortcut-icon shortcut-files"><Files /></span><span>Files</span>
+          </Link>
+          <a href="#transfers" className="desktop-shortcut">
+            <span className="shortcut-icon shortcut-downloads"><Download /></span><span>Downloads</span>
+          </a>
+          <button type="button" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null} className="desktop-shortcut">
+            <span className="shortcut-icon shortcut-upload"><FolderUp /></span><span>{uploadPct === null ? "Upload folder" : `${uploadPct}%`}</span>
           </button>
+          <Link to="/system" className="desktop-shortcut">
+            <span className="shortcut-icon shortcut-system"><Server /></span><span>System</span>
+          </Link>
         </div>
+
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="desktop-intro">
+          <p>Welcome to your private space</p>
+          <h1>Awosanmo</h1>
+          <span>Everything you keep, ready when you are.</span>
+        </motion.div>
+
+        <section className="desktop-command" aria-label="Add content">
         <form onSubmit={(e) => { e.preventDefault(); const uri = magnetUri.trim(); if (uri.startsWith("magnet:")) add.mutate(uri); }} className="flex flex-col gap-3 md:flex-row">
           <label className="sr-only" htmlFor="magnet">Magnet link</label>
           <div className="relative flex-1">
@@ -206,21 +209,29 @@ export function Dashboard() {
           </div>
           <button disabled={addUrl.isPending || !remoteUrl.trim()} className="btn-ghost min-h-12 px-5">{addUrl.isPending ? "Adding…" : "Add URL"}</button>
         </form>
+        </section>
+
+        <div className="desktop-status" aria-label="Transfer status">
+          <span><b>{stats.active}</b> active</span>
+          <span><b>{fmt(stats.down)}/s</b> down</span>
+          <span><b>{fmt(stats.up)}/s</b> up</span>
+          <span><b>{fmt(stats.stored)}</b> stored</span>
+        </div>
       </section>
 
-      <section id="transfers" className="transfer-section mt-12 min-w-0">
+      {visibleTorrents.length > 0 && <section id="transfers" className="finder-window glass mt-5 min-w-0 p-5">
         <div className="mb-4 flex items-center justify-between">
-          <div><p className="eyebrow">In progress</p><h2 className="section-title">Downloads</h2></div>
-          <span className="count-label">{visibleTorrents.length} active</span>
+          <h2 className="text-lg font-bold text-white">Downloads</h2>
+          <span className="chip">{visibleTorrents.length} active</span>
         </div>
         <div className="space-y-2.5">
           {visibleTorrents.map((torrent) => {
             const pct = Math.round(torrent.progress * 100);
             return (
-              <article key={torrent.id} className="transfer-row p-4">
+              <article key={torrent.id} className="card card-hover rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <Link to={`/torrents/${torrent.id}`} className="block truncate font-semibold text-[var(--app-strong)] transition hover:text-accent">{torrent.name}</Link>
+                    <Link to={`/torrents/${torrent.id}`} className="block truncate font-semibold text-white transition hover:text-accent2">{torrent.name}</Link>
                     <p className="mt-0.5 text-sm text-slate-400">
                       <span className={`font-medium ${statusTone[torrent.status] ?? "text-slate-400"}`}>{torrent.status}</span>
                       {" · "}{fmt(torrent.download_speed)}/s{" · "}{pct}%
@@ -241,21 +252,14 @@ export function Dashboard() {
                     <button aria-label="Delete" onClick={() => action.mutate({ id: torrent.id, kind: "delete" })} className="icon-btn hover:bg-rose-500/10 hover:text-rose-400"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>
-                <div className="mt-3 h-1 overflow-hidden rounded-full bg-black/[0.07] dark:bg-white/[0.07]">
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
                   <div className={`h-full rounded-full ${torrent.status === "completed" ? "bg-emerald-400" : "bg-stream"}`} style={{ width: `${pct}%` }} />
                 </div>
               </article>
             );
           })}
-          {!visibleTorrents.length && (
-            <div className="empty-transfers px-6 py-16 text-center">
-              <Download className="mx-auto h-6 w-6" />
-              <p className="mt-4 font-semibold text-[var(--app-strong)]">Nothing moving right now</p>
-              <p className="mt-1 text-sm text-[var(--app-muted)]">New transfers will appear here.</p>
-            </div>
-          )}
         </div>
-      </section>
+      </section>}
     </Shell>
   );
 }
