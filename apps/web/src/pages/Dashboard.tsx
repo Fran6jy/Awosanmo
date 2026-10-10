@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Download, FolderUp, Gauge, Link2, Pause, Play, Plus, RefreshCw, Trash2, Upload, Waves } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Download, Files, FolderUp, Link2, Pause, Play, Plus, RefreshCw, Server, Trash2, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 import { addByUrl, api, token, uploadFile, uploadTorrentFile } from "../lib/api";
 import { readClipboardMagnet } from "../lib/clipboard";
@@ -160,47 +159,42 @@ export function Dashboard() {
 
   if (!authed) return <Navigate to="/login" replace />;
 
-  const cards: [string, string | number, LucideIcon, string][] = [
-    ["Active downloads", stats.active, Gauge, "text-accent2 bg-accent/15"],
-    ["Download", fmt(stats.down) + "/s", Download, "text-stream bg-stream/15"],
-    ["Upload", fmt(stats.up) + "/s", ArrowUpRight, "text-violet bg-violet/15"],
-    ["Stored", fmt(stats.stored), Waves, "text-sky-400 bg-sky-400/15"],
-  ];
-
   return (
     <Shell>
-      {/* Stat cards */}
-      <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map(([label, value, Icon, tone], i) => (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            key={label} className="glass min-w-0 rounded-2xl p-5"
-          >
-            <div className="flex items-center gap-3">
-              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span>
-              <span className="truncate text-sm font-medium text-slate-400">{label}</span>
-            </div>
-            <p className="mt-4 text-3xl font-extrabold tracking-tight text-white">{value}</p>
-          </motion.div>
-        ))}
-      </section>
+      <section className="desktop-stage">
+        <div className="desktop-shortcuts" aria-label="Quick actions">
+          <Link to="/files" className="desktop-shortcut">
+            <span className="shortcut-icon shortcut-files"><Files /></span><span>Files</span>
+          </Link>
+          <a href="#transfers" className="desktop-shortcut">
+            <span className="shortcut-icon shortcut-downloads"><Download /></span><span>Downloads</span>
+          </a>
+          <button type="button" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null} className="desktop-shortcut">
+            <span className="shortcut-icon shortcut-upload"><FolderUp /></span><span>{uploadPct === null ? "Upload folder" : `${uploadPct}%`}</span>
+          </button>
+          <Link to="/system" className="desktop-shortcut">
+            <span className="shortcut-icon shortcut-system"><Server /></span><span>System</span>
+          </Link>
+        </div>
 
-      {/* Command bar */}
-      <section className="glass mt-4 min-w-0 rounded-2xl p-4">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="desktop-intro">
+          <p>Private cloud storage</p>
+          <h1>Awosanmo.</h1>
+          <span>Yours, wherever you are.</span>
+        </motion.div>
+
+        <section className="desktop-command" aria-label="Add content">
         <form onSubmit={(e) => { e.preventDefault(); const uri = magnetUri.trim(); if (uri.startsWith("magnet:")) add.mutate(uri); }} className="flex flex-col gap-3 md:flex-row">
           <label className="sr-only" htmlFor="magnet">Magnet link</label>
           <div className="relative flex-1">
             <Plus className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <input id="magnet" value={magnetUri} onFocus={autoPasteMagnet} onClick={autoPasteMagnet} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste a magnet link to start downloading…" className="field pl-11" />
+            <input id="magnet" value={magnetUri} onFocus={autoPasteMagnet} onClick={autoPasteMagnet} onChange={(e) => setMagnetUri(e.target.value)} placeholder="Paste a magnet link" className="field pl-11" />
           </div>
           <button disabled={add.isPending || !magnetUri.trim().startsWith("magnet:")} className="btn-primary min-h-12 px-6">{add.isPending ? "Adding…" : "Join swarm"}</button>
           <button type="button" title="Upload any file, or a .torrent to add it to the swarm" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} className="btn-ghost min-h-12 px-5">
             <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
           </button>
           <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
-          <button type="button" title="Upload a folder and preserve its structure" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null} className="btn-ghost min-h-12 px-5">
-            <FolderUp className="h-4 w-4" /> Upload folder
-          </button>
           <input ref={bindFolderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} />
         </form>
         {uploadPct !== null && (
@@ -211,14 +205,21 @@ export function Dashboard() {
         <form onSubmit={(e) => { e.preventDefault(); const url = remoteUrl.trim(); if (url) addUrl.mutate(url); }} className="mt-3 flex flex-col gap-3 md:flex-row">
           <div className="relative flex-1">
             <Link2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <input value={remoteUrl} onChange={(e) => setRemoteUrl(e.target.value)} placeholder="Add a direct HTTPS file URL…" className="field pl-11" />
+            <input value={remoteUrl} onChange={(e) => setRemoteUrl(e.target.value)} placeholder="Direct file URL" className="field pl-11" />
           </div>
           <button disabled={addUrl.isPending || !remoteUrl.trim()} className="btn-ghost min-h-12 px-5">{addUrl.isPending ? "Adding…" : "Add URL"}</button>
         </form>
+        </section>
+
+        <div className="desktop-status" aria-label="Transfer status">
+          <span><b>{stats.active}</b> active</span>
+          <span><b>{fmt(stats.down)}/s</b> down</span>
+          <span><b>{fmt(stats.up)}/s</b> up</span>
+          <span><b>{fmt(stats.stored)}</b> stored</span>
+        </div>
       </section>
 
-      {/* Torrents */}
-      <section className="glass mt-4 min-w-0 rounded-2xl p-5">
+      <section id="transfers" className="finder-window glass mt-5 min-w-0 p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-white">Downloads</h2>
           <span className="chip">{visibleTorrents.length} active</span>

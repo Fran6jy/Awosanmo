@@ -224,32 +224,42 @@ function MobileNav() {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  const home = pathname === "/";
+  const title = pathname.startsWith("/files") ? "Files" : pathname.startsWith("/system") ? "System" : "Awosanmo";
   return (
     <div className="os-desktop min-h-screen overflow-x-hidden">
       <MenuBar />
       <DesktopDock />
       <MobileNav />
       <TorrentFilePickerHost />
-      <main className="min-w-0 px-3 pb-24 pt-3 sm:px-4 lg:mx-auto lg:max-w-[1600px] lg:px-6 lg:pb-28 lg:pt-12">
-        <header className="os-window glass mb-4 overflow-hidden sm:mb-5">
-          <div className="window-titlebar flex min-h-14 items-center gap-3 px-4">
-            <WindowControls />
-            <div className="flex min-w-0 flex-1 items-center gap-3 lg:justify-center">
-              <Link to="/" aria-label="Awosanmo" className="lg:hidden"><Logo className="h-9 w-9" /></Link>
-              <div className="min-w-0 lg:text-center">
-                <p className="text-[10px] font-bold uppercase text-accent2">Awosanmo Cloud OS</p>
-                <h1 className="truncate text-base font-bold text-white">Your private cloud</h1>
-              </div>
-            </div>
-          </div>
-          <div className="window-toolbar flex min-w-0 flex-wrap items-center justify-end gap-2 px-3 py-3 sm:px-4">
+      <main className={`min-w-0 px-3 pb-24 pt-3 sm:px-4 lg:mx-auto lg:max-w-[1600px] lg:px-6 lg:pb-28 lg:pt-12 ${home ? "desktop-main" : ""}`}>
+        {home ? (
+          <header className="desktop-utilities">
             <StorageQuota />
             <CommandPalette />
             <Wishlist />
             <ThemeToggle />
             <AddMagnet />
-          </div>
-        </header>
+          </header>
+        ) : (
+          <header className="os-window glass mb-4 overflow-hidden sm:mb-5">
+            <div className="window-titlebar flex min-h-12 items-center gap-3 px-4">
+              <WindowControls />
+              <div className="flex min-w-0 flex-1 items-center gap-3 lg:justify-center">
+                <Link to="/" aria-label="Awosanmo" className="lg:hidden"><Logo className="h-9 w-9" /></Link>
+                <h1 className="truncate text-sm font-semibold text-white">{title}</h1>
+              </div>
+            </div>
+            <div className="window-toolbar flex min-w-0 flex-wrap items-center justify-end gap-2 px-3 py-3 sm:px-4">
+              <StorageQuota />
+              <CommandPalette />
+              <Wishlist />
+              <ThemeToggle />
+              <AddMagnet />
+            </div>
+          </header>
+        )}
         {children}
       </main>
     </div>

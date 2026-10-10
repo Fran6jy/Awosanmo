@@ -61,10 +61,9 @@ body {
   min-width: 320px;
   color: var(--app-text);
   background-color: var(--app-bg);
-  background-image:
-    radial-gradient(1100px 600px at 12% -8%, var(--app-aurora-1), transparent 60%),
-    radial-gradient(900px 520px at 100% 0%, var(--app-aurora-2), transparent 55%),
-    linear-gradient(180deg, var(--app-bg-top) 0%, var(--app-bg-bottom) 100%);
+  background-image: linear-gradient(rgba(5, 7, 11, 0.08), rgba(5, 7, 11, 0.28)), url("/awosanmo-wallpaper.webp");
+  background-position: center;
+  background-size: cover;
   background-attachment: fixed;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   text-rendering: optimizeLegibility;
@@ -81,22 +80,145 @@ button, input, select, textarea { font: inherit; }
   isolation: isolate;
 }
 
-.os-desktop::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 12% 15%, rgba(99, 102, 241, 0.15), transparent 32%),
-    radial-gradient(circle at 88% 78%, rgba(16, 185, 129, 0.09), transparent 30%);
-}
-
 .os-menubar {
   border-bottom: 1px solid var(--app-line);
   background: rgba(9, 11, 16, 0.72);
   color: var(--app-text);
   backdrop-filter: blur(28px) saturate(150%);
+}
+
+.desktop-main { max-width: none !important; }
+
+.desktop-utilities {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.desktop-stage {
+  position: relative;
+  min-height: calc(100vh - 190px);
+  display: grid;
+  place-items: center;
+  padding: 130px 20px 110px;
+}
+
+.desktop-intro {
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.55);
+}
+
+.desktop-intro p {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.desktop-intro h1 {
+  margin: 0;
+  font-size: clamp(64px, 9vw, 148px);
+  font-weight: 700;
+  line-height: 0.95;
+}
+
+.desktop-intro span {
+  display: block;
+  margin-top: 16px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.desktop-shortcuts {
+  position: absolute;
+  top: 34px;
+  left: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 88px);
+  gap: 20px 18px;
+}
+
+.desktop-shortcut {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
+}
+
+.desktop-shortcut:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.82);
+  outline-offset: 7px;
+}
+
+.shortcut-icon {
+  display: grid;
+  width: 58px;
+  height: 50px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 10px;
+  box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.3) inset;
+  transition: transform 160ms ease, filter 160ms ease;
+}
+
+.desktop-shortcut:hover .shortcut-icon { transform: translateY(-3px); filter: brightness(1.12); }
+.shortcut-icon svg { width: 25px; height: 25px; }
+.shortcut-files { background: #3a95dc; }
+.shortcut-downloads { background: #725ce8; }
+.shortcut-upload { background: #188b78; }
+.shortcut-system { background: #596273; }
+
+.desktop-command {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  width: min(880px, calc(100% - 40px));
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  background: rgba(19, 22, 29, 0.76);
+  box-shadow: 0 24px 60px -26px rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(28px) saturate(140%);
+  transform: translateX(-50%);
+}
+
+.desktop-command .field { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.desktop-command .field::placeholder { color: rgba(255, 255, 255, 0.52); }
+
+.desktop-status {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  display: flex;
+  gap: 16px;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 11px;
+  text-shadow: 0 1px 4px #000;
+}
+
+.desktop-status b { color: #fff; font-weight: 600; }
+.finder-window { border-radius: 14px; }
+
+@media (max-width: 767px) {
+  .desktop-stage { min-height: 760px; padding: 230px 8px 210px; }
+  .desktop-shortcuts { left: 50%; transform: translateX(-50%); }
+  .desktop-intro h1 { font-size: 56px; }
+  .desktop-command { bottom: 50px; }
+  .desktop-command form { gap: 8px; }
+  .desktop-status { right: 50%; bottom: 12px; width: max-content; transform: translateX(50%); }
 }
 
 :root[data-theme="light"] .os-menubar {
