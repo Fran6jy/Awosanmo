@@ -241,7 +241,7 @@ body {
 :root[data-theme="light"] .bg-white\/5,
 :root[data-theme="light"] .bg-white\/\[0\.04\] { background: rgba(255,255,255,.5) !important; }
 
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .app-header-inner { min-height: 68px; padding: 0 20px; }
   .primary-nav, .header-actions > :first-child, .header-actions > :nth-child(2), .header-actions > :nth-child(3), .header-actions > :last-child { display: none; }
 }
@@ -687,3 +687,14 @@ a {
 
 * { scrollbar-color: color-mix(in srgb, var(--app-muted) 35%, transparent) transparent; }
 *::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--app-muted) 30%, transparent); background-clip: content-box; }
+
+.mobile-nav {
+  border-top: 1px solid var(--app-line);
+  background: color-mix(in srgb, var(--app-bg) 94%, transparent);
+  color: var(--app-muted);
+  backdrop-filter: blur(18px);
+}
+
+@media (min-width: 768px) {
+  .mobile-nav { display: none !important; }
+}
