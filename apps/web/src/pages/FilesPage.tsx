@@ -37,6 +37,16 @@ export function FilesPage() {
   const nav = useNavigate();
   const searching = query.trim().length > 0;
 
+  function bindFolderInput(node: HTMLInputElement | null) {
+    folderInput.current = node;
+    if (!node) return;
+    const directoryInput = node as HTMLInputElement & { webkitdirectory: boolean; directory: boolean };
+    directoryInput.webkitdirectory = true;
+    directoryInput.directory = true;
+    node.setAttribute("webkitdirectory", "");
+    node.setAttribute("directory", "");
+  }
+
   const files = useQuery({
     queryKey: ["files", query, folderId],
     queryFn: () => api<FileRow[]>(`/api/files?${searching ? `q=${encodeURIComponent(query)}` : `folderId=${folderId}`}`),
@@ -256,7 +266,7 @@ export function FilesPage() {
             <button type="button" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null || searching} title="Upload a folder and preserve its structure" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40">
               <FolderUp className="h-4 w-4" /> Upload folder
             </button>
-            <input ref={folderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)} />
+            <input ref={bindFolderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} />
           </div>
         </div>
         {uploadPct !== null && <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} /></div>}

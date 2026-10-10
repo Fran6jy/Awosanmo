@@ -79,6 +79,16 @@ export function Dashboard() {
 
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
+
+  function bindFolderInput(node: HTMLInputElement | null) {
+    folderInput.current = node;
+    if (!node) return;
+    const directoryInput = node as HTMLInputElement & { webkitdirectory: boolean; directory: boolean };
+    directoryInput.webkitdirectory = true;
+    directoryInput.directory = true;
+    node.setAttribute("webkitdirectory", "");
+    node.setAttribute("directory", "");
+  }
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   async function onUpload(list: FileList | null, preserveFolders = false) {
     if (!list?.length) return;
@@ -191,7 +201,7 @@ export function Dashboard() {
           <button type="button" title="Upload a folder and preserve its structure" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null} className="btn-ghost min-h-12 px-5">
             <FolderUp className="h-4 w-4" /> Upload folder
           </button>
-          <input ref={folderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)} />
+          <input ref={bindFolderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} />
         </form>
         {uploadPct !== null && (
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
