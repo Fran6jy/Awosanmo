@@ -716,9 +716,66 @@ body {
 }
 
 @media (max-width: 640px) {
-  .desktop-utilities > :first-child { width: 100%; }
-  .desktop-stage { min-height: 820px; padding-top: 250px; }
-  .desktop-shortcuts { grid-template-columns: repeat(2, 88px); }
-  .desktop-intro h1 { font-size: 64px; }
-  .desktop-intro p { font-size: 16px; }
+  .os-desktop > main { padding-inline: 10px !important; padding-bottom: calc(88px + env(safe-area-inset-bottom)) !important; }
+  .desktop-utilities { margin: 8px 0 0; padding: 6px; }
+  .desktop-utilities > :first-child { width: 100%; padding: 8px 10px; }
+  .desktop-stage {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    place-items: stretch;
+    padding: 28px 4px 22px;
+  }
+  .desktop-shortcuts {
+    position: static;
+    order: 1;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px 4px;
+    transform: none;
+  }
+  .desktop-shortcut { min-width: 0; font-size: 11px; }
+  .shortcut-icon { width: 52px; height: 43px; margin-inline: auto; }
+  .shortcut-icon::before { top: -5px; width: 23px; height: 7px; }
+  .shortcut-icon svg { width: 20px; height: 20px; }
+  .desktop-intro { order: 2; margin: 64px 0 24px; }
+  .desktop-intro::before { inset: -30px -20px; }
+  .desktop-intro h1 { font-size: clamp(50px, 17vw, 68px); line-height: .95; }
+  .desktop-intro p { margin-bottom: 7px; font-size: 15px; }
+  .desktop-intro span { margin-top: 10px; font-size: 13px; }
+  .desktop-command {
+    position: static;
+    order: 3;
+    width: 100%;
+    padding: 8px;
+    transform: none;
+  }
+  .desktop-command form { gap: 7px; }
+  .desktop-command .field,
+  .desktop-command .btn-primary,
+  .desktop-command .btn-ghost { min-height: 44px; }
+  .desktop-status {
+    position: static;
+    order: 4;
+    width: fit-content;
+    max-width: 100%;
+    margin: 14px auto 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px 12px;
+    transform: none;
+  }
+  .finder-window { border-radius: 12px 12px 0 0 !important; }
+  .finder-titlebar { min-height: 44px; grid-template-columns: 72px 1fr 72px; padding-inline: 12px; }
+  .finder-titlebar .window-controls { gap: 6px; width: 58px; }
+  .finder-titlebar .window-controls span { width: 10px; height: 10px; }
+  .finder-toolbar { gap: 7px; padding: 8px 10px; }
+  .finder-nav button { width: 34px; height: 34px; }
+  .finder-search { min-height: 40px; }
+  .finder-actionbar > .flex { gap: 10px; }
+  .finder-actionbar > .flex > div:last-child { display: grid; width: 100%; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .finder-actionbar form { grid-column: 1 / -1; width: 100% !important; }
+  .finder-actionbar button { min-height: 44px; padding-inline: 10px; }
+  .finder-actionbar input { min-height: 44px; }
+  .finder-content article { padding-block: 10px; }
 }
