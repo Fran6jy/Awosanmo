@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -74,6 +74,189 @@ body {
 body * { letter-spacing: 0 !important; }
 
 button, input, select, textarea { font: inherit; }
+
+/* Editorial workspace -----------------------------------------------------
+   The product is a library first: quiet canvas, legible hierarchy, and very
+   little chrome. The dark theme uses the same system rather than a separate
+   "desktop" metaphor. */
+:root {
+  color-scheme: light;
+  --app-bg: #f3f0e9;
+  --app-bg-top: #f3f0e9;
+  --app-bg-bottom: #f3f0e9;
+  --app-text: #3c3b36;
+  --app-strong: #171714;
+  --app-muted: #747168;
+  --app-faint: #9a968b;
+  --app-line: rgba(23, 23, 20, 0.13);
+  --app-glass-start: #faf8f2;
+  --app-glass-end: #faf8f2;
+  --app-panel: #faf8f2;
+  --app-card: transparent;
+  --app-card-hover: rgba(23, 23, 20, 0.035);
+  --app-field: rgba(255, 255, 255, 0.62);
+  --app-scrim: rgba(34, 32, 27, 0.28);
+  --app-shadow: none;
+  --editorial-accent: #d85d42;
+  --editorial-accent-soft: rgba(216, 93, 66, 0.1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --app-bg: #11110f;
+  --app-bg-top: #11110f;
+  --app-bg-bottom: #11110f;
+  --app-text: #deddd7;
+  --app-strong: #faf8f1;
+  --app-muted: #9c9a91;
+  --app-faint: #77756d;
+  --app-line: rgba(255, 255, 255, 0.11);
+  --app-glass-start: #1b1b18;
+  --app-glass-end: #181816;
+  --app-panel: #1b1b18;
+  --app-card: transparent;
+  --app-card-hover: rgba(255, 255, 255, 0.035);
+  --app-field: rgba(255, 255, 255, 0.055);
+  --app-shadow: none;
+  --editorial-accent: #e86f51;
+  --editorial-accent-soft: rgba(232, 111, 81, 0.13);
+}
+
+body {
+  background: var(--app-bg);
+  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+.awosanmo-app { background: var(--app-bg); }
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--app-line);
+  background: color-mix(in srgb, var(--app-bg) 88%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.app-header-inner {
+  display: flex;
+  min-height: 76px;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 0 40px;
+  align-items: center;
+  gap: 30px;
+}
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--app-strong);
+  font-weight: 700;
+}
+
+.primary-nav { display: flex; align-items: center; gap: 6px; }
+.primary-nav a {
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: var(--app-muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 160ms ease, background 160ms ease;
+}
+.primary-nav a:hover { color: var(--app-strong); }
+.primary-nav a.is-active { color: var(--app-strong); background: var(--editorial-accent-soft); }
+.header-actions { display: flex; min-width: 0; margin-left: auto; align-items: center; gap: 8px; }
+.header-actions > :first-child { border: 0; background: transparent; padding-left: 0; padding-right: 12px; }
+
+.dashboard-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 44px 0 38px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--editorial-accent);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dashboard-intro h1,
+.section-title {
+  margin: 0;
+  color: var(--app-strong);
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+}
+.dashboard-intro h1 { font-size: clamp(48px, 6vw, 84px); line-height: 0.95; }
+.dashboard-lede { margin: 14px 0 0; color: var(--app-muted); font-size: 16px; }
+.section-title { font-size: 34px; line-height: 1; }
+
+.quiet-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 18px; color: var(--app-muted); }
+.quiet-stats span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.quiet-stats svg { width: 14px; height: 14px; color: var(--editorial-accent); }
+.quiet-stats b { color: var(--app-strong); font-weight: 600; }
+
+.ingest-panel {
+  max-width: 1080px;
+  padding: 24px;
+  border: 1px solid var(--app-line);
+  border-radius: 8px;
+  background: var(--app-glass-start);
+}
+.ingest-heading { display: flex; margin-bottom: 18px; align-items: center; justify-content: space-between; color: var(--app-strong); font-size: 14px; font-weight: 600; }
+.text-action { display: inline-flex; min-height: 40px; align-items: center; gap: 7px; color: var(--editorial-accent); font-size: 13px; font-weight: 600; }
+.text-action:hover { color: var(--app-strong); }
+
+.transfer-section { border-top: 1px solid var(--app-line); padding-top: 30px; }
+.transfer-row { border-bottom: 1px solid var(--app-line); transition: background 160ms ease; }
+.transfer-row:hover { background: var(--app-card-hover); }
+.count-label { color: var(--app-muted); font-size: 12px; }
+.empty-transfers { border-top: 1px solid var(--app-line); color: var(--app-faint); }
+
+.glass {
+  border-color: var(--app-line) !important;
+  border-radius: 8px !important;
+  background: var(--app-glass-start) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+.card { border-radius: 6px !important; }
+.field, input, select, textarea { color: var(--app-strong); }
+.field { border-radius: 6px !important; background: var(--app-field) !important; }
+.btn-primary { border-radius: 6px !important; background: var(--editorial-accent) !important; box-shadow: none !important; }
+.btn-primary:hover { filter: brightness(0.94); }
+.btn-ghost, .icon-btn { border-radius: 6px !important; box-shadow: none !important; }
+
+:root[data-theme="light"] .text-white { color: var(--app-strong) !important; }
+:root[data-theme="light"] .text-slate-200,
+:root[data-theme="light"] .text-slate-300 { color: var(--app-text) !important; }
+:root[data-theme="light"] .text-slate-400,
+:root[data-theme="light"] .text-slate-500 { color: var(--app-muted) !important; }
+:root[data-theme="light"] .bg-white\/5,
+:root[data-theme="light"] .bg-white\/\[0\.04\] { background: rgba(255,255,255,.5) !important; }
+
+@media (max-width: 1023px) {
+  .app-header-inner { min-height: 68px; padding: 0 20px; }
+  .primary-nav, .header-actions > :first-child, .header-actions > :nth-child(2), .header-actions > :nth-child(3), .header-actions > :last-child { display: none; }
+}
+
+@media (max-width: 767px) {
+  .app-content { padding-top: 16px !important; }
+  .dashboard-intro { display: block; padding: 24px 0 28px; }
+  .dashboard-intro h1 { font-size: 48px; }
+  .quiet-stats { justify-content: flex-start; margin-top: 24px; }
+  .ingest-panel { padding: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
 
 .os-desktop {
   position: relative;
@@ -470,3 +653,37 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Final component skin. Kept last so utility-generated legacy colors cannot
+   pull the editorial system back toward the old indigo dashboard. */
+.glass {
+  border-color: var(--app-line) !important;
+  border-radius: 8px !important;
+  background: var(--app-glass-start) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+.panel { border-radius: 8px !important; box-shadow: 0 18px 60px rgba(23, 23, 20, .16) !important; }
+.card { border-radius: 6px !important; }
+.field { border-radius: 6px !important; background: var(--app-field) !important; }
+.btn-primary,
+.bg-accent,
+.bg-accent2,
+.bg-stream { background-color: var(--editorial-accent) !important; }
+.btn-primary { border-radius: 6px !important; box-shadow: none !important; }
+.btn-ghost,
+.icon-btn { border-radius: 6px !important; box-shadow: none !important; }
+.text-accent,
+.text-accent2 { color: var(--editorial-accent) !important; }
+
+:root:not([data-theme="dark"]) .text-white { color: var(--app-strong) !important; }
+:root:not([data-theme="dark"]) .text-slate-100,
+:root:not([data-theme="dark"]) .text-slate-200,
+:root:not([data-theme="dark"]) .text-slate-300 { color: var(--app-text) !important; }
+:root:not([data-theme="dark"]) .text-slate-400,
+:root:not([data-theme="dark"]) .text-slate-500 { color: var(--app-muted) !important; }
+:root:not([data-theme="dark"]) .bg-white\/5,
+:root:not([data-theme="dark"]) .bg-white\/\[0\.04\] { background: rgba(255, 255, 255, .52) !important; }
+
+* { scrollbar-color: color-mix(in srgb, var(--app-muted) 35%, transparent) transparent; }
+*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--app-muted) 30%, transparent); background-clip: content-box; }

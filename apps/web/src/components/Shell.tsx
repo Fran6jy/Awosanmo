@@ -146,58 +146,31 @@ const NAV: { icon: typeof Files; href: string; label: string }[] = [
   { icon: Server, href: "/system", label: "System" },
 ];
 
-function DesktopDock() {
+function AppHeader() {
   const { pathname } = useLocation();
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   return (
-    <nav className="os-dock fixed bottom-3 left-1/2 z-40 hidden -translate-x-1/2 items-end gap-2 px-3 py-2 lg:flex" aria-label="Applications">
-      <Link to="/" aria-label="Awosanmo dashboard" title="Awosanmo" className="dock-app"><Logo className="h-11 w-11" rounded="rounded-[12px]" /></Link>
-      <span className="mx-0.5 h-9 w-px bg-white/15" aria-hidden="true" />
-        {NAV.map(({ icon: Icon, href, label }) => {
-          const active = isActive(href);
-          return (
-            <Link
-              key={href} to={href} aria-label={label} title={label}
-              className={`dock-app group ${active ? "is-active" : ""}`}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="dock-tooltip">{label}</span>
-              {active && <span className="dock-dot" />}
-            </Link>
-          );
-        })}
-      <span className="mx-0.5 h-9 w-px bg-white/15" aria-hidden="true" />
-      <button onClick={() => logout()} className="dock-app hover:!text-rose-400" aria-label="Log out" title="Log out">
-        <LogOut className="h-5 w-5" />
-        <span className="dock-tooltip">Log out</span>
-      </button>
-    </nav>
-  );
-}
-
-function WindowControls() {
-  return (
-    <div className="window-controls" aria-hidden="true">
-      <span className="bg-[#ff5f57]" />
-      <span className="bg-[#febc2e]" />
-      <span className="bg-[#28c840]" />
-    </div>
-  );
-}
-
-function MenuBar() {
-  const { pathname } = useLocation();
-  const page = pathname.startsWith("/files") ? "Files" : pathname.startsWith("/system") ? "System" : "Dashboard";
-  return (
-    <div className="os-menubar fixed inset-x-0 top-0 z-40 hidden h-8 items-center justify-between px-4 text-xs lg:flex">
-      <div className="flex items-center gap-4">
-        <Link to="/" className="flex items-center gap-2 font-bold"><Logo className="h-4 w-4" rounded="rounded-[5px]" /> Awosanmo</Link>
-        <span className="font-semibold">{page}</span>
-        <Link to="/files" className="text-slate-400 transition hover:text-white">File</Link>
-        <button type="button" className="text-slate-400 transition hover:text-white" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}>Find</button>
+    <header className="app-header">
+      <div className="app-header-inner">
+        <Link to="/" className="brand-lockup" aria-label="Awosanmo home">
+          <Logo className="h-9 w-9" rounded="rounded-[10px]" />
+          <span>Awosanmo</span>
+        </Link>
+        <nav className="primary-nav" aria-label="Primary navigation">
+          {NAV.map(({ href, label }) => (
+            <Link key={href} to={href} className={isActive(href) ? "is-active" : ""}>{label}</Link>
+          ))}
+        </nav>
+        <div className="header-actions">
+          <StorageQuota />
+          <CommandPalette />
+          <Wishlist />
+          <ThemeToggle />
+          <AddMagnet />
+          <button onClick={() => logout()} className="icon-btn" aria-label="Log out" title="Log out"><LogOut className="h-5 w-5" /></button>
+        </div>
       </div>
-      <div className="flex items-center gap-4 text-slate-400"><span>Private cloud</span><span className="status-dot">Online</span></div>
-    </div>
+    </header>
   );
 }
 
@@ -224,42 +197,12 @@ function MobileNav() {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
-  const home = pathname === "/";
-  const title = pathname.startsWith("/files") ? "Files" : pathname.startsWith("/system") ? "System" : "Awosanmo";
   return (
-    <div className="os-desktop min-h-screen overflow-x-hidden">
-      <MenuBar />
-      <DesktopDock />
+    <div className="awosanmo-app min-h-screen overflow-x-hidden">
+      <AppHeader />
       <MobileNav />
       <TorrentFilePickerHost />
-      <main className={`min-w-0 px-3 pb-24 pt-3 sm:px-4 lg:mx-auto lg:max-w-[1600px] lg:px-6 lg:pb-28 lg:pt-12 ${home ? "desktop-main" : ""}`}>
-        {home ? (
-          <header className="desktop-utilities">
-            <StorageQuota />
-            <CommandPalette />
-            <Wishlist />
-            <ThemeToggle />
-            <AddMagnet />
-          </header>
-        ) : (
-          <header className="os-window glass mb-4 overflow-hidden sm:mb-5">
-            <div className="window-titlebar flex min-h-12 items-center gap-3 px-4">
-              <WindowControls />
-              <div className="flex min-w-0 flex-1 items-center gap-3 lg:justify-center">
-                <Link to="/" aria-label="Awosanmo" className="lg:hidden"><Logo className="h-9 w-9" /></Link>
-                <h1 className="truncate text-sm font-semibold text-white">{title}</h1>
-              </div>
-            </div>
-            <div className="window-toolbar flex min-w-0 flex-wrap items-center justify-end gap-2 px-3 py-3 sm:px-4">
-              <StorageQuota />
-              <CommandPalette />
-              <Wishlist />
-              <ThemeToggle />
-              <AddMagnet />
-            </div>
-          </header>
-        )}
+      <main className="app-content min-w-0 px-4 pb-24 pt-8 sm:px-6 lg:mx-auto lg:max-w-[1480px] lg:px-10 lg:pb-16 lg:pt-12">
         {children}
       </main>
     </div>
