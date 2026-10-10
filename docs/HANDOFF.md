@@ -30,6 +30,12 @@ folder, streams one file at a time, and applies the normal per-user quota checks
 Browsers do not expose empty directories, so an entirely empty folder is not
 created until it contains at least one uploaded file.
 
+The web client uses the **Awosanmo Cloud OS** design system: a macOS-inspired
+desktop menu bar and application dock on large screens, Finder-like translucent
+windows, familiar window controls, and responsive mobile navigation. Dark and
+light themes remain available. The visual language is inspired by desktop OS
+ergonomics but retains Awosanmo branding and does not depend on Apple assets.
+
 ---
 
 ## 2. Live deployment (as of this handoff)

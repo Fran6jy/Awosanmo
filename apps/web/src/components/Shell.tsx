@@ -146,30 +146,58 @@ const NAV: { icon: typeof Files; href: string; label: string }[] = [
   { icon: Server, href: "/system", label: "System" },
 ];
 
-function Sidebar() {
+function DesktopDock() {
   const { pathname } = useLocation();
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   return (
-    <aside className="fixed inset-y-4 left-4 z-20 hidden w-[68px] flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] py-4 backdrop-blur-xl lg:flex">
-      <Link to="/" aria-label="Awosanmo dashboard" className="mb-2"><Logo className="h-11 w-11" /></Link>
-      <nav className="flex flex-1 flex-col items-center gap-1.5">
+    <nav className="os-dock fixed bottom-3 left-1/2 z-40 hidden -translate-x-1/2 items-end gap-2 px-3 py-2 lg:flex" aria-label="Applications">
+      <Link to="/" aria-label="Awosanmo dashboard" title="Awosanmo" className="dock-app"><Logo className="h-11 w-11" rounded="rounded-[12px]" /></Link>
+      <span className="mx-0.5 h-9 w-px bg-white/15" aria-hidden="true" />
         {NAV.map(({ icon: Icon, href, label }) => {
           const active = isActive(href);
           return (
             <Link
               key={href} to={href} aria-label={label} title={label}
-              className={`group relative grid h-11 w-11 place-items-center rounded-xl transition duration-200 focus:outline-none focus:ring-2 focus:ring-accent/40 ${active ? "bg-accent/15 text-accent2" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}
+              className={`dock-app group ${active ? "is-active" : ""}`}
             >
-              {active && <span className="absolute -left-4 h-6 w-1 rounded-r-full bg-accent2" />}
               <Icon className="h-5 w-5" />
+              <span className="dock-tooltip">{label}</span>
+              {active && <span className="dock-dot" />}
             </Link>
           );
         })}
-      </nav>
-      <button onClick={() => logout()} className="grid h-11 w-11 place-items-center rounded-xl text-slate-400 transition duration-200 hover:bg-rose-500/10 hover:text-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500/40" aria-label="Log out" title="Log out">
+      <span className="mx-0.5 h-9 w-px bg-white/15" aria-hidden="true" />
+      <button onClick={() => logout()} className="dock-app hover:!text-rose-400" aria-label="Log out" title="Log out">
         <LogOut className="h-5 w-5" />
+        <span className="dock-tooltip">Log out</span>
       </button>
-    </aside>
+    </nav>
+  );
+}
+
+function WindowControls() {
+  return (
+    <div className="window-controls" aria-hidden="true">
+      <span className="bg-[#ff5f57]" />
+      <span className="bg-[#febc2e]" />
+      <span className="bg-[#28c840]" />
+    </div>
+  );
+}
+
+function MenuBar() {
+  const { pathname } = useLocation();
+  const page = pathname.startsWith("/files") ? "Files" : pathname.startsWith("/system") ? "System" : "Dashboard";
+  return (
+    <div className="os-menubar fixed inset-x-0 top-0 z-40 hidden h-8 items-center justify-between px-4 text-xs lg:flex">
+      <div className="flex items-center gap-4">
+        <Link to="/" className="flex items-center gap-2 font-bold"><Logo className="h-4 w-4" rounded="rounded-[5px]" /> Awosanmo</Link>
+        <span className="font-semibold">{page}</span>
+        <Link to="/files" className="text-slate-400 transition hover:text-white">File</Link>
+        <button type="button" className="text-slate-400 transition hover:text-white" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}>Find</button>
+      </div>
+      <div className="flex items-center gap-4 text-slate-400"><span>Private cloud</span><span className="status-dot">Online</span></div>
+    </div>
   );
 }
 
@@ -197,22 +225,24 @@ function MobileNav() {
 
 export function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen overflow-x-hidden">
-      <Sidebar />
+    <div className="os-desktop min-h-screen overflow-x-hidden">
+      <MenuBar />
+      <DesktopDock />
       <MobileNav />
       <TorrentFilePickerHost />
-      {/* Bottom padding on mobile keeps content clear of the fixed bottom nav. */}
-      <main className="min-w-0 px-3 pb-24 pt-3 sm:px-4 sm:pt-4 lg:ml-28 lg:max-w-[calc(100vw-8rem)] lg:pb-6 lg:pr-6">
-        <header className="glass mb-4 flex flex-col gap-3 rounded-2xl p-4 sm:mb-5 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            {/* Compact logo shows on mobile where the sidebar is hidden. */}
-            <Link to="/" aria-label="Awosanmo" className="lg:hidden"><Logo className="h-10 w-10" /></Link>
-            <div className="min-w-0">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-accent2 sm:text-[11px]">Awosanmo Private Cloud</p>
-              <h1 className="mt-0.5 truncate text-xl font-extrabold tracking-tight text-white sm:text-2xl md:text-[28px]">Your private cloud</h1>
+      <main className="min-w-0 px-3 pb-24 pt-3 sm:px-4 lg:mx-auto lg:max-w-[1600px] lg:px-6 lg:pb-28 lg:pt-12">
+        <header className="os-window glass mb-4 overflow-hidden sm:mb-5">
+          <div className="window-titlebar flex min-h-14 items-center gap-3 px-4">
+            <WindowControls />
+            <div className="flex min-w-0 flex-1 items-center gap-3 lg:justify-center">
+              <Link to="/" aria-label="Awosanmo" className="lg:hidden"><Logo className="h-9 w-9" /></Link>
+              <div className="min-w-0 lg:text-center">
+                <p className="text-[10px] font-bold uppercase text-accent2">Awosanmo Cloud OS</p>
+                <h1 className="truncate text-base font-bold text-white">Your private cloud</h1>
+              </div>
             </div>
           </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="window-toolbar flex min-w-0 flex-wrap items-center justify-end gap-2 px-3 py-3 sm:px-4">
             <StorageQuota />
             <CommandPalette />
             <Wishlist />

@@ -54,9 +54,12 @@ RAM box (the Oracle Cloud Free Tier in particular).
   notifications on completion.
 - **Media metadata** — `ffprobe` extracts resolution, codec, duration, bitrate,
   frame rate, and track counts.
-- **Premium two-theme SPA** — React + Tailwind + Framer Motion, Plex/Linear-style
-  dark mode, polished light mode, Plus Jakarta Sans, glass surfaces, command
-  palette (Ctrl-K), loading states, error boundary, responsive.
+- **Awosanmo Cloud OS** — a premium macOS-inspired workspace with a compact
+  desktop menu bar, application dock, Finder-style window materials, familiar
+  traffic-light window cues, restrained motion, and polished dark/light themes.
+  It keeps Awosanmo's own identity while making file management feel immediately
+  familiar; Ctrl-K search, responsive mobile navigation, loading states, and the
+  error boundary remain built in.
 - **Documented & tested** — interactive Swagger UI at `/api/docs` (OpenAPI 3.0)
   and a Vitest suite covering auth, token scopes, SSRF guards, quota races,
   selective torrent storage, byte ranges, 2FA, and user isolation.
