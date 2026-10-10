@@ -847,7 +847,7 @@ body {
 }
 
 @media (max-width: 640px) {
-  .finder-actionbar > .flex > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+  .finder-actionbar > .flex > div:last-child { display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; justify-content: flex-start; }
   .finder-actionbar .finder-filter { position: relative; width: 44px; padding: 0; justify-content: center; }
   .finder-actionbar .finder-filter select { position: absolute; inset: 0; width: 100%; max-width: none; opacity: 0; cursor: pointer; }
   .finder-actionbar .mobile-url-trigger { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--app-line); border-radius: 9px; color: var(--app-text); background: var(--app-field); }
