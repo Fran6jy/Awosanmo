@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, ChevronRight, ClipboardPaste, Copy, Download, Eye, FileArchive, FileText, Film, Filter, Folder, FolderOpen, FolderPlus, FolderInput, FolderUp, Home, Image as ImageIcon, Link2, Music, Pencil, Scissors, Search, Trash2, Upload, X } from "lucide-react";
@@ -30,12 +30,13 @@ export function FilesPage() {
   const [moveFolderId, setMoveFolderId] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const [externalDrop, setExternalDrop] = useState(false);
-  const [clipboard, setClipboard] = useState<{ mode: "cut" | "copy"; ids: string[] } | null>(null);
+  const [clipboard, setClipboard] = useState<{ mode: "cut" | "copy"; kind: "files"; ids: string[] } | { mode: "cut" | "copy"; kind: "folder"; id: string } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [confirmDel, setConfirmDel] = useState<{ ids: string[]; label: string } | null>(null);
   const [dropFolder, setDropFolder] = useState<string | null>(null);
   const [dragging, setDragging] = useState(0);
   const dragIds = useRef<string[]>([]);
+  const longPressTimer = useRef<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
@@ -105,12 +106,21 @@ export function FilesPage() {
     onSuccess: (res) => { setClipboard(null); setSelected(new Set()); invalidate(); pushToast({ type: "success", title: `Copied ${res.copied} file${res.copied === 1 ? "" : "s"}` }); },
     onError: (e: Error) => pushToast({ type: "error", title: "Copy failed", body: e.message.slice(0, 140) }),
   });
+  const copyFolderM = useMutation({
+    mutationFn: ({ id, target }: { id: string; target: string | null }) => api(`/api/folders/${id}/copy`, { method: "POST", body: JSON.stringify({ parentId: target }) }),
+    onSuccess: () => { setClipboard(null); invalidate(); pushToast({ type: "success", title: "Folder copied" }); },
+    onError: (e: Error) => pushToast({ type: "error", title: "Could not copy folder", body: e.message.slice(0, 140) }),
+  });
   function pasteClipboard() {
     if (!clipboard) return;
     const target = folderId === "root" ? null : folderId;
-    if (clipboard.mode === "cut") move.mutate({ ids: clipboard.ids, target });
-    else copy.mutate({ ids: clipboard.ids, target });
-    setClipboard(null);
+    if (clipboard.kind === "files") {
+      if (clipboard.mode === "cut") move.mutate({ ids: clipboard.ids, target });
+      else copy.mutate({ ids: clipboard.ids, target });
+    } else if (clipboard.mode === "cut") {
+      moveFolderM.mutate({ id: clipboard.id, target });
+      setClipboard(null);
+    } else copyFolderM.mutate({ id: clipboard.id, target });
   }
 
   async function copyDownloadLink(id: string) {
@@ -140,8 +150,8 @@ export function FilesPage() {
     items.push(
       { label: "Download", icon: Download, onClick: () => void downloadOne(file.id) },
       { label: "Copy download link", icon: Link2, onClick: () => void copyDownloadLink(file.id) },
-      { label: "Cut", icon: Scissors, onClick: () => setClipboard({ mode: "cut", ids: [file.id] }) },
-      { label: "Copy", icon: Copy, onClick: () => setClipboard({ mode: "copy", ids: [file.id] }) },
+      { label: "Cut", icon: Scissors, onClick: () => setClipboard({ mode: "cut", kind: "files", ids: [file.id] }) },
+      { label: "Copy", icon: Copy, onClick: () => setClipboard({ mode: "copy", kind: "files", ids: [file.id] }) },
       "divider",
       { label: "Rename", icon: Pencil, onClick: () => setRenaming(file) },
       { label: "Move to folder…", icon: FolderInput, onClick: () => setMoveIds([file.id]) },
@@ -158,6 +168,9 @@ export function FilesPage() {
       y: e.clientY,
       items: [
         { label: "Open", icon: FolderOpen, onClick: () => setFolderId(folder.id) },
+        { label: "Cut", icon: Scissors, onClick: () => setClipboard({ mode: "cut", kind: "folder", id: folder.id }) },
+        { label: "Copy", icon: Copy, onClick: () => setClipboard({ mode: "copy", kind: "folder", id: folder.id }) },
+        "divider",
         { label: "Rename", icon: Pencil, onClick: () => { const n = prompt("Rename folder", folder.name); if (n?.trim()) renameFolderM.mutate({ id: folder.id, name: n.trim() }); } },
         { label: "Move to folder…", icon: FolderInput, onClick: () => setMoveFolderId(folder.id) },
         "divider",
@@ -165,6 +178,31 @@ export function FilesPage() {
       ],
     });
   }
+
+  function beginLongPress(e: React.PointerEvent, open: () => void) {
+    if (e.pointerType !== "touch") return;
+    if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
+    longPressTimer.current = window.setTimeout(open, 520);
+  }
+  function cancelLongPress() {
+    if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && selected.size && !renaming) {
+        e.preventDefault();
+        setConfirmDel({ ids: Array.from(selected), label: `${selected.size} file${selected.size === 1 ? "" : "s"}` });
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v" && clipboard) {
+        e.preventDefault();
+        pasteClipboard();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [clipboard, renaming, selected]);
 
   async function downloadOne(id: string) {
     const { downloadToken } = await api<{ downloadToken: string; expiresIn: number }>(`/api/download-token/${id}`, { method: "POST" });
@@ -324,8 +362,8 @@ export function FilesPage() {
             <div className="flex flex-wrap gap-2">
               <button onClick={() => downloadZip(Array.from(selected)).catch((e) => pushToast({ type: "error", title: "ZIP failed", body: (e as Error).message.slice(0, 120) }))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FileArchive className="h-4 w-4" /> Download ZIP</button>
               <button onClick={() => setMoveIds(Array.from(selected))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FolderInput className="h-4 w-4" /> Move</button>
-              <button onClick={() => { setClipboard({ mode: "cut", ids: Array.from(selected) }); setSelected(new Set()); }} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><Scissors className="h-4 w-4" /> Cut</button>
-              <button onClick={() => { setClipboard({ mode: "copy", ids: Array.from(selected) }); setSelected(new Set()); }} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><Copy className="h-4 w-4" /> Copy</button>
+              <button onClick={() => { setClipboard({ mode: "cut", kind: "files", ids: Array.from(selected) }); setSelected(new Set()); }} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><Scissors className="h-4 w-4" /> Cut</button>
+              <button onClick={() => { setClipboard({ mode: "copy", kind: "files", ids: Array.from(selected) }); setSelected(new Set()); }} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><Copy className="h-4 w-4" /> Copy</button>
               <button onClick={() => setConfirmDel({ ids: Array.from(selected), label: `${selected.size} file${selected.size === 1 ? "" : "s"}` })} disabled={bulkDelete.isPending} className="flex min-h-10 items-center gap-2 rounded-lg border border-rose-500/40 px-3 text-sm text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-50"><Trash2 className="h-4 w-4" /> Delete</button>
               <button onClick={() => setSelected(new Set())} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-slate-400 transition hover:bg-white/10"><X className="h-4 w-4" /> Clear</button>
             </div>
@@ -354,6 +392,10 @@ export function FilesPage() {
             <article
               key={f.id}
               onContextMenu={(e) => openFolderMenu(e, f)}
+              onPointerDown={(e) => beginLongPress(e, () => openFolderMenu({ preventDefault() {}, clientX: e.clientX, clientY: e.clientY } as React.MouseEvent, f))}
+              onPointerUp={cancelLongPress}
+              onPointerCancel={cancelLongPress}
+              onPointerMove={cancelLongPress}
               onDragOver={(e) => allowFolderDrop(e, f.id)}
               onDragLeave={() => setDropFolder((cur) => (cur === f.id ? null : cur))}
               onDrop={(e) => onFolderDrop(e, f.id)}
@@ -366,12 +408,12 @@ export function FilesPage() {
               </button>
               <span className="hidden text-sm text-slate-400 md:block">Folder</span>
               <span className="hidden text-sm text-slate-400 md:block">--</span>
-              <button onClick={() => { if (confirm(`Delete folder "${f.name}"? Its files return to the library root.`)) deleteFolder.mutate(f.id); }} className="ml-auto grid h-10 w-10 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-500" aria-label="Delete folder"><Trash2 className="h-4 w-4" /></button>
+              <span className="hidden md:block" />
             </article>
           ))}
           {/* Files */}
           {rows.map((file) => (
-            <article key={file.id} draggable onDragStart={(e) => onFileDragStart(e, file)} onDragEnd={onFileDragEnd} onContextMenu={(e) => openFileMenu(e, file)} className={`flex min-w-0 cursor-grab items-center gap-3 px-3 py-3 transition active:cursor-grabbing sm:px-4 md:grid md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-accent/10" : "hover:bg-white/5"}`}>
+            <article key={file.id} draggable onDragStart={(e) => onFileDragStart(e, file)} onDragEnd={onFileDragEnd} onContextMenu={(e) => openFileMenu(e, file)} onPointerDown={(e) => beginLongPress(e, () => openFileMenu({ preventDefault() {}, clientX: e.clientX, clientY: e.clientY } as React.MouseEvent, file))} onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerMove={cancelLongPress} className={`flex min-w-0 cursor-grab items-center gap-3 px-3 py-3 transition active:cursor-grabbing sm:px-4 md:grid md:grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] md:items-center ${selected.has(file.id) ? "bg-accent/10" : "hover:bg-white/5"}`}>
               <input type="checkbox" checked={selected.has(file.id)} onChange={() => toggle(file.id)} className="h-4 w-4 shrink-0 self-center accent-emerald-400" aria-label={`Select ${file.name}`} />
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <FileThumb file={file} />
@@ -386,7 +428,6 @@ export function FilesPage() {
                 {canPreview(file) ? <Link to={`/view/${file.id}`} className="hidden h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream sm:grid" aria-label="Open"><Eye className="h-4 w-4" /></Link> : null}
                 <button onClick={() => void downloadOne(file.id)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Download"><Download className="h-4 w-4" /></button>
                 <button onClick={() => setRenaming(file)} className="hidden h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream sm:grid" aria-label="Rename"><Pencil className="h-4 w-4" /></button>
-                <button onClick={() => setConfirmDel({ ids: [file.id], label: file.name })} className="grid h-10 w-10 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/40" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
               </div>
             </article>
           ))}

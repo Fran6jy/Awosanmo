@@ -110,7 +110,7 @@ export function deleteFile(id: string, userId: string) {
   return true;
 }
 
-export function copyFiles(ids: string[], folderId: string | null, userId: string): number {
+export function copyFiles(ids: string[], folderId: string | null, userId: string, options: { preserveName?: boolean } = {}): number {
   const files = ids.map((id) => getOwnedFile(id, userId)).filter(Boolean);
   assertQuota(userId, files.reduce((sum, file) => sum + Number(file.size ?? 0), 0));
   let copied = 0;
@@ -119,8 +119,10 @@ export function copyFiles(ids: string[], folderId: string | null, userId: string
     if (!fs.existsSync(source)) continue;
     const parsed = path.parse(file.name);
     let suffix = 1;
-    let name = `${parsed.name} copy${parsed.ext}`;
-    let relative = path.join(path.dirname(file.path), name);
+    let name = options.preserveName ? file.name : `${parsed.name} copy${parsed.ext}`;
+    let relative = options.preserveName
+      ? path.join(".folder-copies", crypto.randomUUID(), name)
+      : path.join(path.dirname(file.path), name);
     let target = path.join(config.dataDir, "downloads", file.torrent_id, relative);
     while (fs.existsSync(target)) {
       suffix += 1;

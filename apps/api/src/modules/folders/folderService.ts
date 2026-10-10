@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { db } from "../../db/schema.js";
+import { copyFiles } from "../files/fileService.js";
 
 export type Folder = { id: string; name: string; parent_id: string | null; created_at: string };
 
@@ -109,4 +110,33 @@ export function moveFolder(id: string, parentId: string | null, userId: string):
   }
   db.prepare("UPDATE folders SET parent_id = ? WHERE id = ? AND user_id = ?").run(parentId, id, userId);
   return getFolder(id, userId)!;
+}
+
+/** Duplicate a complete folder tree, including its files, into another folder. */
+export function copyFolder(id: string, parentId: string | null, userId: string): Folder | null {
+  const source = getFolder(id, userId);
+  if (!source) return null;
+  if (parentId && !getFolder(parentId, userId)) throw new Error("Target folder not found");
+
+  // Do not let a copy grow recursively inside the tree being copied.
+  let cursor = parentId;
+  while (cursor) {
+    if (cursor === id) throw new Error("A folder cannot be copied into itself or its subfolder");
+    cursor = getFolder(cursor, userId)?.parent_id ?? null;
+  }
+
+  const siblingNames = new Set(listFolders(parentId, userId).map((folder) => folder.name.toLowerCase()));
+  let name = `${source.name} copy`;
+  let suffix = 2;
+  while (siblingNames.has(name.toLowerCase())) name = `${source.name} copy ${suffix++}`;
+
+  const duplicate = (folder: Folder, targetParent: string | null, rootName?: string): Folder => {
+    const next = createFolder(rootName ?? folder.name, targetParent, userId);
+    const fileIds = (db.prepare("SELECT id FROM files WHERE folder_id = ? AND user_id = ? AND selected = 1").all(folder.id, userId) as { id: string }[]).map((file) => file.id);
+    if (fileIds.length) copyFiles(fileIds, next.id, userId, { preserveName: true });
+    for (const child of listFolders(folder.id, userId)) duplicate(child, next.id);
+    return next;
+  };
+
+  return duplicate(source, parentId, name);
 }

@@ -5,7 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db, migrate } from "../db/schema.js";
 import { register } from "../modules/auth/auth.js";
 import { getOwnedFile, listFiles, deleteFile, renameFile } from "../modules/files/fileService.js";
-import { createFolder, ensureFolderPath, getFolder, listFolders, moveFiles } from "../modules/folders/folderService.js";
+import { copyFolder, createFolder, ensureFolderPath, getFolder, listFolders, moveFiles } from "../modules/folders/folderService.js";
 import { config } from "../config.js";
 import { getUserStorageStats, releaseQuota, reserveQuota, withQuotaAllocation } from "../modules/storage/storageService.js";
 import { torrentService } from "../modules/torrents/torrentService.js";
@@ -137,6 +137,28 @@ describe("torrent file selection", () => {
 });
 
 describe("folder isolation", () => {
+  it("copies a nested folder tree and its files", () => {
+    const source = createFolder("Projects", null, alice);
+    const child = createFolder("Drafts", source.id, alice);
+    const fileId = seedFile(alice, "notes.txt");
+    const file = getOwnedFile(fileId, alice);
+    const dir = path.join(config.dataDir, "downloads", file.torrent_id);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, file.name), "notes");
+    moveFiles([fileId], child.id, alice);
+
+    const copied = copyFolder(source.id, null, alice)!;
+    const copiedChild = listFolders(copied.id, alice)[0]!;
+    const copiedFiles = listFiles(alice, undefined, copiedChild.id) as any[];
+
+    expect(copied.name).toBe("Projects copy");
+    expect(copiedChild.name).toBe("Drafts");
+    expect(copiedFiles).toHaveLength(1);
+    expect(copiedFiles[0].name).toBe("notes.txt");
+    expect(fs.readFileSync(path.join(config.dataDir, "downloads", copiedFiles[0].torrent_id, copiedFiles[0].path), "utf8")).toBe("notes");
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   it("creates and reuses a nested upload folder path", () => {
     const leaf = ensureFolderPath(["Photos", "Holiday"], null, alice)!;
     const reused = ensureFolderPath(["Photos", "Holiday"], null, alice)!;

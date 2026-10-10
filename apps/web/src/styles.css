@@ -751,7 +751,7 @@ body {
     min-height: 0;
     flex-direction: column;
     place-items: stretch;
-    padding: 28px 4px 22px;
+    padding: 18px 4px 18px;
   }
   .desktop-shortcuts {
     position: static;
@@ -765,9 +765,9 @@ body {
   .shortcut-icon { width: 52px; height: 43px; margin-inline: auto; }
   .shortcut-icon::before { top: -5px; width: 23px; height: 7px; }
   .shortcut-icon svg { width: 20px; height: 20px; }
-  .desktop-intro { order: 2; margin: 64px 0 24px; }
+  .desktop-intro { order: 2; margin: 34px 0 18px; }
   .desktop-intro::before { inset: -30px -20px; }
-  .desktop-intro h1 { font-size: clamp(50px, 17vw, 68px); line-height: .95; }
+  .desktop-intro h1 { font-size: clamp(48px, 15vw, 62px); line-height: .95; }
   .desktop-intro p { margin-bottom: 7px; font-size: 15px; }
   .desktop-intro span { margin-top: 10px; font-size: 13px; }
   .desktop-command {

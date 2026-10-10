@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { createFolder, deleteFolder, folderPath, listFolders, moveFolder, renameFolder } from "./folderService.js";
+import { copyFolder, createFolder, deleteFolder, folderPath, listFolders, moveFolder, renameFolder } from "./folderService.js";
 
 const createSchema = z.object({ name: z.string().min(1).max(120), parentId: z.string().nullable().optional() });
 const renameSchema = z.object({ name: z.string().min(1).max(120) });
@@ -44,6 +44,17 @@ folderRoutes.post("/:id/move", (req: any, res) => {
     res.json(folder);
   } catch (e: any) {
     res.status(400).json({ error: e.message ?? "Move failed" });
+  }
+});
+
+folderRoutes.post("/:id/copy", (req: any, res) => {
+  const body = moveSchema.parse(req.body);
+  try {
+    const folder = copyFolder(req.params.id, body.parentId, req.user.id);
+    if (!folder) return res.status(404).json({ error: "Folder not found" });
+    res.status(201).json(folder);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message ?? "Copy failed" });
   }
 });
 

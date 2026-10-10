@@ -8,7 +8,10 @@
 - Video thumbnails seek to a representative point in the runtime. Existing older thumbnails regenerate once in the background.
 - Deploy only to Abram's box (`129.213.98.196`, `/opt/awosanmo`) with `docker compose -f docker-compose.prod.yml`; the old VPS remains backup-only.
 - The redundant top-right Search, Add magnet, and Wishlist triggers were removed; global Find remains available from the macOS menu bar or `Ctrl/Cmd+K`.
-- Finder supports external file drops, file-type filters, cut/copy/paste, hierarchical move browsing, and cycle-safe folder moves.
+- Finder supports external file drops, file-type filters, file and recursive-folder
+  cut/copy/paste, hierarchical move browsing, and cycle-safe folder moves. File and
+  folder deletion lives in the right-click menu (long-press on touch) or the
+  selection/keyboard flow instead of appearing persistently on every row.
 - PDF and EPUB readers have zoom controls. Media viewers can open in a separate window or copy a tokenized HTTPS stream for PotPlayer (`Ctrl+U`), VLC, and other network players. Custom `vlc://` launching was removed because Windows may route it to another player and corrupt the nested HTTPS URL.
 - On mobile, External player opens the OS share sheet so an installed media app can receive the signed HTTPS stream; browsers without Web Share fall back to copying it. Viewers use the full viewport and expose the Fullscreen API.
 - HEVC still uses the production HLS server fallback. A WASM decoder was deliberately not bundled: it requires a separate HEVC demux/remux pipeline and imposes substantial CPU, memory, battery, and bundle costs on phones.
@@ -245,6 +248,8 @@ progress/metadata/download events are not allowed to flip it back to
 - `GET /api/folders?all=1` → flat list (move picker)
 - `POST /api/folders` `{ name, parentId? }`
 - `PATCH /api/folders/:id` `{ name }`
+- `POST /api/folders/:id/move` `{ parentId: <id>|null }`
+- `POST /api/folders/:id/copy` `{ parentId: <id>|null }` (recursive)
 - `DELETE /api/folders/:id` (files return to root; subfolders cascade)
 
 ### Uploads

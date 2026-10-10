@@ -35,6 +35,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
   file manager, persistent custom wallpapers, accessible glass contrast, and
   representative video thumbnails.
 - **Finder operations** — hierarchical folder navigation and moves, movable folders,
+  recursive folder cut/copy/paste, desktop right-click and mobile long-press menus,
+  with destructive actions kept out of the persistent file list,
   cut/copy/paste, drag-and-drop uploads, type filters, and multi-file actions.
 - **Reader and player controls** — PDF/EPUB zoom, separate viewer windows for
   multitasking, true fullscreen viewing, and signed HTTPS links shared or copied
