@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Download, Eye, FileArchive, FileText, Film, Folder, FolderOpen, FolderPlus, FolderInput, FolderUp, Home, Image as ImageIcon, Link2, Music, Pencil, Search, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, Download, Eye, FileArchive, FileText, Film, Folder, FolderOpen, FolderPlus, FolderInput, FolderUp, Home, Image as ImageIcon, Link2, Music, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 import { Shell } from "../components/Shell";
 import { API_URL, addByUrl, api, token, uploadFile, uploadTorrentFile, downloadZip } from "../lib/api";
 import { pushToast } from "../components/Toast";
@@ -238,11 +238,28 @@ export function FilesPage() {
 
   return (
     <Shell>
-      <section className="files-toolbar rounded-2xl p-5 glass">
+      <section className="finder-window files-toolbar overflow-hidden glass">
+        <div className="finder-titlebar">
+          <div className="window-controls" aria-hidden="true"><span className="bg-[#ff5f57]" /><span className="bg-[#febc2e]" /><span className="bg-[#28c840]" /></div>
+          <strong>Files</strong>
+          <span />
+        </div>
+        <div className="finder-toolbar">
+          <div className="finder-nav">
+            <button type="button" title="Library" aria-label="Go to Library" onClick={() => setFolderId("root")}><ArrowLeft /></button>
+            <button type="button" title="Forward" aria-label="Forward" disabled><ArrowRight /></button>
+          </div>
+          <nav className="finder-path" aria-label="Current folder">
+            <button onClick={() => setFolderId("root")}><Home /> Library</button>
+            {!searching && breadcrumb.map((f) => <span key={f.id}><ChevronRight /><button onClick={() => setFolderId(f.id)}>{f.name}</button></span>)}
+          </nav>
+          <label className="finder-search"><Search /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search this folder" aria-label="Search files" /></label>
+        </div>
+        <div className="finder-actionbar">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-mono text-xs font-bold uppercase text-accent2">Library</p>
-            <h1 className="mt-1 text-3xl font-extrabold tracking-tight">All files</h1>
+            <p className="text-xs font-semibold text-accent2">Library</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">{breadcrumb.at(-1)?.name ?? "All files"}</h1>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <form onSubmit={(e) => { e.preventDefault(); const url = remoteUrl.trim(); if (url) addUrl.mutate(url); }} className="flex gap-2 sm:w-80">
@@ -252,10 +269,6 @@ export function FilesPage() {
               </label>
               <button disabled={addUrl.isPending || !remoteUrl.trim()} className="grid h-12 w-12 place-items-center rounded-xl border border-line bg-white/[0.04] text-slate-200 transition hover:bg-white/10 disabled:opacity-50" aria-label="Add URL"><Link2 className="h-4 w-4" /></button>
             </form>
-            <label className="relative block sm:w-72">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search all files" className="min-h-12 w-full rounded-xl border border-line bg-white/[0.04] pl-11 pr-4 text-white outline-none focus:ring-2 focus:ring-stream" />
-            </label>
             <button type="button" onClick={() => { const n = prompt("New folder name"); if (n?.trim()) createFolder.mutate(n.trim()); }} disabled={searching} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40">
               <FolderPlus className="h-4 w-4" /> New folder
             </button>
@@ -271,29 +284,12 @@ export function FilesPage() {
         </div>
         {uploadPct !== null && <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} /></div>}
 
-        {/* Breadcrumb */}
-        {!searching && (
-          <nav className="mt-4 flex flex-wrap items-center gap-1 text-sm text-slate-400">
-            <button
-              onClick={() => setFolderId("root")}
-              onDragOver={(e) => allowFolderDrop(e, "root")}
-              onDragLeave={() => setDropFolder((cur) => (cur === "root" ? null : cur))}
-              onDrop={(e) => onFolderDrop(e, null)}
-              className={`flex items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white ${dropFolder === "root" ? "bg-accent/25 text-accent2 ring-2 ring-accent" : dragging ? "text-accent2 ring-1 ring-accent/40" : ""}`}
-            ><Home className="h-4 w-4" /> Library</button>
-            {breadcrumb.map((f) => (
-              <span key={f.id} className="flex items-center gap-1">
-                <ChevronRight className="h-4 w-4" />
-                <button onClick={() => setFolderId(f.id)} className="rounded-lg px-2 py-1 transition hover:bg-white/10 hover:text-white">{f.name}</button>
-              </span>
-            ))}
-          </nav>
-        )}
+        </div>
       </section>
 
       {/* Bulk action bar */}
       {rows.length > 0 && (
-        <section className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 glass">
+        <section className="finder-selection flex flex-wrap items-center gap-3 px-4 py-3 glass">
           <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((f) => f.id)))} className="h-4 w-4 accent-emerald-400" />
             {selected.size > 0 ? `${selected.size} selected` : "Select all"}
@@ -310,7 +306,7 @@ export function FilesPage() {
       )}
 
       <section
-        className="mt-4 overflow-hidden rounded-2xl glass"
+        className="finder-content overflow-hidden glass"
         onDragOver={(e) => { if (dragging > 0) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
         onDrop={(e) => { if (dragging > 0) { e.preventDefault(); onFileDragEnd(); } }}
       >
@@ -355,7 +351,7 @@ export function FilesPage() {
               </div>
               <span className="hidden text-sm capitalize text-slate-400 md:block">{previewKind(file)}</span>
               <span className="hidden font-mono text-sm text-slate-300 md:block">{formatBytes(file.size)}</span>
-              <div className="flex shrink-0 gap-1 md:justify-end">
+              <div className="file-actions flex shrink-0 gap-1 md:justify-end">
                 {canPreview(file) ? <Link to={`/view/${file.id}`} className="hidden h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream sm:grid" aria-label="Open"><Eye className="h-4 w-4" /></Link> : null}
                 <button onClick={() => void downloadOne(file.id)} className="grid h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream" aria-label="Download"><Download className="h-4 w-4" /></button>
                 <button onClick={() => setRenaming(file)} className="hidden h-10 w-10 place-items-center rounded-lg text-slate-300 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-stream sm:grid" aria-label="Rename"><Pencil className="h-4 w-4" /></button>

@@ -101,6 +101,7 @@ export function migrate() {
   addColumn("files", "probe_status", "TEXT NOT NULL DEFAULT 'pending'");
   addColumn("files", "probe_error", "TEXT");
   addColumn("files", "thumbnail_path", "TEXT");
+  addColumn("files", "thumbnail_version", "INTEGER NOT NULL DEFAULT 0");
   addColumn("files", "codec_video", "TEXT");
   addColumn("files", "codec_audio", "TEXT");
   addColumn("files", "width", "INTEGER");

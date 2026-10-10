@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Files, HardDrive, LayoutGrid, LogOut, Server, Upload, X } from "lucide-react";
 import { Logo } from "./Logo";
@@ -226,9 +226,16 @@ function MobileNav() {
 export function Shell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const home = pathname === "/";
+  const files = pathname.startsWith("/files");
   const title = pathname.startsWith("/files") ? "Files" : pathname.startsWith("/system") ? "System" : "Awosanmo";
+  const [wallpaper, setWallpaper] = useState(() => localStorage.getItem("awosanmo_wallpaper"));
+  useEffect(() => {
+    const update = () => setWallpaper(localStorage.getItem("awosanmo_wallpaper"));
+    window.addEventListener("awosanmo:wallpaper", update);
+    return () => window.removeEventListener("awosanmo:wallpaper", update);
+  }, []);
   return (
-    <div className="os-desktop min-h-screen overflow-x-hidden">
+    <div className="os-desktop min-h-screen overflow-x-hidden" style={wallpaper ? { backgroundImage: `linear-gradient(rgba(7, 16, 29, .04), rgba(7, 16, 29, .04)), url(${wallpaper})` } : undefined}>
       <MenuBar />
       <DesktopDock />
       <MobileNav />
@@ -242,7 +249,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <ThemeToggle />
             <AddMagnet />
           </header>
-        ) : (
+        ) : files ? null : (
           <header className="os-window glass mb-4 overflow-hidden sm:mb-5">
             <div className="window-titlebar flex min-h-12 items-center gap-3 px-4">
               <WindowControls />

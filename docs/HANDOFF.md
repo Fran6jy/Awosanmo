@@ -1,5 +1,13 @@
 # Awosanmo — Operations & Handoff
 
+## 2026-10-10 Finder and appearance pass
+
+- Files uses one Finder-style window with one scoped search, integrated path controls, actions, selection, and file list.
+- System includes an Appearance panel for choosing or resetting a browser-persisted desktop wallpaper (JPG, PNG, or WebP up to 3 MB).
+- Desktop hero copy and live status metrics have stronger contrast over bright wallpapers.
+- Video thumbnails seek to a representative point in the runtime. Existing older thumbnails regenerate once in the background.
+- Deploy only to Abram's box (`129.213.98.196`, `/opt/awosanmo`) with `docker compose -f docker-compose.prod.yml`; the old VPS remains backup-only.
+
 > **Repository boundary:** Awosanmo owns the private cloud, torrent,
 > file-management, and media-preview product. JYMusic is maintained separately
 > at [`Fran6jy/jymusic`](https://github.com/Fran6jy/jymusic) and is deployed from

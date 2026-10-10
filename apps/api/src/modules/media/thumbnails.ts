@@ -13,18 +13,21 @@ export async function generateThumbnail(fileId: string, diskPath: string) {
   fs.mkdirSync(dir, { recursive: true });
   const output = path.join(dir, `${fileId}.jpg`);
   try {
+    const row = db.prepare("SELECT duration FROM files WHERE id = ?").get(fileId) as { duration?: number } | undefined;
+    const duration = Number(row?.duration ?? 0);
+    const seekSeconds = duration > 0 ? Math.min(90, Math.max(8, duration * 0.12)) : 8;
     await execFileAsync("ffmpeg", [
       "-y",
       "-hide_banner",
       "-loglevel", "error",
-      "-ss", "00:00:03",
+      "-ss", seekSeconds.toFixed(2),
       "-i", diskPath,
       "-frames:v", "1",
       "-vf", "scale=480:-2",
       "-q:v", "4",
       output
     ], { timeout: 30_000, windowsHide: true });
-    db.prepare("UPDATE files SET thumbnail_path = ? WHERE id = ?").run(path.relative(config.dataDir, output), fileId);
+    db.prepare("UPDATE files SET thumbnail_path = ?, thumbnail_version = 2 WHERE id = ?").run(path.relative(config.dataDir, output), fileId);
   } catch (error) {
     logger.warn({ error, fileId }, "Thumbnail generation failed");
   }

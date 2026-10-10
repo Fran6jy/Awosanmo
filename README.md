@@ -31,6 +31,9 @@ RAM box (the Oracle Cloud Free Tier in particular).
   no full buffering, token-authenticated per file, video resume position, audio
   playback, browser-compatible MKV/HEVC transcode fallback, image/PDF/text
   previews, and an in-browser EPUB reader.
+- **Mac-inspired workspace** — desktop-style navigation, a unified Finder-like
+  file manager, persistent custom wallpapers, accessible glass contrast, and
+  representative video thumbnails.
 - **Files** — upload individual files or whole folders (streamed to disk with
   nested directory structure preserved), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/

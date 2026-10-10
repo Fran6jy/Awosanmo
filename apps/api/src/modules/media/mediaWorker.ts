@@ -12,6 +12,7 @@ type FileRow = {
   path: string;
   streamable: number;
   probe_status: string;
+  media_kind: string;
 };
 
 export class MediaWorker {
@@ -31,10 +32,11 @@ export class MediaWorker {
     this.running = true;
     try {
       const row = db.prepare(`
-        SELECT id, torrent_id, path, streamable, probe_status
+        SELECT id, torrent_id, path, streamable, probe_status, media_kind
         FROM files
         WHERE streamable = 1 AND selected = 1
-          AND (probe_status = 'pending' OR probe_status = 'retry')
+          AND (probe_status = 'pending' OR probe_status = 'retry'
+            OR (media_kind = 'video' AND probe_status = 'ready' AND thumbnail_version < 2))
         ORDER BY created_at ASC
         LIMIT 1
       `).get() as FileRow | undefined;

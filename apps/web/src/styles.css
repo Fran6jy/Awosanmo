@@ -545,7 +545,8 @@ body {
   min-height: calc(100vh - 40px);
   padding: 120px 20px 180px;
 }
-.desktop-intro { color: #fff; text-shadow: 0 3px 24px rgba(22,42,67,.34); }
+.desktop-intro { position: relative; z-index: 1; color: #fff; text-shadow: 0 2px 5px rgba(8,19,32,.72), 0 8px 36px rgba(8,19,32,.62); }
+.desktop-intro::before { content: ""; position: absolute; inset: -56px -100px; z-index: -1; background: radial-gradient(ellipse, rgba(12,28,45,.3), transparent 68%); pointer-events: none; }
 .desktop-intro p { margin-bottom: 10px; color: rgba(255,255,255,.84); font-size: clamp(17px, 1.4vw, 23px); font-weight: 400; }
 .desktop-intro h1 { font-size: clamp(82px, 10vw, 156px); font-weight: 700; line-height: .9; }
 .desktop-intro span { margin-top: 18px; color: rgba(255,255,255,.9); font-size: 15px; }
@@ -600,7 +601,7 @@ body {
 .desktop-command .btn-primary { background: #1677c8; box-shadow: none; }
 .desktop-command .btn-ghost { border-color: rgba(25,43,64,.1); background: rgba(255,255,255,.58); color: #223246; }
 
-.desktop-status { right: 24px; bottom: 82px; color: rgba(255,255,255,.82); font-size: 12px; }
+.desktop-status { right: 24px; bottom: 82px; gap: 13px; padding: 7px 11px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; color: rgba(255,255,255,.88); font-size: 12px; background: rgba(11,20,31,.55); box-shadow: 0 8px 24px -12px rgba(0,0,0,.7); backdrop-filter: blur(16px) saturate(140%); }
 .desktop-status b { color: #fff; }
 
 .os-dock {
@@ -654,6 +655,36 @@ body {
 :root:not([data-theme="dark"]) .text-accent,
 :root:not([data-theme="dark"]) .text-accent2,
 :root:not([data-theme="dark"]) .text-stream { color: #126eb9 !important; }
+
+.finder-window { border-radius: 14px 14px 0 0 !important; }
+.finder-titlebar { display: grid; min-height: 48px; grid-template-columns: 90px 1fr 90px; align-items: center; padding: 0 16px; border-bottom: 1px solid rgba(71,85,105,.16); text-align: center; }
+.finder-titlebar .window-controls { display: flex; }
+.finder-toolbar { display: grid; grid-template-columns: auto minmax(180px,1fr) minmax(210px,320px); align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid rgba(71,85,105,.16); background: rgba(231,238,247,.42); }
+.finder-nav { display: flex; gap: 4px; }
+.finder-nav button { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 7px; color: #314155; }
+.finder-nav button:hover:not(:disabled) { background: rgba(255,255,255,.62); }
+.finder-nav button:disabled { opacity: .32; }
+.finder-nav svg, .finder-path svg, .finder-search svg { width: 16px; height: 16px; }
+.finder-path { display: flex; min-width: 0; align-items: center; gap: 4px; color: #405168; font-size: 13px; }
+.finder-path > button, .finder-path span, .finder-path span button { display: flex; min-width: 0; align-items: center; gap: 5px; }
+.finder-path button { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.finder-search { display: flex; min-height: 38px; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid rgba(71,85,105,.2); border-radius: 8px; background: rgba(255,255,255,.54); color: #607086; }
+.finder-search input { min-width: 0; width: 100%; background: transparent; color: #17202b; outline: none; }
+.finder-search input::placeholder { color: #718096; }
+.finder-actionbar { padding: 16px; }
+.finder-selection { margin-top: 0 !important; border-radius: 0 !important; border-top: 0 !important; border-bottom: 1px solid rgba(71,85,105,.16) !important; box-shadow: none !important; }
+.finder-content { margin-top: 0 !important; border-radius: 0 0 14px 14px !important; border-top: 0 !important; }
+.file-actions a, .file-actions button { color: #33465c !important; background: rgba(255,255,255,.28); }
+.file-actions a:hover, .file-actions button:hover { color: #075fa8 !important; background: rgba(255,255,255,.8); }
+.appearance-settings { display: flex; align-items: center; gap: 18px; padding: 18px; border-radius: 14px; }
+.appearance-preview { display: grid; width: 112px; height: 72px; flex: 0 0 auto; place-items: center; border: 1px solid rgba(255,255,255,.55); border-radius: 8px; color: rgba(255,255,255,.85); background: url('/awosanmo-wallpaper.png') center/cover; box-shadow: 0 8px 22px -12px rgba(0,0,0,.7); }
+
+@media (max-width: 767px) {
+  .finder-toolbar { grid-template-columns: auto 1fr; }
+  .finder-search { grid-column: 1 / -1; }
+  .finder-actionbar { padding: 12px; }
+  .appearance-settings { align-items: flex-start; flex-wrap: wrap; }
+}
 
 @media (max-width: 1023px) {
   .desktop-main { padding-top: 0 !important; }

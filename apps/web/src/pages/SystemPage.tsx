@@ -1,11 +1,12 @@
 import { Navigate } from "react-router-dom";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Cpu, HardDrive, KeyRound, MemoryStick, Radio, Server } from "lucide-react";
+import { Cpu, HardDrive, Image, KeyRound, MemoryStick, Radio, RotateCcw, Server, Upload } from "lucide-react";
 import { Shell } from "../components/Shell";
 import { TwoFactorSettings } from "../components/TwoFactorSettings";
 import { api, token } from "../lib/api";
 import { formatBytes, formatEta } from "../lib/format";
+import { pushToast } from "../components/Toast";
 
 type CountRow = { status?: string; media_kind?: string; probe_status?: string; count: number; size?: number };
 type RecentRow = { type: string; title: string; detail: string; timestamp: string };
@@ -47,6 +48,7 @@ export function SystemPage() {
         <div className="rounded-2xl p-8 text-slate-300 glass">Loading system status...</div>
       ) : (
         <div className="space-y-4">
+          <AppearanceSettings />
           <TwoFactorSettings />
           <section className="rounded-2xl p-5 glass">
             <div className="flex items-center justify-between gap-3">
@@ -106,6 +108,44 @@ export function SystemPage() {
         </div>
       )}
     </Shell>
+  );
+}
+
+function AppearanceSettings() {
+  const [preview, setPreview] = useState(() => localStorage.getItem("awosanmo_wallpaper"));
+  function choose(file?: File) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return pushToast({ type: "error", title: "Choose an image file" });
+    if (file.size > 3 * 1024 * 1024) return pushToast({ type: "error", title: "Wallpaper is too large", body: "Choose an image under 3 MB." });
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = String(reader.result);
+      try { localStorage.setItem("awosanmo_wallpaper", value); }
+      catch { return pushToast({ type: "error", title: "Wallpaper could not be saved", body: "Try a smaller image." }); }
+      setPreview(value);
+      window.dispatchEvent(new Event("awosanmo:wallpaper"));
+      pushToast({ type: "success", title: "Wallpaper changed" });
+    };
+    reader.readAsDataURL(file);
+  }
+  function reset() {
+    localStorage.removeItem("awosanmo_wallpaper");
+    setPreview(null);
+    window.dispatchEvent(new Event("awosanmo:wallpaper"));
+  }
+  return (
+    <section className="appearance-settings glass">
+      <div className="appearance-preview" style={preview ? { backgroundImage: `url(${preview})` } : undefined}><Image className="h-6 w-6" /></div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold text-accent2">Appearance</p>
+        <h2 className="mt-1 text-xl font-bold text-white">Desktop picture</h2>
+        <p className="mt-1 text-sm text-slate-400">Use any JPG, PNG, or WebP image up to 3 MB.</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <label className="btn-primary inline-flex min-h-11 cursor-pointer items-center gap-2 px-4"><Upload className="h-4 w-4" /> Choose image<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => choose(e.target.files?.[0])} /></label>
+        <button type="button" onClick={reset} className="btn-ghost min-h-11"><RotateCcw className="h-4 w-4" /> Reset</button>
+      </div>
+    </section>
   );
 }
 
