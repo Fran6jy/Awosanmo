@@ -1,9 +1,11 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import mime from "mime-types";
 import { config } from "../../config.js";
 import { db } from "../../db/schema.js";
 import { thumbnailPath } from "../media/thumbnails.js";
+import { assertQuota } from "../storage/storageService.js";
 
 export function listFiles(userId: string, query?: string, folderId?: string | null) {
   // Search is global across every folder — but only within the user's files.
@@ -106,6 +108,40 @@ export function deleteFile(id: string, userId: string) {
   if (thumb && fs.existsSync(thumb)) fs.unlinkSync(thumb);
   db.prepare("DELETE FROM files WHERE id = ?").run(id);
   return true;
+}
+
+export function copyFiles(ids: string[], folderId: string | null, userId: string): number {
+  const files = ids.map((id) => getOwnedFile(id, userId)).filter(Boolean);
+  assertQuota(userId, files.reduce((sum, file) => sum + Number(file.size ?? 0), 0));
+  let copied = 0;
+  for (const file of files) {
+    const source = resolveDiskPath(file);
+    if (!fs.existsSync(source)) continue;
+    const parsed = path.parse(file.name);
+    let suffix = 1;
+    let name = `${parsed.name} copy${parsed.ext}`;
+    let relative = path.join(path.dirname(file.path), name);
+    let target = path.join(config.dataDir, "downloads", file.torrent_id, relative);
+    while (fs.existsSync(target)) {
+      suffix += 1;
+      name = `${parsed.name} copy ${suffix}${parsed.ext}`;
+      relative = path.join(path.dirname(file.path), name);
+      target = path.join(config.dataDir, "downloads", file.torrent_id, relative);
+    }
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(source, target);
+    try {
+      const next: Record<string, any> = { ...file, id: crypto.randomUUID(), name, path: relative, folder_id: folderId, thumbnail_path: null, thumbnail_version: 0, probe_status: file.streamable ? "pending" : "ready", created_at: new Date().toISOString() };
+      const allowed = new Set((db.prepare("PRAGMA table_info(files)").all() as { name: string }[]).map((column) => column.name));
+      const columns = Object.keys(next).filter((key) => allowed.has(key));
+      db.prepare(`INSERT INTO files (${columns.join(",")}) VALUES (${columns.map(() => "?").join(",")})`).run(...columns.map((key) => next[key]));
+      copied += 1;
+    } catch (error) {
+      fs.unlinkSync(target);
+      throw error;
+    }
+  }
+  return copied;
 }
 
 function sanitizeName(value: string) {

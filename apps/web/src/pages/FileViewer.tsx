@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import Hls from "hls.js";
-import { ArrowLeft, Download, FileText, Image as ImageIcon, Loader2, Music, Video } from "lucide-react";
+import { ArrowLeft, Download, ExternalLink, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Music, Plus, Video } from "lucide-react";
 import { API_URL, api, token } from "../lib/api";
 import { formatBytes } from "../lib/format";
 import { previewKind } from "../lib/fileTypes";
@@ -22,6 +22,7 @@ export function FileViewer() {
   const [text, setText] = useState<string | null>(null);
   const [forceTranscode, setForceTranscode] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const [pdfZoom, setPdfZoom] = useState(100);
   const file = useQuery({ queryKey: ["file", id], queryFn: () => api<FileRow>(`/api/files/${id}`), enabled: Boolean(id) && authed });
   const stream = useQuery({
     queryKey: ["stream-token", id],
@@ -128,6 +129,11 @@ export function FileViewer() {
     window.location.href = `${API_URL}/api/download/${id}?dt=${encodeURIComponent(downloadToken)}`;
   }
 
+  function openExternal() {
+    if (!src) return;
+    window.location.href = `vlc://${src}`;
+  }
+
   if (!authed) return <Navigate to="/login" replace />;
 
   return (
@@ -143,6 +149,8 @@ export function FileViewer() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
+            {(kind === "video" || kind === "audio") && src ? <button onClick={openExternal} className="btn-ghost" title="Open this private stream in VLC"><ExternalLink className="h-4 w-4" /><span className="hidden sm:inline">VLC</span></button> : null}
+            <button onClick={() => window.open(location.href, `awosanmo-${id}`, "popup,width=1200,height=820")} className="btn-ghost" title="Keep this viewer open in a separate window"><Maximize2 className="h-4 w-4" /><span className="hidden sm:inline">New window</span></button>
             <button onClick={() => void download()} className="btn-primary">
               <Download className="h-4 w-4" /> Download
             </button>
@@ -199,7 +207,7 @@ export function FileViewer() {
               <img src={src} alt={meta.name} className="max-h-[78vh] max-w-full rounded-xl object-contain shadow-2xl shadow-black/30 ring-1 ring-white/10" />
             </div>
           ) : null}
-          {src && meta && kind === "pdf" ? <iframe title={meta.name} src={src} className="h-[78vh] w-full border-0 bg-white" /> : null}
+          {src && meta && kind === "pdf" ? <div className="flex h-[78vh] flex-col"><ReaderZoom value={pdfZoom} onChange={setPdfZoom} /><iframe title={meta.name} src={`${src}#zoom=${pdfZoom}`} className="min-h-0 flex-1 w-full border-0 bg-white" /></div> : null}
           {src && meta && kind === "text" ? <pre className="max-h-[78vh] overflow-auto whitespace-pre-wrap p-6 font-mono text-sm leading-6 text-slate-100">{text ?? "Loading text preview..."}</pre> : null}
           {src && meta && kind === "epub" ? (
             <EpubReader src={src} title={meta.name} />
@@ -217,6 +225,7 @@ function EpubReader({ src, title }: { src: string; title: string }) {
   const renditionRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
+  const [fontSize, setFontSize] = useState(100);
 
   useEffect(() => {
     let disposed = false;
@@ -260,12 +269,14 @@ function EpubReader({ src, title }: { src: string; title: string }) {
   function next() {
     renditionRef.current?.next?.();
   }
+  useEffect(() => { renditionRef.current?.themes?.fontSize?.(`${fontSize}%`); }, [fontSize, ready]);
 
   return (
     <div className="flex h-[78vh] flex-col bg-[color:var(--app-panel)]">
       <div className="flex items-center justify-between border-b border-line bg-white/[0.04] px-4 py-3">
         <p className="truncate text-sm font-semibold text-slate-200">{title}</p>
         <div className="flex gap-2">
+          <ReaderZoom value={fontSize} onChange={setFontSize} />
           <button onClick={prev} className="btn-ghost min-h-10">Previous</button>
           <button onClick={next} className="btn-primary min-h-10">Next</button>
         </div>
@@ -277,6 +288,10 @@ function EpubReader({ src, title }: { src: string; title: string }) {
       </div>
     </div>
   );
+}
+
+function ReaderZoom({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  return <div className="reader-zoom" aria-label="Reading zoom"><button onClick={() => onChange(Math.max(60, value - 10))} aria-label="Zoom out"><Minus /></button><span>{value}%</span><button onClick={() => onChange(Math.min(200, value + 10))} aria-label="Zoom in"><Plus /></button></div>;
 }
 
 function Empty({ icon: Icon, title, detail, children }: { icon: typeof Video | typeof ImageIcon | typeof Music | typeof FileText; title: string; detail: string; children?: React.ReactNode }) {

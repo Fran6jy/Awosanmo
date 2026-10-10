@@ -94,3 +94,19 @@ export function moveFiles(fileIds: string[], folderId: string | null, userId: st
   }
   return moved;
 }
+
+export function moveFolder(id: string, parentId: string | null, userId: string): Folder | null {
+  const folder = getFolder(id, userId);
+  if (!folder) return null;
+  if (parentId === id) throw new Error("A folder cannot contain itself");
+  if (parentId) {
+    if (!getFolder(parentId, userId)) throw new Error("Target folder not found");
+    let cursor: string | null = parentId;
+    while (cursor) {
+      if (cursor === id) throw new Error("A folder cannot be moved into its own subfolder");
+      cursor = getFolder(cursor, userId)?.parent_id ?? null;
+    }
+  }
+  db.prepare("UPDATE folders SET parent_id = ? WHERE id = ? AND user_id = ?").run(parentId, id, userId);
+  return getFolder(id, userId)!;
+}

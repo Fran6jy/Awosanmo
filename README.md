@@ -34,6 +34,10 @@ RAM box (the Oracle Cloud Free Tier in particular).
 - **Mac-inspired workspace** — desktop-style navigation, a unified Finder-like
   file manager, persistent custom wallpapers, accessible glass contrast, and
   representative video thumbnails.
+- **Finder operations** — hierarchical folder navigation and moves, movable folders,
+  cut/copy/paste, drag-and-drop uploads, type filters, and multi-file actions.
+- **Reader and player controls** — PDF/EPUB zoom, separate viewer windows for
+  multitasking, and direct VLC launch links for private audio/video streams.
 - **Files** — upload individual files or whole folders (streamed to disk with
   nested directory structure preserved), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/

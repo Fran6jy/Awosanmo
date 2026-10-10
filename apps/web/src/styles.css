@@ -671,6 +671,24 @@ body {
 .finder-search { display: flex; min-height: 38px; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid rgba(71,85,105,.2); border-radius: 8px; background: rgba(255,255,255,.54); color: #607086; }
 .finder-search input { min-width: 0; width: 100%; background: transparent; color: #17202b; outline: none; }
 .finder-search input::placeholder { color: #718096; }
+.finder-filter { display: flex; min-height: 48px; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--app-line); border-radius: 10px; color: var(--app-muted); background: var(--app-field); }
+.finder-filter select { max-width: 110px; background: transparent; color: inherit; outline: none; }
+.reader-zoom { display: inline-flex; min-height: 38px; align-items: center; gap: 4px; padding: 3px; border: 1px solid var(--app-line); border-radius: 8px; background: var(--app-field); color: var(--app-text); }
+.reader-zoom button { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 6px; }
+.reader-zoom button:hover { background: var(--app-card-hover); }
+.reader-zoom button svg { width: 15px; height: 15px; }
+.reader-zoom span { min-width: 46px; text-align: center; font-size: 12px; font-weight: 600; }
+:root[data-theme="dark"] .os-window,
+:root[data-theme="dark"] .finder-window,
+:root[data-theme="dark"] .glass { background: linear-gradient(180deg, rgba(25,31,42,.94), rgba(13,18,27,.92)) !important; color: #f4f7fb; }
+:root[data-theme="dark"] .finder-toolbar { background: rgba(7,12,20,.42); }
+:root[data-theme="dark"] .finder-search { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: #c8d2df; }
+:root[data-theme="dark"] .finder-search input { color: #f7f9fc; }
+:root[data-theme="dark"] .finder-search input::placeholder { color: #9baabc; }
+:root[data-theme="dark"] .finder-nav button,
+:root[data-theme="dark"] .finder-path { color: #d7e0ea; }
+:root[data-theme="dark"] .file-actions a,
+:root[data-theme="dark"] .file-actions button { color: #dce5ef !important; background: rgba(255,255,255,.07); }
 .finder-actionbar { padding: 16px; }
 .finder-selection { margin-top: 0 !important; border-radius: 0 !important; border-top: 0 !important; border-bottom: 1px solid rgba(71,85,105,.16) !important; box-shadow: none !important; }
 .finder-content { margin-top: 0 !important; border-radius: 0 0 14px 14px !important; border-top: 0 !important; }

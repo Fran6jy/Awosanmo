@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { deleteFile, getOwnedFile, listFiles, renameFile } from "./fileService.js";
+import { copyFiles, deleteFile, getOwnedFile, listFiles, renameFile } from "./fileService.js";
 import { moveFiles } from "../folders/folderService.js";
 import { createZipTicket } from "./zipController.js";
 
@@ -37,6 +37,15 @@ fileRoutes.post("/move", (req: any, res) => {
     res.json({ moved: moveFiles(body.ids, body.folderId, req.user.id) });
   } catch (e: any) {
     res.status(400).json({ error: e.message ?? "Move failed" });
+  }
+});
+
+fileRoutes.post("/copy", (req: any, res) => {
+  const body = moveSchema.parse(req.body);
+  try {
+    res.json({ copied: copyFiles(body.ids, body.folderId, req.user.id) });
+  } catch (e: any) {
+    res.status(e.status ?? 400).json({ error: e.message ?? "Copy failed" });
   }
 });
 

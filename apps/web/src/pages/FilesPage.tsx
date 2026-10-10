@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ChevronRight, Download, Eye, FileArchive, FileText, Film, Folder, FolderOpen, FolderPlus, FolderInput, FolderUp, Home, Image as ImageIcon, Link2, Music, Pencil, Search, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, ClipboardPaste, Copy, Download, Eye, FileArchive, FileText, Film, Filter, Folder, FolderOpen, FolderPlus, FolderInput, FolderUp, Home, Image as ImageIcon, Link2, Music, Pencil, Scissors, Search, Trash2, Upload, X } from "lucide-react";
 import { Shell } from "../components/Shell";
 import { API_URL, addByUrl, api, token, uploadFile, uploadTorrentFile, downloadZip } from "../lib/api";
 import { pushToast } from "../components/Toast";
@@ -27,6 +27,10 @@ export function FilesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
+  const [moveFolderId, setMoveFolderId] = useState<string | null>(null);
+  const [filter, setFilter] = useState("all");
+  const [externalDrop, setExternalDrop] = useState(false);
+  const [clipboard, setClipboard] = useState<{ mode: "cut" | "copy"; ids: string[] } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [confirmDel, setConfirmDel] = useState<{ ids: string[]; label: string } | null>(null);
   const [dropFolder, setDropFolder] = useState<string | null>(null);
@@ -91,6 +95,23 @@ export function FilesPage() {
     mutationFn: ({ ids, target }: { ids: string[]; target: string | null }) => api<{ moved: number }>("/api/files/move", { method: "POST", body: JSON.stringify({ ids, folderId: target }) }),
     onSuccess: (res) => { setSelected(new Set()); setMoveIds(null); invalidate(); pushToast({ type: "success", title: `Moved ${res.moved} file${res.moved === 1 ? "" : "s"}` }); },
   });
+  const moveFolderM = useMutation({
+    mutationFn: ({ id, target }: { id: string; target: string | null }) => api(`/api/folders/${id}/move`, { method: "POST", body: JSON.stringify({ parentId: target }) }),
+    onSuccess: () => { setMoveFolderId(null); invalidate(); pushToast({ type: "success", title: "Folder moved" }); },
+    onError: (e: Error) => pushToast({ type: "error", title: "Could not move folder", body: e.message.slice(0, 140) }),
+  });
+  const copy = useMutation({
+    mutationFn: ({ ids, target }: { ids: string[]; target: string | null }) => api<{ copied: number }>("/api/files/copy", { method: "POST", body: JSON.stringify({ ids, folderId: target }) }),
+    onSuccess: (res) => { setClipboard(null); setSelected(new Set()); invalidate(); pushToast({ type: "success", title: `Copied ${res.copied} file${res.copied === 1 ? "" : "s"}` }); },
+    onError: (e: Error) => pushToast({ type: "error", title: "Copy failed", body: e.message.slice(0, 140) }),
+  });
+  function pasteClipboard() {
+    if (!clipboard) return;
+    const target = folderId === "root" ? null : folderId;
+    if (clipboard.mode === "cut") move.mutate({ ids: clipboard.ids, target });
+    else copy.mutate({ ids: clipboard.ids, target });
+    setClipboard(null);
+  }
 
   async function copyDownloadLink(id: string) {
     try {
@@ -119,6 +140,8 @@ export function FilesPage() {
     items.push(
       { label: "Download", icon: Download, onClick: () => void downloadOne(file.id) },
       { label: "Copy download link", icon: Link2, onClick: () => void copyDownloadLink(file.id) },
+      { label: "Cut", icon: Scissors, onClick: () => setClipboard({ mode: "cut", ids: [file.id] }) },
+      { label: "Copy", icon: Copy, onClick: () => setClipboard({ mode: "copy", ids: [file.id] }) },
       "divider",
       { label: "Rename", icon: Pencil, onClick: () => setRenaming(file) },
       { label: "Move to folder…", icon: FolderInput, onClick: () => setMoveIds([file.id]) },
@@ -136,6 +159,7 @@ export function FilesPage() {
       items: [
         { label: "Open", icon: FolderOpen, onClick: () => setFolderId(folder.id) },
         { label: "Rename", icon: Pencil, onClick: () => { const n = prompt("Rename folder", folder.name); if (n?.trim()) renameFolderM.mutate({ id: folder.id, name: n.trim() }); } },
+        { label: "Move to folder…", icon: FolderInput, onClick: () => setMoveFolderId(folder.id) },
         "divider",
         { label: "Delete", icon: Trash2, danger: true, onClick: () => { if (confirm(`Delete folder "${folder.name}"? Its files return to the library root.`)) deleteFolder.mutate(folder.id); } },
       ],
@@ -179,7 +203,7 @@ export function FilesPage() {
     onError: (e: Error) => pushToast({ type: "error", title: "Could not add URL", body: e.message.slice(0, 140) })
   });
 
-  const rows = useMemo(() => files.data ?? [], [files.data]);
+  const rows = useMemo(() => (files.data ?? []).filter((file) => filter === "all" || previewKind(file) === filter), [files.data, filter]);
   const subfolders = folders.data?.folders ?? [];
   const breadcrumb = folders.data?.breadcrumb ?? [];
   const allSelected = rows.length > 0 && selected.size === rows.length;
@@ -262,6 +286,7 @@ export function FilesPage() {
             <h1 className="mt-1 text-2xl font-bold tracking-tight">{breadcrumb.at(-1)?.name ?? "All files"}</h1>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="finder-filter" title="Filter files"><Filter className="h-4 w-4" /><select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter files by type"><option value="all">All types</option><option value="video">Videos</option><option value="audio">Audio</option><option value="image">Images</option><option value="pdf">PDF</option><option value="epub">EPUB</option><option value="text">Text</option></select></label>
             <form onSubmit={(e) => { e.preventDefault(); const url = remoteUrl.trim(); if (url) addUrl.mutate(url); }} className="flex gap-2 sm:w-80">
               <label className="relative min-w-0 flex-1">
                 <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -280,6 +305,7 @@ export function FilesPage() {
               <FolderUp className="h-4 w-4" /> Upload folder
             </button>
             <input ref={bindFolderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} />
+            {clipboard ? <button type="button" onClick={pasteClipboard} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200"><ClipboardPaste className="h-4 w-4" /> Paste</button> : null}
           </div>
         </div>
         {uploadPct !== null && <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream transition-all" style={{ width: `${uploadPct}%` }} /></div>}
@@ -298,6 +324,8 @@ export function FilesPage() {
             <div className="flex flex-wrap gap-2">
               <button onClick={() => downloadZip(Array.from(selected)).catch((e) => pushToast({ type: "error", title: "ZIP failed", body: (e as Error).message.slice(0, 120) }))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FileArchive className="h-4 w-4" /> Download ZIP</button>
               <button onClick={() => setMoveIds(Array.from(selected))} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><FolderInput className="h-4 w-4" /> Move</button>
+              <button onClick={() => { setClipboard({ mode: "cut", ids: Array.from(selected) }); setSelected(new Set()); }} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><Scissors className="h-4 w-4" /> Cut</button>
+              <button onClick={() => { setClipboard({ mode: "copy", ids: Array.from(selected) }); setSelected(new Set()); }} className="flex min-h-10 items-center gap-2 rounded-lg border border-line px-3 text-sm transition hover:bg-white/10"><Copy className="h-4 w-4" /> Copy</button>
               <button onClick={() => setConfirmDel({ ids: Array.from(selected), label: `${selected.size} file${selected.size === 1 ? "" : "s"}` })} disabled={bulkDelete.isPending} className="flex min-h-10 items-center gap-2 rounded-lg border border-rose-500/40 px-3 text-sm text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-50"><Trash2 className="h-4 w-4" /> Delete</button>
               <button onClick={() => setSelected(new Set())} className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-slate-400 transition hover:bg-white/10"><X className="h-4 w-4" /> Clear</button>
             </div>
@@ -306,10 +334,13 @@ export function FilesPage() {
       )}
 
       <section
-        className="finder-content overflow-hidden glass"
-        onDragOver={(e) => { if (dragging > 0) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
-        onDrop={(e) => { if (dragging > 0) { e.preventDefault(); onFileDragEnd(); } }}
+        className={`finder-content relative overflow-hidden glass ${externalDrop ? "ring-2 ring-inset ring-stream" : ""}`}
+        onDragEnter={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setExternalDrop(true); } }}
+        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setExternalDrop(false); }}
+        onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setExternalDrop(true); } else if (dragging > 0) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
+        onDrop={(e) => { e.preventDefault(); setExternalDrop(false); if (e.dataTransfer.files.length) void onUpload(e.dataTransfer.files); else if (dragging > 0) onFileDragEnd(); }}
       >
+        {externalDrop ? <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-sky-500/15 backdrop-blur-sm"><div className="rounded-xl bg-white/90 px-5 py-3 font-semibold text-slate-900 shadow-xl">Drop files to upload</div></div> : null}
         <div className="hidden min-w-0 grid-cols-[44px_minmax(0,1fr)_120px_120px_160px] items-center border-b border-line bg-white/5 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-400 md:grid">
           <span />
           <span>Name</span>
@@ -378,6 +409,7 @@ export function FilesPage() {
 
       {/* Move modal */}
       {moveIds ? <MovePicker onClose={() => setMoveIds(null)} onPick={(target) => move.mutate({ ids: moveIds, target })} /> : null}
+      {moveFolderId ? <MovePicker excludedId={moveFolderId} onClose={() => setMoveFolderId(null)} onPick={(target) => moveFolderM.mutate({ id: moveFolderId, target })} /> : null}
 
       {/* Delete confirmation */}
       {confirmDel ? (
@@ -452,20 +484,22 @@ function FileThumb({ file }: { file: FileRow }) {
   return <FileGlyph file={file} />;
 }
 
-function MovePicker({ onClose, onPick }: { onClose: () => void; onPick: (target: string | null) => void }) {
-  const all = useQuery({ queryKey: ["folders", "all"], queryFn: () => api<FolderList>("/api/folders?all=1") });
+function MovePicker({ onClose, onPick, excludedId }: { onClose: () => void; onPick: (target: string | null) => void; excludedId?: string }) {
+  const [parent, setParent] = useState("root");
+  const listing = useQuery({ queryKey: ["folders", "picker", parent], queryFn: () => api<FolderList>(`/api/folders?parent=${parent}`) });
+  const trail = listing.data?.breadcrumb ?? [];
   return (
     <div className="scrim grid place-items-center px-4" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} className="panel w-full max-w-md p-5">
         <h2 className="text-lg font-bold text-white">Move to folder</h2>
-        <div className="mt-4 max-h-72 space-y-1 overflow-auto">
-          <button onClick={() => onPick(null)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-200 transition hover:bg-white/10"><Home className="h-4 w-4" /> Library root</button>
-          {(all.data?.folders ?? []).map((f) => (
-            <button key={f.id} onClick={() => onPick(f.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-200 transition hover:bg-white/10"><Folder className="h-4 w-4 text-violet-300" /> {f.name}</button>
+        <nav className="mt-3 flex items-center gap-1 overflow-x-auto text-sm text-slate-400"><button onClick={() => setParent("root")} className="px-2 py-1">Library</button>{trail.map((f) => <span key={f.id} className="flex items-center"><ChevronRight className="h-4 w-4" /><button onClick={() => setParent(f.id)} className="px-2 py-1">{f.name}</button></span>)}</nav>
+        <div className="mt-3 max-h-72 space-y-1 overflow-auto border-y border-line py-2">
+          {(listing.data?.folders ?? []).filter((f) => f.id !== excludedId).map((f) => (
+            <button key={f.id} onDoubleClick={() => setParent(f.id)} onClick={() => setParent(f.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-200 transition hover:bg-white/10"><Folder className="h-4 w-4 text-violet-300" /> <span className="flex-1">{f.name}</span><ChevronRight className="h-4 w-4" /></button>
           ))}
-          {!all.data?.folders.length ? <p className="px-3 py-2 text-sm text-slate-400">No folders yet. Create one first.</p> : null}
+          {!listing.data?.folders.length ? <p className="px-3 py-4 text-center text-sm text-slate-400">No subfolders here.</p> : null}
         </div>
-        <div className="mt-4 flex justify-end"><button onClick={onClose} className="btn-ghost min-h-11">Cancel</button></div>
+        <div className="mt-4 flex justify-end gap-2"><button onClick={onClose} className="btn-ghost">Cancel</button><button onClick={() => onPick(parent === "root" ? null : parent)} className="btn-primary">Move here</button></div>
       </div>
     </div>
   );

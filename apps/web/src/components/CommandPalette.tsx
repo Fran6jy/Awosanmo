@@ -7,7 +7,7 @@ import { api } from "../lib/api";
 
 type Result = { id: string; type: string; title: string; subtitle: string; href: string };
 
-export function CommandPalette() {
+export function CommandPalette({ showTrigger = true }: { showTrigger?: boolean }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -47,9 +47,9 @@ export function CommandPalette() {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-stream">
+      {showTrigger ? <button onClick={() => setOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 text-sm font-semibold text-slate-300 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-stream">
         <Search className="h-4 w-4" /> Search <span className="rounded-md border border-line px-1.5 py-0.5 font-mono text-xs text-slate-400">Ctrl K</span>
-      </button>
+      </button> : null}
       {createPortal(
         open ? (
         <div className="scrim px-4 pt-24" onMouseDown={() => setOpen(false)}>

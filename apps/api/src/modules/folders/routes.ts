@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { createFolder, deleteFolder, folderPath, listFolders, renameFolder } from "./folderService.js";
+import { createFolder, deleteFolder, folderPath, listFolders, moveFolder, renameFolder } from "./folderService.js";
 
 const createSchema = z.object({ name: z.string().min(1).max(120), parentId: z.string().nullable().optional() });
 const renameSchema = z.object({ name: z.string().min(1).max(120) });
+const moveSchema = z.object({ parentId: z.string().nullable() });
 
 export const folderRoutes = Router();
 
@@ -33,6 +34,17 @@ folderRoutes.patch("/:id", (req: any, res) => {
   const folder = renameFolder(req.params.id, body.name, req.user.id);
   if (!folder) return res.status(404).json({ error: "Folder not found" });
   res.json(folder);
+});
+
+folderRoutes.post("/:id/move", (req: any, res) => {
+  const body = moveSchema.parse(req.body);
+  try {
+    const folder = moveFolder(req.params.id, body.parentId, req.user.id);
+    if (!folder) return res.status(404).json({ error: "Folder not found" });
+    res.json(folder);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message ?? "Move failed" });
+  }
 });
 
 folderRoutes.delete("/:id", (req: any, res) => {

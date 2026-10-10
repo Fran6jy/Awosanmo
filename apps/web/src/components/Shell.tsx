@@ -7,7 +7,6 @@ import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CommandPalette } from "./CommandPalette";
-import { Wishlist } from "./Wishlist";
 import { api, logout, token } from "../lib/api";
 import { readClipboardMagnet } from "../lib/clipboard";
 import { formatBytes } from "../lib/format";
@@ -244,10 +243,8 @@ export function Shell({ children }: { children: ReactNode }) {
         {home ? (
           <header className="desktop-utilities">
             <StorageQuota />
-            <CommandPalette />
-            <Wishlist />
+            <CommandPalette showTrigger={false} />
             <ThemeToggle />
-            <AddMagnet />
           </header>
         ) : files ? null : (
           <header className="os-window glass mb-4 overflow-hidden sm:mb-5">
@@ -260,10 +257,8 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
             <div className="window-toolbar flex min-w-0 flex-wrap items-center justify-end gap-2 px-3 py-3 sm:px-4">
               <StorageQuota />
-              <CommandPalette />
-              <Wishlist />
+              <CommandPalette showTrigger={false} />
               <ThemeToggle />
-              <AddMagnet />
             </div>
           </header>
         )}
