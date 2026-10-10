@@ -22,6 +22,7 @@ export function FilesPage() {
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
   const [remoteUrl, setRemoteUrl] = useState("");
+  const [mobileUrlOpen, setMobileUrlOpen] = useState(false);
   const [folderId, setFolderId] = useState("root");
   const [renaming, setRenaming] = useState<FileRow | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -325,22 +326,23 @@ export function FilesPage() {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label className="finder-filter" title="Filter files"><Filter className="h-4 w-4" /><select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter files by type"><option value="all">All types</option><option value="video">Videos</option><option value="audio">Audio</option><option value="image">Images</option><option value="pdf">PDF</option><option value="epub">EPUB</option><option value="text">Text</option></select></label>
-            <form onSubmit={(e) => { e.preventDefault(); const url = remoteUrl.trim(); if (url) addUrl.mutate(url); }} className="flex gap-2 sm:w-80">
+            <button type="button" onClick={() => setMobileUrlOpen((open) => !open)} className="mobile-url-trigger mobile-tool" title="Add from URL" aria-label="Add from URL"><Link2 className="h-4 w-4" /></button>
+            <form onSubmit={(e) => { e.preventDefault(); const url = remoteUrl.trim(); if (url) addUrl.mutate(url); }} className={`finder-url-form flex gap-2 sm:w-80 ${mobileUrlOpen ? "is-open" : ""}`}>
               <label className="relative min-w-0 flex-1">
                 <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input value={remoteUrl} onChange={(e) => setRemoteUrl(e.target.value)} placeholder="Add URL" className="min-h-12 w-full rounded-xl border border-line bg-white/[0.04] pl-10 pr-3 text-white outline-none focus:ring-2 focus:ring-stream" />
               </label>
               <button disabled={addUrl.isPending || !remoteUrl.trim()} className="grid h-12 w-12 place-items-center rounded-xl border border-line bg-white/[0.04] text-slate-200 transition hover:bg-white/10 disabled:opacity-50" aria-label="Add URL"><Link2 className="h-4 w-4" /></button>
             </form>
-            <button type="button" onClick={() => { const n = prompt("New folder name"); if (n?.trim()) createFolder.mutate(n.trim()); }} disabled={searching} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40">
-              <FolderPlus className="h-4 w-4" /> New folder
+            <button type="button" onClick={() => { const n = prompt("New folder name"); if (n?.trim()) createFolder.mutate(n.trim()); }} disabled={searching} title="New folder" aria-label="New folder" className="mobile-tool flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40">
+              <FolderPlus className="h-4 w-4" /> <span>New folder</span>
             </button>
-            <button type="button" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} title="Upload any file, or a .torrent to add it to the swarm" className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent px-5 font-bold text-white transition hover:bg-accent2 disabled:opacity-50">
-              <Upload className="h-4 w-4" />{uploadPct === null ? "Upload" : `${uploadPct}%`}
+            <button type="button" onClick={() => fileInput.current?.click()} disabled={uploadPct !== null} title="Upload files" aria-label="Upload files" className="mobile-tool flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent px-5 font-bold text-white transition hover:bg-accent2 disabled:opacity-50">
+              <Upload className="h-4 w-4" /><span>{uploadPct === null ? "Upload" : `${uploadPct}%`}</span>
             </button>
             <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
-            <button type="button" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null || searching} title="Upload a folder and preserve its structure" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40">
-              <FolderUp className="h-4 w-4" /> Upload folder
+            <button type="button" onClick={() => folderInput.current?.click()} disabled={uploadPct !== null || searching} title="Upload folder" aria-label="Upload folder" className="mobile-tool flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40">
+              <FolderUp className="h-4 w-4" /> <span>Upload folder</span>
             </button>
             <input ref={bindFolderInput} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files, true)} />
             {clipboard ? <button type="button" onClick={pasteClipboard} className="clipboard-paste flex min-h-12 items-center justify-center gap-2 rounded-xl border border-line bg-white/[0.04] px-4 font-semibold text-slate-200"><ClipboardPaste className="h-4 w-4" /> Paste here</button> : null}

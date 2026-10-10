@@ -12,13 +12,13 @@
   cut/copy/paste, hierarchical move browsing, and cycle-safe folder moves. File and
   folder deletion lives in the right-click menu (long-press on touch) or the
   selection/keyboard flow instead of appearing persistently on every row.
-- PDF and EPUB readers have zoom controls. Media viewers can open in a separate window or copy a tokenized HTTPS stream for PotPlayer (`Ctrl+U`), VLC, and other network players. Custom `vlc://` launching was removed because Windows may route it to another player and corrupt the nested HTTPS URL.
-- On mobile, External player opens the OS share sheet so an installed media app can receive the signed HTTPS stream; browsers without Web Share fall back to copying it. Viewers use the full viewport and expose the Fullscreen API.
-- Android uses a package-targeted VLC intent so the signed HTTPS stream opens
-  directly in VLC; other mobile platforms retain the share-sheet/copy fallback.
+- PDF and EPUB readers have zoom controls. Media viewers can open in a separate window or expose a tokenized HTTPS stream through an **Open with** chooser: package-targeted VLC on Android, the device share sheet for another installed app, or an explicit copy action for any network player (`Ctrl+U` in PotPlayer). Browsers and operating systems may still require user confirmation before handing a URL to an installed app.
+- Viewers use the full viewport and expose the Fullscreen API. Coarse-pointer and
+  sub-900px layouts keep an icon-only toolbar in both portrait and landscape.
 - The phone layout is a dedicated compact composition rather than a scaled desktop:
-  restrained dashboard branding, a single Finder tool strip, opaque work surfaces,
-  and an icon-led viewer toolbar that stays within narrow viewports.
+  restrained dashboard branding, a single icon-led Finder strip with an
+  on-demand URL field, opaque work surfaces, and viewer controls that stay within
+  narrow viewports.
 - HEVC still uses the production HLS server fallback. A WASM decoder was deliberately not bundled: it requires a separate HEVC demux/remux pipeline and imposes substantial CPU, memory, battery, and bundle costs on phones.
 
 > **Repository boundary:** Awosanmo owns the private cloud, torrent,

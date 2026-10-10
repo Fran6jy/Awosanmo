@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import Hls from "hls.js";
-import { ArrowLeft, Download, Expand, ExternalLink, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Music, Plus, Video } from "lucide-react";
+import { ArrowLeft, Check, Copy, Download, Expand, ExternalLink, FileText, Image as ImageIcon, Loader2, Maximize2, Minus, Music, Plus, Share2, Video, X } from "lucide-react";
 import { API_URL, api, token } from "../lib/api";
 import { formatBytes } from "../lib/format";
 import { previewKind } from "../lib/fileTypes";
@@ -23,6 +23,8 @@ export function FileViewer() {
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const [text, setText] = useState<string | null>(null);
   const [forceTranscode, setForceTranscode] = useState(false);
+  const [externalMenu, setExternalMenu] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [pdfZoom, setPdfZoom] = useState(100);
   const file = useQuery({ queryKey: ["file", id], queryFn: () => api<FileRow>(`/api/files/${id}`), enabled: Boolean(id) && authed });
@@ -131,29 +133,48 @@ export function FileViewer() {
     window.location.href = `${API_URL}/api/download/${id}?dt=${encodeURIComponent(downloadToken)}`;
   }
 
-  async function openExternal() {
-    if (!src) return;
-    const absolute = new URL(src, window.location.origin).href;
+  function externalUrl() {
+    return src ? new URL(src, window.location.origin).href : "";
+  }
+
+  function openInVlc() {
+    const absolute = externalUrl();
+    if (!absolute) return;
+    setExternalMenu(false);
     if (/Android/i.test(navigator.userAgent)) {
       const target = absolute.replace(/^https?:\/\//, "");
       const scheme = absolute.startsWith("https:") ? "https" : "http";
-      window.location.href = `intent://${target}#Intent;scheme=${scheme};package=org.videolan.vlc;S.browser_fallback_url=${encodeURIComponent(absolute)};end`;
+      window.location.href = `intent://${target}#Intent;scheme=${scheme};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;package=org.videolan.vlc;end`;
       return;
     }
+    window.location.href = `vlc://${absolute}`;
+  }
+
+  async function shareExternal() {
+    if (!src) return;
+    const absolute = externalUrl();
     if (navigator.share) {
       try {
         await navigator.share({ title: meta?.name ?? "Awosanmo stream", url: absolute });
+        setExternalMenu(false);
         return;
       } catch (error) {
         if ((error as DOMException).name !== "AbortError") console.warn("Share failed", error);
         else return;
       }
     }
+    await copyExternal();
+  }
+
+  async function copyExternal() {
+    const absolute = externalUrl();
+    if (!absolute) return;
     try {
       await navigator.clipboard.writeText(absolute);
-      pushToast({ type: "success", title: "Stream link copied", body: "In PotPlayer press Ctrl+U, paste, then choose OK. In VLC use Media → Open Network Stream." });
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      window.prompt("Copy this private stream URL, then open it in PotPlayer with Ctrl+U:", absolute);
+      window.prompt("Copy this private stream URL:", absolute);
     }
   }
 
@@ -179,7 +200,7 @@ export function FileViewer() {
           </div>
           <div className="viewer-actions flex shrink-0 items-center gap-2">
             <ThemeToggle />
-            {(kind === "video" || kind === "audio") && src ? <button onClick={() => void openExternal()} className="btn-ghost" title="Copy a private URL for PotPlayer, VLC, or another network player"><ExternalLink className="h-4 w-4" /><span className="hidden sm:inline">External player</span></button> : null}
+            {(kind === "video" || kind === "audio") && src ? <button onClick={() => setExternalMenu(true)} className="btn-ghost" title="Open in another player"><ExternalLink className="h-4 w-4" /><span className="hidden sm:inline">Open with</span></button> : null}
             <button onClick={() => void enterFullscreen()} className="btn-ghost" title="View fullscreen"><Expand className="h-4 w-4" /><span className="hidden sm:inline">Fullscreen</span></button>
             <button onClick={() => window.open(location.href, `awosanmo-${id}`, "popup,width=1200,height=820")} className="viewer-new-window btn-ghost" title="Keep this viewer open in a separate window"><Maximize2 className="h-4 w-4" /><span className="hidden sm:inline">New window</span></button>
             <button onClick={() => void download()} className="btn-primary">
@@ -246,6 +267,21 @@ export function FileViewer() {
           {src && meta && kind === "file" ? <Empty icon={FileText} title="Preview unavailable" detail="This file type can be downloaded from your library." /> : null}
         </div>
       </section>
+      {externalMenu ? (
+        <div className="scrim fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center" onClick={() => setExternalMenu(false)}>
+          <section className="external-sheet panel w-full max-w-sm p-3" onClick={(e) => e.stopPropagation()} aria-modal="true" role="dialog" aria-label="Open stream with">
+            <div className="flex items-center justify-between px-2 py-1">
+              <div><h2 className="font-semibold text-white">Open stream with</h2><p className="mt-0.5 text-xs text-slate-400">Choose how this device should receive it.</p></div>
+              <button onClick={() => setExternalMenu(false)} className="icon-btn" aria-label="Close"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-2 grid gap-1">
+              <button onClick={openInVlc} className="external-choice"><Video /><span><b>VLC</b><small>Open directly in the VLC app</small></span></button>
+              <button onClick={() => void shareExternal()} className="external-choice"><Share2 /><span><b>Another app</b><small>Use Android or iOS sharing</small></span></button>
+              <button onClick={() => void copyExternal()} className="external-choice"><span className="grid h-5 w-5 place-items-center">{copied ? <Check /> : <Copy />}</span><span><b>{copied ? "Copied" : "Copy stream URL"}</b><small>Paste into any network player</small></span></button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

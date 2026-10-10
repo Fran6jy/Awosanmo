@@ -39,8 +39,9 @@ RAM box (the Oracle Cloud Free Tier in particular).
   with destructive actions kept out of the persistent file list,
   cut/copy/paste, drag-and-drop uploads, type filters, and multi-file actions.
 - **Reader and player controls** — PDF/EPUB zoom, separate viewer windows for
-  multitasking, true fullscreen viewing, and signed HTTPS links shared or copied
-  to PotPlayer, VLC, and other network players.
+  multitasking, true fullscreen viewing, and an explicit **Open with** chooser
+  for VLC, the device share sheet, or copying a signed HTTPS stream URL for any
+  network player.
 - **Files** — upload individual files or whole folders (streamed to disk with
   nested directory structure preserved), search, rename, delete,
   download, **multi-select + bulk delete**, **ZIP download**, **folders** (create/
@@ -70,6 +71,8 @@ RAM box (the Oracle Cloud Free Tier in particular).
   It keeps Awosanmo's own identity while making file management feel immediately
   familiar; Ctrl-K search, responsive mobile navigation, loading states, and the
   error boundary remain built in.
+- **Phone-first controls** — compact icon toolbars keep Finder and media viewers
+  usable in portrait and landscape; less common fields expand only when invoked.
 - **Documented & tested** — interactive Swagger UI at `/api/docs` (OpenAPI 3.0)
   and a Vitest suite covering auth, token scopes, SSRF guards, quota races,
   selective torrent storage, byte ranges, 2FA, and user isolation.
