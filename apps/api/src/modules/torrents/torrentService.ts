@@ -427,6 +427,12 @@ export class TorrentService {
   private update(id: string, torrent: Torrent, status = "downloading") {
     const current = db.prepare("SELECT status FROM torrents WHERE id = ?").get(id) as any;
     const transfer = this.getSelectedTransfer(id, torrent);
+    // A restored selective download may already have every chosen byte even if
+    // WebTorrent's `done` event was missed while the process was offline.
+    if (!HELD_STATUSES.has(current?.status) && transfer.selectedBytes > 0 && transfer.downloaded >= transfer.selectedBytes) {
+      this.completeTorrent(id, torrent);
+      return;
+    }
     // Record the counters but keep the status. A torrent still waiting on the
     // user's file choice happily uploads to peers, and the "upload" event would
     // otherwise rewrite the row as "downloading" -- which makes the pending

@@ -235,7 +235,7 @@ export function FilesPage() {
     mutationFn: (url: string) => addByUrl(url),
     onSuccess: () => {
       setRemoteUrl("");
-      pushToast({ type: "success", title: "URL added", body: "The file was saved to your library." });
+      pushToast({ type: "success", title: "Download started", body: "Awosanmo is saving the file in the background." });
       qc.invalidateQueries({ queryKey: ["files"] });
       qc.invalidateQueries({ queryKey: ["storage"] });
     },

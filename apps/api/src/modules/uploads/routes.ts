@@ -106,24 +106,48 @@ uploadRoutes.post("/url", async (req: any, res) => {
     fs.mkdirSync(dir, { recursive: true });
     const name = dedupe(dir, sanitizeName(filenameFromResponse(response, url)));
     diskPath = path.join(dir, name);
-    let written = 0;
-    const limiter = new TransformByteLimit(config.maxRemoteBytes, (chunkBytes) => {
-      written += chunkBytes;
-      if (length === 0) reserveQuota(req.user.id, reservationId, written);
-    });
-    await pipeline(Readable.fromWeb(response.body as any), limiter, fs.createWriteStream(diskPath));
-    reserveQuota(req.user.id, reservationId, written);
-    const record = commitQuotaReservation(reservationId, req.user.id, () =>
-      torrentService.registerUpload({ relativeName: name, displayName: name, size: written }, req.user.id));
-    res.status(201).json(record);
+    const userId = req.user.id as string;
+    res.status(202).json({ accepted: true, name, size: length || null });
+
+    void finishUrlDownload({ response, dispatcher, reservationId, userId, diskPath, name, length });
+    dispatcher = null;
+    diskPath = null;
   } catch (error: any) {
     releaseQuota(reservationId, req.user.id);
     if (diskPath) fs.rmSync(diskPath, { force: true });
-    res.status(error.status ?? 400).json({ error: error.message ?? "Could not add URL" });
+    if (!res.headersSent) res.status(error.status ?? 400).json({ error: error.message ?? "Could not add URL" });
   } finally {
     if (dispatcher) await dispatcher.close().catch(() => undefined);
   }
 });
+
+async function finishUrlDownload(input: {
+  response: Response;
+  dispatcher: Agent;
+  reservationId: string;
+  userId: string;
+  diskPath: string;
+  name: string;
+  length: number;
+}) {
+  let written = 0;
+  try {
+    const limiter = new TransformByteLimit(config.maxRemoteBytes, (chunkBytes) => {
+      written += chunkBytes;
+      if (input.length === 0) reserveQuota(input.userId, input.reservationId, written);
+    });
+    await pipeline(Readable.fromWeb(input.response.body as any), limiter, fs.createWriteStream(input.diskPath));
+    reserveQuota(input.userId, input.reservationId, written);
+    commitQuotaReservation(input.reservationId, input.userId, () =>
+      torrentService.registerUpload({ relativeName: input.name, displayName: input.name, size: written }, input.userId));
+  } catch (error) {
+    releaseQuota(input.reservationId, input.userId);
+    fs.rmSync(input.diskPath, { force: true });
+    console.error("Direct URL download failed", error);
+  } finally {
+    await input.dispatcher.close().catch(() => undefined);
+  }
+}
 
 class TransformByteLimit extends Transform {
   private total = 0;
