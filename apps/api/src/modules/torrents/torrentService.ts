@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import mime from "mime-types";
 import WebTorrent, { Torrent } from "webtorrent";
@@ -138,11 +139,25 @@ export class TorrentService {
   }
 
   restore() {
-    db.prepare(`
-      UPDATE torrents
-      SET status = 'completed', progress = 1, download_speed = 0, updated_at = CURRENT_TIMESTAMP
-      WHERE progress >= 0.999 AND status NOT IN ('completed', 'paused', 'error')
-    `).run();
+    // Older releases rounded 99.9% up to complete. Repair any such row whose
+    // selected files are physically shorter than the torrent metadata so the
+    // missing pieces are fetched instead of serving a truncated download.
+    const completed = db.prepare("SELECT id FROM torrents WHERE status = 'completed' AND magnet_uri NOT LIKE 'local://%'").all() as { id: string }[];
+    for (const { id } of completed) {
+      const files = db.prepare("SELECT path, size FROM files WHERE torrent_id = ? AND selected = 1").all(id) as { path: string; size: number }[];
+      let expected = 0; let present = 0;
+      for (const file of files) {
+        expected += Number(file.size);
+        const diskPath = path.resolve(config.dataDir, "downloads", id, file.path);
+        try { present += Math.min(Number(file.size), fs.statSync(diskPath).size); } catch { /* missing file */ }
+      }
+      if (expected > 0 && present < expected) {
+        db.prepare(`UPDATE torrents SET status = 'resuming', progress = ?, downloaded = ?,
+          download_speed = 0, upload_speed = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+          .run(present / expected, present, id);
+        logger.warn({ id, missingBytes: expected - present }, "Reopening prematurely completed torrent");
+      }
+    }
     const rows = db.prepare("SELECT id, magnet_uri, status FROM torrents WHERE status != ? ORDER BY created_at").all("completed") as any[];
     for (const row of rows) {
       if (row.status === "paused") continue;
@@ -424,10 +439,6 @@ export class TorrentService {
         transfer.progress, paused ? 0 : torrent.downloadSpeed, paused ? 0 : torrent.uploadSpeed,
         transfer.downloaded, torrent.uploaded, id,
       );
-      return;
-    }
-    if (status !== "completed" && transfer.selectedBytes > 0 && transfer.progress >= 0.999) {
-      this.completeTorrent(id, torrent);
       return;
     }
     db.prepare(`UPDATE torrents SET progress = ?, download_speed = ?, upload_speed = ?,
