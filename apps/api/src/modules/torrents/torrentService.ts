@@ -467,8 +467,23 @@ export class TorrentService {
     if (ownerId && alreadyCompleted?.status !== "completed") {
       this.notifyUser(ownerId, "notification", { type: "success", title: "Torrent completed", body: torrent.name });
     }
+    this.removeUnselectedPayloads(id);
     this.stopSeeding(id, torrent);
     this.publishStats();
+  }
+
+  private removeUnselectedPayloads(id: string) {
+    const root = path.resolve(config.dataDir, "downloads", id);
+    const rows = db.prepare("SELECT id, path FROM files WHERE torrent_id = ? AND selected = 0").all(id) as { id: string; path: string }[];
+    const removeRow = db.prepare("DELETE FROM files WHERE id = ?");
+    for (const row of rows) {
+      const target = path.resolve(root, row.path);
+      if (target !== root && target.startsWith(`${root}${path.sep}`)) {
+        try { fs.rmSync(target, { force: true }); }
+        catch (error) { logger.warn({ error, id, target }, "Could not remove unselected torrent payload"); }
+      }
+      removeRow.run(row.id);
+    }
   }
 
   private stopSeeding(id: string, torrent: Torrent) {

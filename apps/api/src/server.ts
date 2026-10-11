@@ -36,6 +36,7 @@ import { zipDownload } from "./modules/files/zipController.js";
 import { openapiSpec } from "./openapi.js";
 import { webdavRoutes } from "./modules/webdav/routes.js";
 import { issueWebdavPassword, revokeWebdav, webdavStatus } from "./modules/webdav/credentials.js";
+import { reconcileDownloadStorage } from "./modules/storage/reconcileStorage.js";
 
 // swagger-ui-express is CommonJS; load via createRequire for reliable interop.
 const swaggerUi = createRequire(import.meta.url)("swagger-ui-express") as {
@@ -46,6 +47,7 @@ const swaggerUi = createRequire(import.meta.url)("swagger-ui-express") as {
 fs.mkdirSync(config.dataDir, { recursive: true });
 migrate();
 ensureAdminUser();
+reconcileDownloadStorage();
 
 const app = express();
 app.set("trust proxy", 1);

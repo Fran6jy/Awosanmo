@@ -61,6 +61,10 @@ RAM box (the Oracle Cloud Free Tier in particular).
   continues resolving in the background without storing a giant shared cache.
 - **Completion cleanup** — when a torrent reaches 100%, Awosanmo marks it
   completed, stops the seeding session, and leaves the files available in Files.
+- **Stale-storage prevention** — completion removes skipped torrent payloads;
+  startup removes completed torrents with no selected files and download
+  directories that have had no database owner for at least 24 hours. The
+  `scripts/cleanup-storage.py` utility provides dry-run and explicit apply modes.
 - **Verified completion** — active transfers never round up to 100%; completion
   requires WebTorrent's piece verification, and full-file downloads remain
   blocked until that succeeds. After a server/container restart, existing data

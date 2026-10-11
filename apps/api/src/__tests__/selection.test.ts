@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db, migrate } from "../db/schema.js";
 import { register } from "../modules/auth/auth.js";
@@ -155,5 +157,28 @@ describe("selective downloads", () => {
 
     const visible = db.prepare("SELECT id FROM files WHERE user_id = ? AND selected = 1").all(userId) as any[];
     expect(visible.map((r) => r.id)).toEqual([fileIds[0]]);
+  });
+
+  it("removes skipped payloads and metadata after completion", () => {
+    const torrent = fakeTorrent();
+    const { torrentId, fileIds } = seedTorrent(userId, ["repack/wanted.bin", "repack/unwanted.bin"]);
+    (torrentService as any).active.set(torrentId, torrent);
+    torrentService.selectFiles(torrentId, userId, [fileIds[0]]);
+    const root = path.join(process.env.DATA_DIR ?? "./data", "downloads", torrentId, "repack");
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(path.join(root, "wanted.bin"), "wanted");
+    fs.writeFileSync(path.join(root, "unwanted.bin"), "stale");
+
+    const originalStopSeeding = (torrentService as any).stopSeeding;
+    (torrentService as any).stopSeeding = () => undefined;
+    try {
+      (torrentService as any).completeTorrent(torrentId, { ...torrent, name: "repack", downloaded: 1000, uploaded: 0 });
+    } finally {
+      (torrentService as any).stopSeeding = originalStopSeeding;
+    }
+
+    expect(fs.existsSync(path.join(root, "wanted.bin"))).toBe(true);
+    expect(fs.existsSync(path.join(root, "unwanted.bin"))).toBe(false);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM files WHERE torrent_id = ? AND selected = 0").get(torrentId)).toMatchObject({ n: 0 });
   });
 });
