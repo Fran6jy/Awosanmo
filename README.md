@@ -61,6 +61,10 @@ RAM box (the Oracle Cloud Free Tier in particular).
   continues resolving in the background without storing a giant shared cache.
 - **Completion cleanup** — when a torrent reaches 100%, Awosanmo marks it
   completed, stops the seeding session, and leaves the files available in Files.
+- **Verified completion** — active transfers never round up to 100%; completion
+  requires WebTorrent's piece verification, and full-file downloads remain
+  blocked until that succeeds. After a server/container restart, existing data
+  is hash-checked from disk before it is treated as complete.
 - **Sticky transfer controls** — pause reflects on the first click, zeroes speeds,
   and stays paused until an explicit resume; background torrent events cannot
   auto-resume it.

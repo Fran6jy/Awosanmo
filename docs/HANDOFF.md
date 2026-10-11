@@ -24,6 +24,15 @@
   user-scoped library at `/webdav/` through a separate, revocable app password;
   the normal browser experience and account password are unchanged. Production
   WebDAV refuses plaintext HTTP, so clients must use the active HTTPS tunnel URL.
+- Torrent completion is exact: active rows are capped visually at `99.9%` and
+  only WebTorrent's verified `done` event marks them complete. The download
+  endpoint returns `425 Too Early` while a torrent is unfinished, preventing
+  download managers from saving sparse or unverified data as a complete file.
+- On service/container restart, WebTorrent rechecks existing pieces from disk.
+  Progress may temporarily fall while this verification runs; stored files are
+  not being deleted or downloaded from zero. Avoid repeated restarts during a
+  verification pass. Legacy rows marked complete with physically short files
+  are reopened automatically and fetch their missing pieces.
 
 > **Repository boundary:** Awosanmo owns the private cloud, torrent,
 > file-management, and media-preview product. JYMusic is maintained separately
