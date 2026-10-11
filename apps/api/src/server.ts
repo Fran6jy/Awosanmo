@@ -74,7 +74,14 @@ app.use(helmet({
   }
 }));
 app.use(cors({ origin: config.corsOrigin, credentials: true }));
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    // Binary endpoints rely on exact byte offsets for resume and seeking.
+    // Compressing them removes Content-Length and invalidates Range requests.
+    if (/^\/api\/(download|stream|zip)(?:\/|\?|$)/.test(req.originalUrl) || req.originalUrl.startsWith("/webdav")) return false;
+    return compression.filter(req, res);
+  },
+}));
 const pinoHttp = pinoHttpImport as unknown as typeof import("pino-http").default;
 app.use(pinoHttp({ logger }));
 app.use(express.json({ limit: "256kb" }));

@@ -20,7 +20,9 @@ export function downloadFile(req: any, res: any) {
   res.setHeader("Content-Type", file.mime ?? mime.lookup(file.name) ?? "application/octet-stream");
   res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(file.name)}"`);
   res.setHeader("Accept-Ranges", "bytes");
-  res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
+  // `no-transform` also tells reverse proxies/CDNs not to gzip the payload;
+  // resume offsets must refer to the original on-disk bytes.
+  res.setHeader("Cache-Control", "private, max-age=0, must-revalidate, no-transform");
 
   // A HEAD probe must be answered from the stat alone. Express routes HEAD to this
   // GET handler, and piping the stream would read the entire file off disk while
