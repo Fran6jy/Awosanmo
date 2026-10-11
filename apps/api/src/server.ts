@@ -34,6 +34,8 @@ import { folderRoutes } from "./modules/folders/routes.js";
 import { wishlistRoutes } from "./modules/wishlist/routes.js";
 import { zipDownload } from "./modules/files/zipController.js";
 import { openapiSpec } from "./openapi.js";
+import { webdavRoutes } from "./modules/webdav/routes.js";
+import { issueWebdavPassword, revokeWebdav, webdavStatus } from "./modules/webdav/credentials.js";
 
 // swagger-ui-express is CommonJS; load via createRequire for reliable interop.
 const swaggerUi = createRequire(import.meta.url)("swagger-ui-express") as {
@@ -111,6 +113,10 @@ app.post("/api/account/password", requireAuth, async (req: any, res) => {
   if (!(await changePassword(req.user.id, currentPassword, nextPassword))) return res.status(400).json({ error: "Could not change password" });
   res.json({ ok: true });
 });
+app.get("/api/webdav", requireAuth, (req: any, res) => res.json(webdavStatus(req.user.id)));
+app.post("/api/webdav", requireAuth, (req: any, res) => res.status(201).json(issueWebdavPassword(req.user.id)));
+app.delete("/api/webdav", requireAuth, (req: any, res) => { revokeWebdav(req.user.id); res.sendStatus(204); });
+app.use("/webdav", webdavRoutes);
 // Second step of a 2FA login.
 app.post("/api/login/2fa", async (req, res) => {
   const { ticket, code } = req.body ?? {};

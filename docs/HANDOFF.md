@@ -20,6 +20,10 @@
   on-demand URL field, opaque work surfaces, and viewer controls that stay within
   narrow viewports.
 - HEVC still uses the production HLS server fallback. A WASM decoder was deliberately not bundled: it requires a separate HEVC demux/remux pipeline and imposes substantial CPU, memory, battery, and bundle costs on phones.
+- WebDAV is opt-in from **System → Documents by Readdle**. It exposes the same
+  user-scoped library at `/webdav/` through a separate, revocable app password;
+  the normal browser experience and account password are unchanged. Production
+  WebDAV refuses plaintext HTTP, so clients must use the active HTTPS tunnel URL.
 
 > **Repository boundary:** Awosanmo owns the private cloud, torrent,
 > file-management, and media-preview product. JYMusic is maintained separately
@@ -86,6 +90,10 @@ normal releases there and do not report its quick-tunnel URL as production.
   set to `true`). Users can change password from System → Change password.
 - New regular users get `DEFAULT_QUOTA_BYTES` (20 GB by default); the seeded
   admin is unlimited (`quota_bytes = 0`).
+- To add Awosanmo in Documents by Readdle: enable WebDAV in System, save the
+  one-time app password, then choose **Add Connection → WebDAV Server** and enter
+  the displayed server URL, email username, and app password. Rotating or
+  disabling the credential immediately disconnects existing clients.
 
 ### Get the current HTTPS tunnel URL
 ```bash

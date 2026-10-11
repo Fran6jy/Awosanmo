@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Cpu, HardDrive, Image, KeyRound, MemoryStick, Radio, RotateCcw, Server, Upload } from "lucide-react";
+import { Check, Copy, Cpu, HardDrive, Image, KeyRound, MemoryStick, Radio, RotateCcw, Server, Smartphone, Upload } from "lucide-react";
 import { Shell } from "../components/Shell";
 import { TwoFactorSettings } from "../components/TwoFactorSettings";
 import { api, token } from "../lib/api";
@@ -50,6 +50,7 @@ export function SystemPage() {
         <div className="space-y-4">
           <AppearanceSettings />
           <TwoFactorSettings />
+          <WebdavSettings />
           <section className="rounded-2xl p-5 glass">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -109,6 +110,59 @@ export function SystemPage() {
       )}
     </Shell>
   );
+}
+
+type WebdavStatus = { enabled: boolean; username: string; createdAt: string | null; lastUsedAt: string | null; password?: string };
+
+function WebdavSettings() {
+  const status = useQuery({ queryKey: ["webdav-status"], queryFn: () => api<WebdavStatus>("/api/webdav") });
+  const [issued, setIssued] = useState<WebdavStatus | null>(null);
+  const [copied, setCopied] = useState("");
+  const serverUrl = `${window.location.origin}/webdav/`;
+  const enable = useMutation({
+    mutationFn: () => api<WebdavStatus>("/api/webdav", { method: "POST" }),
+    onSuccess: (value) => { setIssued(value); void status.refetch(); },
+    onError: (error: Error) => pushToast({ type: "error", title: "WebDAV could not be enabled", body: error.message.slice(0, 140) }),
+  });
+  const disable = useMutation({
+    mutationFn: () => api<void>("/api/webdav", { method: "DELETE" }),
+    onSuccess: () => { setIssued(null); void status.refetch(); pushToast({ type: "success", title: "WebDAV access disabled" }); },
+  });
+  async function copy(label: string, value: string) {
+    await navigator.clipboard.writeText(value);
+    setCopied(label); window.setTimeout(() => setCopied(""), 1400);
+  }
+  const current = issued ?? status.data;
+  return (
+    <section className="rounded-2xl p-5 glass">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="font-mono text-xs font-bold uppercase text-accent2">Connections</p>
+          <h2 className="mt-1 text-xl font-bold text-white">Documents by Readdle</h2>
+          <p className="mt-1 max-w-2xl text-sm text-slate-400">Connect through WebDAV to browse and manage the same Awosanmo library from Documents. It uses a separate password you can revoke at any time.</p>
+        </div>
+        <Smartphone className="h-5 w-5 shrink-0 text-slate-400" />
+      </div>
+      {status.isLoading ? <p className="mt-4 text-sm text-slate-400">Checking connection...</p> : current?.enabled ? (
+        <div className="mt-4 space-y-3">
+          <CredentialRow label="Server" value={serverUrl} copied={copied === "server"} onCopy={() => copy("server", serverUrl)} />
+          <CredentialRow label="Username" value={current.username} copied={copied === "username"} onCopy={() => copy("username", current.username)} />
+          {issued?.password ? <CredentialRow label="App password" value={issued.password} copied={copied === "password"} onCopy={() => copy("password", issued.password!)} /> : null}
+          {issued?.password ? <p className="text-sm font-medium text-amber-300">Save this app password now. For security, it will not be shown again.</p> : <p className="text-sm text-slate-400">The app password is hidden. Rotate it if you need a new one.</p>}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button type="button" className="btn-primary min-h-11 px-4" onClick={() => enable.mutate()} disabled={enable.isPending}>{enable.isPending ? "Rotating..." : "Rotate password"}</button>
+            <button type="button" className="btn-ghost min-h-11" onClick={() => disable.mutate()} disabled={disable.isPending}>{disable.isPending ? "Disabling..." : "Disable WebDAV"}</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="btn-primary mt-4 min-h-11 px-4" onClick={() => enable.mutate()} disabled={enable.isPending}>{enable.isPending ? "Enabling..." : "Enable WebDAV"}</button>
+      )}
+    </section>
+  );
+}
+
+function CredentialRow({ label, value, copied, onCopy }: { label: string; value: string; copied: boolean; onCopy: () => void }) {
+  return <div className="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-black/10 px-3 py-2"><div className="min-w-0 flex-1"><p className="text-xs font-semibold text-slate-400">{label}</p><p className="truncate font-mono text-sm text-white">{value}</p></div><button type="button" onClick={onCopy} className="btn-ghost h-10 w-10 shrink-0 p-0" aria-label={`Copy ${label}`}>{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</button></div>;
 }
 
 function AppearanceSettings() {

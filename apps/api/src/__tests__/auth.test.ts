@@ -18,6 +18,7 @@ import {
   signToken,
   setupTotp,
 } from "../modules/auth/auth.js";
+import { authenticateWebdav, issueWebdavPassword, revokeWebdav, webdavStatus } from "../modules/webdav/credentials.js";
 
 const otplib = createRequire(import.meta.url)("otplib") as { generate: (o: { secret: string }) => Promise<string> | string };
 const codeFor = async (secret: string) => String(await otplib.generate({ secret }));
@@ -137,5 +138,20 @@ describe("two-factor authentication", () => {
     expect(await disableTotp(user.id, await codeFor(setup!.secret))).toBe(true);
     const plain = (await login("dave@x.com", "password123")) as any;
     expect(plain.token).toBeTypeOf("string");
+  });
+});
+
+describe("WebDAV app passwords", () => {
+  it("issues a separate revocable credential", async () => {
+    await register("reader@x.com", "password123");
+    const user = db.prepare("SELECT id FROM users WHERE email = ?").get("reader@x.com") as any;
+    const issued = issueWebdavPassword(user.id);
+    expect(issued.enabled).toBe(true);
+    expect(issued.password).toBeTypeOf("string");
+    expect(await authenticateWebdav("reader@x.com", issued.password)).toMatchObject({ id: user.id });
+    expect(await authenticateWebdav("reader@x.com", "password123")).toBeNull();
+    revokeWebdav(user.id);
+    expect(webdavStatus(user.id).enabled).toBe(false);
+    expect(await authenticateWebdav("reader@x.com", issued.password)).toBeNull();
   });
 });

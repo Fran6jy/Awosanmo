@@ -85,6 +85,13 @@ export function migrate() {
       expires_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_quota_reservations_user ON quota_reservations(user_id);
+    CREATE TABLE IF NOT EXISTS webdav_credentials (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      password_hash TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_used_at TEXT
+    );
 
   `);
   db.prepare("DELETE FROM quota_reservations WHERE expires_at < ?").run(Date.now());

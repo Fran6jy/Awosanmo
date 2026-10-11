@@ -48,6 +48,9 @@ RAM box (the Oracle Cloud Free Tier in particular).
   rename/delete/move with breadcrumbs), **right-click context menus**,
   **drag-and-drop into folders**, add-by-URL, thumbnails, resilient
   completed-torrent downloads, and a **delete confirmation** on every path.
+- **WebDAV access** — opt-in Documents by Readdle and desktop file-client access
+  to the same user-isolated library, with a separate revocable app password,
+  HTTP range streaming, uploads, folders, moves, copies, and quota enforcement.
 - **Seedr-style workflow** — click the magnet box to auto-fill a clipboard magnet
   link over HTTPS, header storage quota bar, dense file-manager list view, drag a
   file onto a folder to move it (with clear drop-zone highlighting and a move
