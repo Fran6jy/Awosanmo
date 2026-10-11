@@ -12,6 +12,7 @@ import { requestTorrentFileSelection } from "../components/TorrentFilePicker";
 type Torrent = { id: string; name: string; progress: number; status: string; download_speed: number; upload_speed: number; size: number };
 type AddTorrentResponse = { id: string; reused?: boolean; selectionRequired?: boolean };
 type StorageStats = { used: number; available: number; total: number; user?: { used: number } };
+type UrlDownload = { id: string; name: string; status: string; downloaded: number; size: number; error?: string | null };
 
 const fmt = (bytes = 0) =>
   bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : bytes < 1073741824 ? `${(bytes / 1048576).toFixed(1)} MB` : `${(bytes / 1073741824).toFixed(2)} GB`;
@@ -34,6 +35,7 @@ export function Dashboard() {
   const [remoteUrl, setRemoteUrl] = useState("");
   const torrents = useQuery({ queryKey: ["torrents"], queryFn: () => api<Torrent[]>("/api/torrents"), refetchInterval: 15000, enabled: authed });
   const storage = useQuery({ queryKey: ["storage"], queryFn: () => api<StorageStats>("/api/storage"), refetchInterval: 8000, enabled: authed });
+  const urlDownloads = useQuery({ queryKey: ["url-downloads"], queryFn: () => api<UrlDownload[]>("/api/uploads/url"), refetchInterval: 1000, enabled: authed });
 
   const add = useMutation({
     mutationFn: (uri: string) => api<AddTorrentResponse>("/api/torrents", { method: "POST", body: JSON.stringify({ magnetUri: uri }) }),
@@ -116,6 +118,7 @@ export function Dashboard() {
     onSuccess: () => {
       setRemoteUrl("");
       pushToast({ type: "success", title: "Download started", body: "Awosanmo is saving the file in the background." });
+      qc.invalidateQueries({ queryKey: ["url-downloads"] });
       qc.invalidateQueries({ queryKey: ["files"] });
       qc.invalidateQueries({ queryKey: ["storage"] });
     },
@@ -156,6 +159,7 @@ export function Dashboard() {
     () => (torrents.data ?? []).filter((t) => !t.id.startsWith("local-uploads") && t.status !== "completed"),
     [torrents.data]
   );
+  const visibleUrlDownloads = (urlDownloads.data ?? []).filter((download) => download.status !== "completed");
 
   if (!authed) return <Navigate to="/login" replace />;
 
@@ -219,12 +223,31 @@ export function Dashboard() {
         </div>
       </section>
 
-      {visibleTorrents.length > 0 && <section id="transfers" className="finder-window glass mt-5 min-w-0 p-5">
+      {(visibleTorrents.length > 0 || visibleUrlDownloads.length > 0) && <section id="transfers" className="finder-window glass mt-5 min-w-0 p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-white">Downloads</h2>
-          <span className="chip">{visibleTorrents.length} active</span>
+          <span className="chip">{visibleTorrents.length + visibleUrlDownloads.length} active</span>
         </div>
         <div className="space-y-2.5">
+          {visibleUrlDownloads.map((download) => {
+            const pct = download.size > 0 ? Math.min(100, (download.downloaded / download.size) * 100) : 0;
+            return (
+              <article key={download.id} className="card rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-white">{download.name}</p>
+                    <p className={`mt-0.5 text-sm ${download.status === "error" || download.status === "interrupted" ? "text-rose-400" : "text-stream"}`}>
+                      URL {download.status}{download.size > 0 ? ` · ${fmt(download.downloaded)} of ${fmt(download.size)} · ${pct.toFixed(1)}%` : ` · ${fmt(download.downloaded)}`}
+                    </p>
+                    {download.error ? <p className="mt-1 truncate text-xs text-rose-400">{download.error}</p> : null}
+                  </div>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+                  <div className="h-full rounded-full bg-stream transition-all" style={{ width: `${pct}%` }} />
+                </div>
+              </article>
+            );
+          })}
           {visibleTorrents.map((torrent) => {
             const pct = torrent.status === "completed" ? 100 : Math.min(99.9, Math.floor(torrent.progress * 1000) / 10);
             return (

@@ -71,6 +71,19 @@ export function migrate() {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_wishlist_user ON wishlist(user_id);
+    CREATE TABLE IF NOT EXISTS url_downloads (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      source_url TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'downloading',
+      downloaded INTEGER NOT NULL DEFAULT 0,
+      size INTEGER NOT NULL DEFAULT 0,
+      error TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_url_downloads_user ON url_downloads(user_id, created_at DESC);
     CREATE TABLE IF NOT EXISTS refresh_tokens (
       jti TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -134,6 +147,10 @@ export function migrate() {
     UPDATE users
     SET quota_bytes = ${config.defaultQuotaBytes}
     WHERE quota_bytes IS NULL;
+
+    UPDATE url_downloads
+    SET status = 'interrupted', error = 'Server restarted before the download finished'
+    WHERE status = 'downloading';
   `);
   // A torrent's file list was re-inserted every time WebTorrent re-emitted
   // "metadata" (notably on every server restart), because the INSERT OR IGNORE

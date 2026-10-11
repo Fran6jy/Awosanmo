@@ -16,6 +16,7 @@ type FileRow = {
 };
 type FolderRow = { id: string; name: string; parent_id: string | null };
 type FolderList = { folders: FolderRow[]; breadcrumb: FolderRow[] };
+type UrlDownload = { id: string; name: string; status: string; downloaded: number; size: number; error?: string | null };
 
 export function FilesPage() {
   const authed = !!token();
@@ -63,6 +64,12 @@ export function FilesPage() {
     queryKey: ["folders", folderId],
     queryFn: () => api<FolderList>(`/api/folders?parent=${folderId}`),
     enabled: authed && !searching,
+  });
+  const urlDownloads = useQuery({
+    queryKey: ["url-downloads"],
+    queryFn: () => api<UrlDownload[]>("/api/uploads/url"),
+    refetchInterval: 1000,
+    enabled: authed,
   });
 
   const invalidate = () => {
@@ -236,6 +243,7 @@ export function FilesPage() {
     onSuccess: () => {
       setRemoteUrl("");
       pushToast({ type: "success", title: "Download started", body: "Awosanmo is saving the file in the background." });
+      qc.invalidateQueries({ queryKey: ["url-downloads"] });
       qc.invalidateQueries({ queryKey: ["files"] });
       qc.invalidateQueries({ queryKey: ["storage"] });
     },
@@ -246,6 +254,7 @@ export function FilesPage() {
   const subfolders = folders.data?.folders ?? [];
   const breadcrumb = folders.data?.breadcrumb ?? [];
   const allSelected = rows.length > 0 && selected.size === rows.length;
+  const activeUrlDownloads = (urlDownloads.data ?? []).filter((download) => download.status !== "completed");
 
   function toggle(id: string) {
     setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
@@ -352,6 +361,24 @@ export function FilesPage() {
 
         </div>
       </section>
+
+      {activeUrlDownloads.length > 0 && (
+        <section className="finder-selection space-y-3 px-4 py-3 glass" aria-label="URL downloads">
+          {activeUrlDownloads.map((download) => {
+            const pct = download.size > 0 ? Math.min(100, (download.downloaded / download.size) * 100) : 0;
+            return <div key={download.id}>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate font-semibold">{download.name}</span>
+                <span className={download.status === "error" || download.status === "interrupted" ? "shrink-0 text-rose-400" : "shrink-0 text-stream"}>
+                  {download.size > 0 ? `${pct.toFixed(1)}%` : formatBytes(download.downloaded)}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream transition-all" style={{ width: `${pct}%` }} /></div>
+              {download.error ? <p className="mt-1 truncate text-xs text-rose-400">{download.error}</p> : null}
+            </div>;
+          })}
+        </section>
+      )}
 
       {/* Bulk action bar */}
       {rows.length > 0 && (

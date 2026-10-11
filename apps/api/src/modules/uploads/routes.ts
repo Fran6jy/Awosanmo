@@ -13,6 +13,8 @@ import { config } from "../../config.js";
 import { torrentService, uploadsDirFor } from "../torrents/torrentService.js";
 import { commitQuotaReservation, releaseQuota, reserveQuota } from "../storage/storageService.js";
 import { ensureFolderPath } from "../folders/folderService.js";
+import { db } from "../../db/schema.js";
+import { logger } from "../../logger.js";
 
 function sanitizeName(value: string): string {
   const clean = value.replace(/[<>:"/\\|?*\x00-\x1F]/g, "").replace(/^\.+/, "").trim();
@@ -48,6 +50,12 @@ const upload = multer({ storage, limits: { fileSize: config.maxUploadBytes } });
 
 export const uploadRoutes = Router();
 const urlSchema = z.object({ url: z.string().url() });
+
+uploadRoutes.get("/url", (req: any, res) => {
+  const rows = db.prepare(`SELECT id, name, status, downloaded, size, error, created_at, updated_at
+    FROM url_downloads WHERE user_id = ? ORDER BY created_at DESC LIMIT 20`).all(req.user.id);
+  res.json(rows);
+});
 
 uploadRoutes.post("/", upload.single("file"), (req: any, res) => {
   const file = req.file;
@@ -107,9 +115,12 @@ uploadRoutes.post("/url", async (req: any, res) => {
     const name = dedupe(dir, sanitizeName(filenameFromResponse(response, url)));
     diskPath = path.join(dir, name);
     const userId = req.user.id as string;
-    res.status(202).json({ accepted: true, name, size: length || null });
+    const downloadId = crypto.randomUUID();
+    db.prepare(`INSERT INTO url_downloads (id, user_id, name, source_url, size)
+      VALUES (?, ?, ?, ?, ?)`).run(downloadId, userId, name, url, length);
+    res.status(202).json({ accepted: true, id: downloadId, name, size: length || null });
 
-    void finishUrlDownload({ response, dispatcher, reservationId, userId, diskPath, name, length });
+    void finishUrlDownload({ response, dispatcher, reservationId, userId, downloadId, diskPath, name, length });
     dispatcher = null;
     diskPath = null;
   } catch (error: any) {
@@ -126,24 +137,37 @@ async function finishUrlDownload(input: {
   dispatcher: Agent;
   reservationId: string;
   userId: string;
+  downloadId: string;
   diskPath: string;
   name: string;
   length: number;
 }) {
   let written = 0;
+  let lastProgressUpdate = 0;
   try {
     const limiter = new TransformByteLimit(config.maxRemoteBytes, (chunkBytes) => {
       written += chunkBytes;
       if (input.length === 0) reserveQuota(input.userId, input.reservationId, written);
+      const now = Date.now();
+      if (now - lastProgressUpdate >= 500) {
+        db.prepare("UPDATE url_downloads SET downloaded = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?")
+          .run(written, input.downloadId, input.userId);
+        lastProgressUpdate = now;
+      }
     });
     await pipeline(Readable.fromWeb(input.response.body as any), limiter, fs.createWriteStream(input.diskPath));
     reserveQuota(input.userId, input.reservationId, written);
     commitQuotaReservation(input.reservationId, input.userId, () =>
       torrentService.registerUpload({ relativeName: input.name, displayName: input.name, size: written }, input.userId));
+    db.prepare(`UPDATE url_downloads SET status = 'completed', downloaded = ?, size = ?,
+      updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`).run(written, written, input.downloadId, input.userId);
   } catch (error) {
     releaseQuota(input.reservationId, input.userId);
     fs.rmSync(input.diskPath, { force: true });
-    console.error("Direct URL download failed", error);
+    const message = error instanceof Error ? error.message : "Download failed";
+    db.prepare(`UPDATE url_downloads SET status = 'error', downloaded = ?, error = ?,
+      updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`).run(written, message.slice(0, 300), input.downloadId, input.userId);
+    logger.error({ error, downloadId: input.downloadId }, "Direct URL download failed");
   } finally {
     await input.dispatcher.close().catch(() => undefined);
   }
