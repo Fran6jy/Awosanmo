@@ -17,7 +17,6 @@ export const webdavRoutes = Router();
 
 webdavRoutes.use(async (req: any, res, next) => {
   if (req.method === "OPTIONS") return next();
-  if (process.env.NODE_ENV === "production" && !req.secure) return res.status(426).type("text/plain").send("WebDAV requires HTTPS");
   const raw = req.headers.authorization;
   if (!raw?.startsWith("Basic ")) return challenge(res);
   try {
