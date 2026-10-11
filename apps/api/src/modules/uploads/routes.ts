@@ -155,7 +155,7 @@ async function fetchPublicUrl(value: string): Promise<{ response: Response; disp
     const target = await resolvePublicTarget(current);
     const dispatcher = new Agent({
       connect: {
-        lookup: (_hostname, _options, callback) => callback(null, target.address, target.family),
+        lookup: pinnedLookup(target),
       },
     });
     try {
@@ -182,6 +182,16 @@ async function resolvePublicTarget(parsed: URL) {
     throw Object.assign(new Error("Private or local URLs are not allowed"), { status: 400 });
   }
   return records[0];
+}
+
+/** Node 22 requests `all: true` for Happy Eyeballs; older Node versions request
+ * one address. Supplying the wrong callback shape makes Undici report
+ * ERR_INVALID_IP_ADDRESS before it opens a connection. */
+export function pinnedLookup(target: { address: string; family: number }) {
+  return (_hostname: string, options: { all?: boolean }, callback: (...args: any[]) => void) => {
+    if (options?.all) callback(null, [target]);
+    else callback(null, target.address, target.family);
+  };
 }
 
 export function isPublicAddress(address: string) {
