@@ -226,7 +226,7 @@ export function Dashboard() {
         </div>
         <div className="space-y-2.5">
           {visibleTorrents.map((torrent) => {
-            const pct = Math.round(torrent.progress * 100);
+            const pct = torrent.status === "completed" ? 100 : Math.min(99.9, Math.floor(torrent.progress * 1000) / 10);
             return (
               <article key={torrent.id} className="card card-hover rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3">

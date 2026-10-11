@@ -95,12 +95,12 @@ export function TorrentDetail() {
                 <button onClick={() => action.mutate("delete")} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-red-400/30 px-4 text-red-200 transition hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-300"><Trash2 className="h-4 w-4" /> Delete</button>
               </div>
             </div>
-            <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream" style={{ width: `${Math.round(torrent.progress * 100)}%` }} /></div>
+            <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-stream" style={{ width: `${torrent.status === "completed" ? 100 : Math.min(99.9, Math.floor(torrent.progress * 1000) / 10)}%` }} /></div>
           </section>
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[
-              ["Progress", `${Math.round(torrent.progress * 100)}%`, Gauge],
+              ["Progress", `${torrent.status === "completed" ? 100 : Math.min(99.9, Math.floor(torrent.progress * 1000) / 10)}%`, Gauge],
               ["Peers", String(torrent.runtime.peers), Users],
               ["ETA", formatEta(torrent.runtime.etaSeconds), Radio],
               ["Size", formatBytes(torrent.size), HardDrive]
