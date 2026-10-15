@@ -895,3 +895,60 @@ body {
   .viewer-header > div > a { min-height: 40px; padding-inline: 10px; }
   .viewer-stage { height: calc(100dvh - 56px); }
 }
+
+/* Phones in landscape have desktop-like width but very little vertical room.
+   Keep the dashboard as a compact control surface and constrain image previews
+   to the actual visual viewport instead of their intrinsic dimensions. */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .desktop-main { min-height: 100dvh; padding: 0 8px 60px !important; }
+  .desktop-utilities {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 24;
+    display: grid;
+    width: min(300px, 38vw);
+    grid-template-columns: minmax(0, 1fr) 40px;
+    gap: 5px;
+    margin: 0;
+    padding: 5px;
+  }
+  .desktop-utilities .icon-btn { width: 40px; height: 40px; }
+  .desktop-stage { min-height: calc(100dvh - 60px); padding: 8px 4px 68px; }
+  .desktop-shortcuts {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: min(300px, 46vw);
+    grid-template-columns: repeat(4, minmax(52px, 1fr));
+    gap: 5px;
+    transform: none;
+  }
+  .desktop-shortcut { gap: 3px; font-size: 10px; }
+  .shortcut-icon { width: 46px; height: 38px; }
+  .desktop-intro { display: none; }
+  .desktop-command {
+    position: absolute;
+    bottom: 68px;
+    left: 50%;
+    width: min(760px, calc(100% - 20px));
+    padding: 6px;
+    transform: translateX(-50%);
+  }
+  .desktop-command .dashboard-magnet-form {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
+  }
+  .desktop-command .dashboard-magnet-form > div { min-width: 0; }
+  .desktop-command .field,
+  .desktop-command .btn-primary,
+  .desktop-command .btn-ghost { min-height: 40px; height: 40px; }
+  .desktop-command .dashboard-url-form,
+  .desktop-status { display: none; }
+  .viewer-header { position: sticky; top: 0; }
+  .viewer-stage { height: calc(100dvh - 56px); min-height: 0; }
+  .viewer-surface,
+  .viewer-image-stage { height: 100%; min-height: 0; overflow: hidden; }
+  .viewer-image { display: block; max-width: 100%; max-height: 100%; }
+}

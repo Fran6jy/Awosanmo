@@ -255,8 +255,8 @@ export function FileViewer() {
           ) : null}
           {src && meta && kind === "audio" ? <Empty icon={Music} title={meta.name} detail="Audio preview"><audio className="mt-6 w-full max-w-2xl" controls src={src} /></Empty> : null}
           {src && meta && kind === "image" ? (
-            <div className="grid h-full place-items-center bg-black/20 p-2 md:p-4">
-              <img src={src} alt={meta.name} className="max-h-full max-w-full object-contain shadow-2xl shadow-black/30" />
+            <div className="viewer-image-stage grid h-full min-h-0 min-w-0 place-items-center overflow-hidden bg-black/20 p-2 md:p-4">
+              <img src={src} alt={meta.name} className="viewer-image h-full w-full min-h-0 min-w-0 object-contain shadow-2xl shadow-black/30" />
             </div>
           ) : null}
           {src && meta && kind === "pdf" ? <div className="flex h-full flex-col"><ReaderZoom value={pdfZoom} onChange={setPdfZoom} /><iframe title={meta.name} src={`${src}#zoom=${pdfZoom}`} className="min-h-0 flex-1 w-full border-0 bg-white" /></div> : null}
