@@ -3,7 +3,7 @@
 ## 2026-10-10 Finder and appearance pass
 
 - Files uses one Finder-style window with one scoped search, integrated path controls, actions, selection, and file list.
-- System includes an Appearance panel for choosing or resetting a browser-persisted desktop wallpaper (JPG, PNG, or WebP up to 3 MB).
+- System includes an Appearance panel for choosing or resetting an account-synced desktop wallpaper (JPG, PNG, or WebP up to 20 MB). The private image is stored under the persistent data volume and follows the signed-in user across refreshes and devices.
 - Desktop hero copy and live status metrics have stronger contrast over bright wallpapers.
 - Video thumbnails seek to a representative point in the runtime. Existing older thumbnails regenerate once in the background.
 - Deploy only to Abram's box (`129.213.98.196`, `/opt/awosanmo`) with `docker compose -f docker-compose.prod.yml`; the old VPS remains backup-only.

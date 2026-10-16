@@ -20,6 +20,7 @@ export const config = {
   refreshTokenTtl: process.env.REFRESH_TOKEN_TTL ?? "30d",
   refreshTokenTtlMs: Number(process.env.REFRESH_TOKEN_TTL_MS ?? 30 * 24 * 60 * 60 * 1000),
   maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES ?? 8 * 1024 * 1024 * 1024),
+  maxWallpaperBytes: Number(process.env.MAX_WALLPAPER_BYTES ?? 20 * 1024 * 1024),
   dataDir: process.env.DATA_DIR ?? "./data",
   dbPath: process.env.DB_PATH ?? "./data/awosanmo.sqlite",
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",

@@ -118,6 +118,7 @@ export function migrate() {
   addColumn("users", "totp_secret", "TEXT");
   addColumn("users", "totp_enabled", "INTEGER NOT NULL DEFAULT 0");
   addColumn("users", "quota_bytes", `INTEGER NOT NULL DEFAULT ${config.defaultQuotaBytes}`);
+  addColumn("users", "wallpaper_path", "TEXT");
   addColumn("files", "probe_status", "TEXT NOT NULL DEFAULT 'pending'");
   addColumn("files", "probe_error", "TEXT");
   addColumn("files", "thumbnail_path", "TEXT");

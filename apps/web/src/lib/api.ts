@@ -46,12 +46,11 @@ export function restoreSession(): Promise<boolean> {
   return accessToken ? Promise.resolve(true) : refreshAccessToken();
 }
 
-export async function api<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
+export async function authenticatedFetch(path: string, init: RequestInit = {}, retried = false): Promise<Response> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
       ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
       ...init.headers
     }
@@ -59,10 +58,18 @@ export async function api<T>(path: string, init: RequestInit = {}, retried = fal
   const skipAuth = path.startsWith("/api/login") || path.startsWith("/api/refresh");
   // On 401, try a transparent token refresh once, then retry the request.
   if (res.status === 401 && !skipAuth) {
-    if (!retried && (await refreshAccessToken())) return api<T>(path, init, true);
+    if (!retried && (await refreshAccessToken())) return authenticatedFetch(path, init, true);
     forceLogin();
     throw new Error("Session expired");
   }
+  return res;
+}
+
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await authenticatedFetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init.headers },
+  });
   if (!res.ok) throw new Error(await res.text());
   if (res.status === 204) return undefined as T;
   const contentType = res.headers.get("content-type") ?? "";

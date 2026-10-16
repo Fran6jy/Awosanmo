@@ -37,6 +37,7 @@ import { openapiSpec } from "./openapi.js";
 import { webdavRoutes } from "./modules/webdav/routes.js";
 import { issueWebdavPassword, revokeWebdav, webdavStatus } from "./modules/webdav/credentials.js";
 import { reconcileDownloadStorage } from "./modules/storage/reconcileStorage.js";
+import { wallpaperRoutes } from "./modules/account/wallpaperRoutes.js";
 
 // swagger-ui-express is CommonJS; load via createRequire for reliable interop.
 const swaggerUi = createRequire(import.meta.url)("swagger-ui-express") as {
@@ -122,6 +123,7 @@ app.post("/api/account/password", requireAuth, async (req: any, res) => {
   if (!(await changePassword(req.user.id, currentPassword, nextPassword))) return res.status(400).json({ error: "Could not change password" });
   res.json({ ok: true });
 });
+app.use("/api/account/wallpaper", requireAuth, wallpaperRoutes);
 app.get("/api/webdav", requireAuth, (req: any, res) => res.json(webdavStatus(req.user.id)));
 app.post("/api/webdav", requireAuth, (req: any, res) => res.status(201).json(issueWebdavPassword(req.user.id)));
 app.delete("/api/webdav", requireAuth, (req: any, res) => { revokeWebdav(req.user.id); res.sendStatus(204); });

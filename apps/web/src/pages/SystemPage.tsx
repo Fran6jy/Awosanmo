@@ -2,9 +2,9 @@ import { Navigate } from "react-router-dom";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, Copy, Cpu, HardDrive, Image, KeyRound, MemoryStick, Radio, RotateCcw, Server, Smartphone, Upload } from "lucide-react";
-import { Shell } from "../components/Shell";
+import { Shell, useWallpaper } from "../components/Shell";
 import { TwoFactorSettings } from "../components/TwoFactorSettings";
-import { api, token } from "../lib/api";
+import { api, authenticatedFetch, token } from "../lib/api";
 import { formatBytes, formatEta } from "../lib/format";
 import { pushToast } from "../components/Toast";
 
@@ -166,38 +166,50 @@ function CredentialRow({ label, value, copied, onCopy }: { label: string; value:
 }
 
 function AppearanceSettings() {
-  const [preview, setPreview] = useState(() => localStorage.getItem("awosanmo_wallpaper"));
-  function choose(file?: File) {
+  const { wallpaper, refreshWallpaper } = useWallpaper();
+  const [saving, setSaving] = useState(false);
+  async function choose(file?: File) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return pushToast({ type: "error", title: "Choose an image file" });
-    if (file.size > 3 * 1024 * 1024) return pushToast({ type: "error", title: "Wallpaper is too large", body: "Choose an image under 3 MB." });
-    const reader = new FileReader();
-    reader.onload = () => {
-      const value = String(reader.result);
-      try { localStorage.setItem("awosanmo_wallpaper", value); }
-      catch { return pushToast({ type: "error", title: "Wallpaper could not be saved", body: "Try a smaller image." }); }
-      setPreview(value);
-      window.dispatchEvent(new Event("awosanmo:wallpaper"));
+    if (!(["image/jpeg", "image/png", "image/webp"].includes(file.type))) return pushToast({ type: "error", title: "Choose a JPG, PNG, or WebP image" });
+    if (file.size > 20 * 1024 * 1024) return pushToast({ type: "error", title: "Wallpaper is too large", body: "Choose an image under 20 MB." });
+    const form = new FormData();
+    form.append("wallpaper", file);
+    setSaving(true);
+    try {
+      const response = await authenticatedFetch("/api/account/wallpaper", { method: "PUT", body: form });
+      if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? "Upload failed");
+      await refreshWallpaper();
       pushToast({ type: "success", title: "Wallpaper changed" });
-    };
-    reader.readAsDataURL(file);
+    } catch (error: any) {
+      pushToast({ type: "error", title: "Wallpaper could not be saved", body: error.message });
+    } finally {
+      setSaving(false);
+    }
   }
-  function reset() {
-    localStorage.removeItem("awosanmo_wallpaper");
-    setPreview(null);
-    window.dispatchEvent(new Event("awosanmo:wallpaper"));
+  async function reset() {
+    setSaving(true);
+    try {
+      const response = await authenticatedFetch("/api/account/wallpaper", { method: "DELETE" });
+      if (!response.ok) throw new Error("Reset failed");
+      await refreshWallpaper();
+      pushToast({ type: "success", title: "Wallpaper reset" });
+    } catch (error: any) {
+      pushToast({ type: "error", title: "Wallpaper could not be reset", body: error.message });
+    } finally {
+      setSaving(false);
+    }
   }
   return (
     <section className="appearance-settings glass">
-      <div className="appearance-preview" style={preview ? { backgroundImage: `url(${preview})` } : undefined}><Image className="h-6 w-6" /></div>
+      <div className="appearance-preview" style={wallpaper ? { backgroundImage: `url(${wallpaper})` } : undefined}><Image className="h-6 w-6" /></div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold text-accent2">Appearance</p>
         <h2 className="mt-1 text-xl font-bold text-white">Desktop picture</h2>
-        <p className="mt-1 text-sm text-slate-400">Use any JPG, PNG, or WebP image up to 3 MB.</p>
+        <p className="mt-1 text-sm text-slate-400">Synced to your account on every device. JPG, PNG, or WebP up to 20 MB.</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <label className="btn-primary inline-flex min-h-11 cursor-pointer items-center gap-2 px-4"><Upload className="h-4 w-4" /> Choose image<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => choose(e.target.files?.[0])} /></label>
-        <button type="button" onClick={reset} className="btn-ghost min-h-11"><RotateCcw className="h-4 w-4" /> Reset</button>
+        <label className={`btn-primary inline-flex min-h-11 items-center gap-2 px-4 ${saving ? "pointer-events-none opacity-60" : "cursor-pointer"}`}><Upload className="h-4 w-4" /> {saving ? "Saving..." : "Choose image"}<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={saving} onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }} /></label>
+        <button type="button" onClick={() => void reset()} disabled={saving || !wallpaper} className="btn-ghost min-h-11"><RotateCcw className="h-4 w-4" /> Reset</button>
       </div>
     </section>
   );

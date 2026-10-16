@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Files, HardDrive, LayoutGrid, LogOut, Server, Upload, X } from "lucide-react";
 import { Logo } from "./Logo";
@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CommandPalette } from "./CommandPalette";
-import { api, logout, token } from "../lib/api";
+import { api, authenticatedFetch, logout, token } from "../lib/api";
 import { readClipboardMagnet } from "../lib/clipboard";
 import { formatBytes } from "../lib/format";
 import { pushToast } from "./Toast";
@@ -222,18 +222,34 @@ function MobileNav() {
   );
 }
 
+const WallpaperContext = createContext<{ wallpaper: string | null; refreshWallpaper: () => Promise<void> }>({ wallpaper: null, refreshWallpaper: async () => {} });
+
+export function useWallpaper() {
+  return useContext(WallpaperContext);
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const home = pathname === "/";
   const files = pathname.startsWith("/files");
   const title = pathname.startsWith("/files") ? "Files" : pathname.startsWith("/system") ? "System" : "Awosanmo";
-  const [wallpaper, setWallpaper] = useState(() => localStorage.getItem("awosanmo_wallpaper"));
-  useEffect(() => {
-    const update = () => setWallpaper(localStorage.getItem("awosanmo_wallpaper"));
-    window.addEventListener("awosanmo:wallpaper", update);
-    return () => window.removeEventListener("awosanmo:wallpaper", update);
+  const [wallpaper, setWallpaper] = useState<string | null>(null);
+  const wallpaperRef = useRef<string | null>(null);
+  const refreshWallpaper = useCallback(async () => {
+    const response = await authenticatedFetch("/api/account/wallpaper", { cache: "no-store" });
+    if (!response.ok) throw new Error("Wallpaper could not be loaded");
+    const next = response.status === 204 ? null : URL.createObjectURL(await response.blob());
+    if (wallpaperRef.current) URL.revokeObjectURL(wallpaperRef.current);
+    wallpaperRef.current = next;
+    setWallpaper(next);
   }, []);
+  useEffect(() => {
+    localStorage.removeItem("awosanmo_wallpaper");
+    void refreshWallpaper().catch(() => undefined);
+    return () => { if (wallpaperRef.current) URL.revokeObjectURL(wallpaperRef.current); };
+  }, [refreshWallpaper]);
   return (
+    <WallpaperContext.Provider value={{ wallpaper, refreshWallpaper }}>
     <div className="os-desktop min-h-screen overflow-x-hidden" style={wallpaper ? { backgroundImage: `linear-gradient(rgba(7, 16, 29, .04), rgba(7, 16, 29, .04)), url(${wallpaper})` } : undefined}>
       <MenuBar />
       <DesktopDock />
@@ -265,5 +281,6 @@ export function Shell({ children }: { children: ReactNode }) {
         {children}
       </main>
     </div>
+    </WallpaperContext.Provider>
   );
 }

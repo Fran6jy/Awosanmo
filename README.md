@@ -32,7 +32,7 @@ RAM box (the Oracle Cloud Free Tier in particular).
   playback, browser-compatible MKV/HEVC transcode fallback, image/PDF/text
   previews, and an in-browser EPUB reader.
 - **Mac-inspired workspace** — desktop-style navigation, a unified Finder-like
-  file manager, persistent custom wallpapers, accessible glass contrast, and
+  file manager, account-synced custom wallpapers, accessible glass contrast, and
   representative video thumbnails.
 - **Finder operations** — hierarchical folder navigation and moves, movable folders,
   recursive folder cut/copy/paste, desktop right-click and mobile long-press menus,
