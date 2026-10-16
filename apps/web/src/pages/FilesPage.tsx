@@ -498,7 +498,7 @@ export function FilesPage() {
               <h2 className="text-lg font-bold text-white">Delete {confirmDel.ids.length === 1 ? "file" : `${confirmDel.ids.length} files`}?</h2>
             </div>
             <p className="mt-3 text-sm text-slate-400">
-              <span className="font-medium text-slate-200">{confirmDel.label}</span> will be permanently removed from your storage. This can’t be undone.
+              <span className="break-words font-medium text-slate-200 [overflow-wrap:anywhere]">{confirmDel.label}</span> will be permanently removed from your storage. This can’t be undone.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setConfirmDel(null)} className="btn-ghost min-h-11">Cancel</button>

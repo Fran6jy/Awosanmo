@@ -489,6 +489,15 @@ a {
   --app-shadow: 0 28px 70px -28px rgba(28, 53, 81, 0.46), 0 8px 24px -16px rgba(28, 53, 81, 0.3);
 }
 
+:root:not([data-theme="dark"]) .btn-danger {
+  border-color: #be123c;
+  background: #e11d48;
+  color: #fff;
+  box-shadow: 0 8px 20px -10px rgba(190, 18, 60, .7);
+}
+
+:root:not([data-theme="dark"]) .btn-danger:hover { background: #be123c; }
+
 body {
   background-image: url("/awosanmo-wallpaper.png");
   background-position: center;
